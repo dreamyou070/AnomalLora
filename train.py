@@ -268,7 +268,7 @@ def main(args) :
             lr_scheduler.step()
             optimizer.zero_grad(set_to_none=True)
             ### 4.1 logging
-            accelerator.log(loss_dict, step=global_step)
+            #accelerator.log(loss_dict, step=global_step)
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
