@@ -12,3 +12,10 @@ def get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents, noise 
     noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
     return noise, noisy_latents, timesteps
 
+
+def get_input_ids(tokenizer, caption):
+    tokenizer_output = tokenizer(caption, padding="max_length", truncation=True,
+                                 return_tensors="pt")
+    input_ids = tokenizer_output.input_ids
+    attention_mask = tokenizer_output.attention_mask
+    return input_ids, attention_mask

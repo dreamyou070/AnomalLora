@@ -112,6 +112,14 @@ def main(args) :
                         disable=not accelerator.is_local_main_process, desc="steps")
     global_step = 0
     loss_list = []
+    config = {'do_task_loss' : args.do_task_loss,
+              'task_loss_weight' : args.task_loss_weight,
+              'do_dist_loss' : args.do_dist_loss,
+              'dist_loss_weight' : args.dist_loss_weight,
+              'do_attn_loss' : args.do_attn_loss,
+              'attn_loss_weight' : args.attn_loss_weight,}
+    name = f'{args.obj_name}_train'
+    accelerator.init_trackers(name,config=config)
     for epoch in range(0, args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
