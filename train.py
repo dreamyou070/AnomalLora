@@ -14,9 +14,9 @@ def main(args) :
 
     print(f'\n step 1. setting')
     output_dir = args.output_dir
-    args.log_dir = os.path.join(output_dir, 'log')
+    args.logging_dir = os.path.join(output_dir, 'log')
     os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(args.log_dir, exist_ok=True)
+    os.makedirs(args.logging_dir, exist_ok=True)
 
     print(f'\n step 2. model')
     tokenizer = load_tokenizer(args)
@@ -84,6 +84,8 @@ def main(args) :
     # encoder_hidden_states = get_hidden_states(args, input_ids, tokenizer, text_encoders, weight_dtype)
     latents = pipeline(prompt=args.prompt, height=512, width=512, num_inference_steps=args.num_ddim_steps,
                        guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt,)
+    recon_image = pipeline.latents_to_image(latents[-1])[0].resize((512,512))
+    recon_image.save('test.png')
 
 
 if __name__ == '__main__':
