@@ -9,6 +9,7 @@ from diffusers import DDPMScheduler
 from accelerate import Accelerator
 from utils import prepare_dtype
 from utils.model_utils import get_noise_noisy_latents_and_timesteps
+from attention_controller import AttentionStore
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 
@@ -27,6 +28,10 @@ def main(args) :
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
     noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
                                                                             num_train_timesteps=1000, clip_sample=False)
+    print(f' (2.2) attn controller')
+    controller = AttentionStore()
+    register_attention_control(unet, controller)
+
     print(f'\n step 3. optimizer')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
@@ -94,17 +99,17 @@ def main(args) :
                 anomal_latents = anomal_latents * vae_scale_factor
                 input_latents = torch.cat([latents, anomal_latents], dim=0)
             with torch.set_grad_enabled(True) :
-                input_ids = batch["input_ids"].to(accelerator.device) # batch, 1, 77 sen len
-                encoder_hidden_states = text_encoder(input_ids)
+                input_ids = batch["input_ids"].to(accelerator.device) # batch, 77 sen len
+                encoder_hidden_states = text_encoder(input_ids)       # batch, 77, 768
                 print(f'encoder_hidden_states.shape: {encoder_hidden_states}')
             input_text_encoder_conds = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,input_latents)
             with accelerator.autocast():
-                noise_pred = unet(noisy_latents, timesteps, input_text_encoder_conds,).sample
-                                  #trg_indexs_list=trg_indexs_list, mask_imgs=mask_imgs,).sample
+                noise_pred = unet(noisy_latents, timesteps, input_text_encoder_conds,
+                                                           trg_indexs_list=args.trg_indexs_list, mask_imgs=None).sample
                 normal_noise_pred, anomal_noise_pred = torch.chunk(noise_pred, 2, dim=0)
 
-            # ------------------------------------- (1) task loss ------------------------------------- #
+            ############################################################################################################
             if args.do_task_loss:
                 target = noise.chunk(2, dim=0)[0]
                 loss = torch.nn.functional.mse_loss(normal_noise_pred.float(), target.float(), reduction="none")
@@ -112,6 +117,7 @@ def main(args) :
                 task_loss = loss.mean()
                 task_loss = task_loss * args.task_loss_weight
 
+            ############################################################################################################
             import time
             time.sleep(1000)
 
@@ -175,5 +181,13 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
+
+    import ast
+    def arg_as_list(arg):
+        v = ast.literal_eval(arg)
+        if type(v) is not list:
+            raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
+        return v
+    parser.add_argument("--trg_layer_list", type=arg_as_list, )
     args = parser.parse_args()
     main(args)

@@ -9,4 +9,5 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' \
  --obj_name 'bagel' \
  --train_unet \
- --train_text_encoder
+ --train_text_encoder \
+ --trg_layer_list "['down_blocks_0_attentions_1_transformer_blocks_0_attn2']"
