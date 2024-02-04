@@ -137,7 +137,7 @@ def main(args) :
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
                 # (1) query dist
-                normal_query, anomal_query = query_dict[trg_layer].chunk(2, dim=0)
+                normal_query, anomal_query = query_dict[trg_layer][0].chunk(2, dim=0)
                 normal_query, anomal_query = normal_query.squeeze(0), anomal_query.squeeze(0) # pix_num, dim
                 pix_num = normal_query.shape[0]
                 for pix_idx in range(pix_num):
