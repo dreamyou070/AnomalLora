@@ -188,11 +188,6 @@ def main(args) :
                 anormal_cls_score_loss = (1-(anormal_cls_score/total_score)) ** 2
                 anormal_trigger_score_loss = (anormal_trigger_score/total_score) ** 2
 
-                print(f'normal_cls_score_loss : {normal_cls_score_loss}')
-                print(f'normal_trigger_score_loss : {normal_trigger_score_loss}')
-                print(f'anormal_cls_score_loss : {anormal_cls_score_loss}')
-                print(f'anormal_trigger_score_loss : {anormal_trigger_score_loss}')
-
                 attn_loss += args.normal_weight * normal_trigger_score_loss + \
                              args.anormal_weight * anormal_trigger_score_loss
 
@@ -295,7 +290,6 @@ if __name__ == '__main__':
     parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
 
     # step 7. inference check
-
     parser.add_argument("--max_train_steps", type=int, default=10000)
     parser.add_argument("--sample_sampler",type=str,default="ddim",
                         choices=["ddim","pndm","lms","euler","euler_a","heun","dpm_2","dpm_2_a","dpmsolver",
