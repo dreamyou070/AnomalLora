@@ -14,11 +14,12 @@ def register_attention_control(unet: nn.Module,
                 is_cross_attention = True
 
             query = self.to_q(hidden_states)
-            controller.save_query(query, layer_name)
+            if layer_name in trg_indexs_list:
+                controller.save_query(query, layer_name)
             context = context if context is not None else hidden_states
-            context_b = context.shape[0]
-            if context_b != hidden_states.shape[0]:
-                context = torch.cat([context, context], dim=0)
+            #context_b = context.shape[0]
+            #if context_b != hidden_states.shape[0]:
+            #    context = torch.cat([context, context], dim=0)
             key = self.to_k(context)
             value = self.to_v(context)
 
@@ -34,11 +35,8 @@ def register_attention_control(unet: nn.Module,
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
 
-            if is_cross_attention:
-                if args.cls_training:
-                    trg_map = attention_probs[:, :, :2]
-                else:
-                    trg_map = attention_probs[:, :, 1]
+            if is_cross_attention and layer_name in trg_indexs_list:
+                trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)

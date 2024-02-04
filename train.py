@@ -12,7 +12,10 @@ from utils.model_utils import get_noise_noisy_latents_and_timesteps
 from attention_store import AttentionStore
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
+from tqdm import tqdm
 from utils.attention_control import register_attention_control
+from utils import get_epoch_ckpt_name, save_model
+import time
 
 def main(args) :
 
@@ -83,8 +86,12 @@ def main(args) :
         unet.to(accelerator.device,dtype=weight_dtype)
 
     print(f'\n step 7. Train!')
-
+    progress_bar = tqdm(range(args.max_train_steps), smoothing=0,
+                        disable=not accelerator.is_local_main_process, desc="steps")
+    global_step = 0
+    loss_list = []
     for epoch in range(0, args.num_epochs):
+        epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
         for step, batch in enumerate(train_dataloader):
 
@@ -101,8 +108,10 @@ def main(args) :
                 input_latents = torch.cat([latents, anomal_latents], dim=0)
             with torch.set_grad_enabled(True) :
                 input_ids = batch["input_ids"].to(accelerator.device) # batch, 77 sen len
-                encoder_hidden_states = text_encoder(input_ids)       # batch, 77, 768
-                print(f'encoder_hidden_states.shape: {encoder_hidden_states}')
+                enc_out = text_encoder(input_ids)       # batch, 77, 768
+                encoder_hidden_states = enc_out["last_hidden_states"]
+                print(f'encoder_hidden_states.shape (1, 77, 768) : {encoder_hidden_states.shape}')
+
             input_text_encoder_conds = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,input_latents)
             with accelerator.autocast():
@@ -110,7 +119,7 @@ def main(args) :
                                                            trg_indexs_list=args.trg_layer_list, mask_imgs=None).sample
                 normal_noise_pred, anomal_noise_pred = torch.chunk(noise_pred, 2, dim=0)
 
-            ############################################################################################################
+            ############################################# 1. task loss #################################################
             if args.do_task_loss:
                 target = noise.chunk(2, dim=0)[0]
                 loss = torch.nn.functional.mse_loss(normal_noise_pred.float(), target.float(), reduction="none")
@@ -125,11 +134,12 @@ def main(args) :
             normal_feats, anormal_feats = [], []
             dist_loss, attn_loss = 0, 0
             anomal_mask = batch['anomaly_mask'].flatten().squeeze(0)
+            loss_dict = {}
             for trg_layer in args.trg_layer_list:
+                # (1) query dist
                 normal_query, anomal_query = query_dict[trg_layer].chunk(2, dim=0)
                 normal_query, anomal_query = normal_query.squeeze(0), anomal_query.squeeze(0) # pix_num, dim
                 pix_num = normal_query.shape[0]
-
                 for pix_idx in range(pix_num):
                     normal_feat = normal_query[pix_idx].unsqueeze(0)
                     anomal_feat = anomal_query[pix_idx].unsqueeze(0)
@@ -156,22 +166,93 @@ def main(args) :
                 anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
                 dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
 
+                attention_score = attn_dict[trg_layer][0] # batch, pix_num, 2
+                cls_score, trigger_score = attention_score.chunk(2, dim=-1)
+                normal_cls_score, anormal_cls_score = cls_score.chunk(2, dim=0) #
+                normal_trigger_score, anormal_trigger_score = trigger_score.chunk(2, dim=0)
 
+                normal_cls_score, anormal_cls_score = normal_cls_score.squeeze(), anormal_cls_score.squeeze() # head, pix_num
+                normal_trigger_score, anormal_trigger_score = normal_trigger_score.squeeze(), anormal_trigger_score.squeeze()
+                total_score = torch.ones_like(normal_cls_score)
 
-            # [1] img
-            """
-            img = batch['image']
-            
-            
-            idx = batch['idx']
-            input_ids = batch['input_ids']
+                normal_cls_score_loss = (normal_cls_score/total_score) ** 2
+                normal_trigger_score_loss = (1-(normal_trigger_score/total_score)) ** 2
 
-            print(f'img.shape: {img.shape}')
-            print(f'anomal_mask.shape: {anomal_mask.shape}')
-            print(f'synthetic_img.shape: {synthetic_img.shape}')
-            print(f'idx.shape: {idx}')
-            print(f'input_ids.shape: {input_ids}')
-            """
+                head_num = anormal_cls_score.shape[0]
+                anormal_position = anomal_mask.unsqueeze(0).repeat(head_num, 1)
+                anormal_cls_score_loss = (1-(anormal_cls_score/anormal_position)) ** 2
+                anormal_trigger_score_loss = (anormal_trigger_score/anormal_position) ** 2
+
+                attn_loss += args.normal_weight * normal_trigger_score_loss + \
+                             args.anormal_weight * anormal_trigger_score_loss
+
+                if args.cls_train :
+                    attn_loss += args.normal_weight * normal_cls_score_loss + \
+                                 args.anormal_weight * anormal_cls_score_loss
+
+            ############################################ 3. total Loss ##################################################
+            accelerator.backward(loss)
+            optimizer.step()
+            lr_scheduler.step()
+            optimizer.zero_grad(set_to_none=True)
+
+            ############################################ 4. sampling ##################################################
+            # Checks if the accelerator has performed an optimization step behind the scenes
+            if accelerator.sync_gradients:
+                progress_bar.update(1)
+                global_step += 1
+                controller.reset()
+
+            current_loss = loss.detach().item()
+            if epoch == 0 :
+                loss_list.append(current_loss)
+            else:
+                epoch_loss_total -= loss_list[step]
+                loss_list[step] = current_loss
+            epoch_loss_total += current_loss
+            avr_loss = epoch_loss_total / len(loss_list)
+
+            if args.do_task_loss:
+                loss += task_loss
+                loss_dict['task_loss'] = task_loss.item()
+            if args.do_dist_loss:
+                loss += dist_loss
+                loss_dict['dist_loss'] = dist_loss.item()
+            if args.do_attn_loss:
+                loss += attn_loss
+                loss_dict['attn_loss'] = attn_loss.item()
+            loss_dict['avr_loss'] = avr_loss
+
+            if is_main_process:
+                progress_bar.set_postfix(**loss_dict)
+
+            if global_step >= args.max_train_steps:
+                break
+        # ----------------------------------------------- Epoch Final ----------------------------------------------- #
+        accelerator.wait_for_everyone()
+        if is_main_process :
+            ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
+            unwrapped_nw = accelerator.unwrap_model(network)
+            save_model(args, ckpt_name, unwrapped_nw, save_dtype)
+            scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
+            scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
+                                      beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
+                                      beta_schedule=args.scheduler_schedule)
+            pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
+                                        unet=unet, scheduler=scheduler,safety_checker=None, feature_extractor=None,
+                                        requires_safety_checker=False, random_vector_generator=None, trg_layer_list=None)
+            pipeline.to(accelerator.device)
+            latents = pipeline(prompt=batch['caption'], height=512, width=512,  num_inference_steps=args.num_ddim_steps,
+                               guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
+            gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
+            img_save_base_dir = args.output_dir + "/sample"
+            os.makedirs(img_save_base_dir, exist_ok=True)
+            ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+            num_suffix = f"e{epoch:06d}"
+            img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
+            gen_img.save(os.path.join(img_save_base_dir,img_filename))
+            controller.reset()
+        accelerator.end_training()
 
 
 if __name__ == '__main__':

@@ -171,6 +171,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                   "anomaly_mask": anomal_mask,
                   'augmented_image': augmented_image,
                   'idx': idx,
-                  'input_ids': input_ids.squeeze(0)}
+                  'input_ids': input_ids.squeeze(0)
+                  'caption': self.caption,}
         return sample
 
