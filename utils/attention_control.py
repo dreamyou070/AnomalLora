@@ -14,7 +14,7 @@ def register_attention_control(unet: nn.Module,
                 is_cross_attention = True
 
             query = self.to_q(hidden_states)
-            if layer_name in trg_indexs_list:
+            if trg_indexs_list is not None and layer_name in trg_indexs_list:
                 controller.save_query(query, layer_name)
             context = context if context is not None else hidden_states
             #context_b = context.shape[0]
@@ -35,7 +35,7 @@ def register_attention_control(unet: nn.Module,
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
 
-            if is_cross_attention and layer_name in trg_indexs_list:
+            if trg_indexs_list is not None and layer_name in trg_indexs_list:
                 trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
 
