@@ -1,7 +1,7 @@
 import os
 import torch
 from safetensors.torch import load_file, save_file
-from library.original_unet import UNet2DConditionModel
+from model.unet import UNet2DConditionModel
 import diffusers
 def is_safetensors(path):
     return os.path.splitext(path)[1].lower() == ".safetensors"
