@@ -6,6 +6,7 @@ from model.lora import LoRANetwork
 from data.mvtec import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
 from accelerate import Accelerator
+from utils import prepare_dtype
 def main(args) :
 
     print(f'\n step 1. setting')
@@ -41,7 +42,7 @@ def main(args) :
                                  num_training_steps=num_training_steps, num_cycles=num_cycles, )
 
     print(f'\n step 6. accelerator and device')
-    weight_dtype = torch.float16 if args.use_fp16 else torch.float32
+    weight_dtype, save_dtype = prepare_dtype(args)
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
                             mixed_precision=args.mixed_precision, log_with=args.log_with,project_dir=args.logging_dir,)
     is_main_process = accelerator.is_main_process
@@ -91,6 +92,8 @@ if __name__ == '__main__':
     parser.add_argument('--lr_scheduler_num_cycles', type=int, default=1)
     parser.add_argument('--num_warmup_steps', type=int, default=100)
     # step 6
+    parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"],)
+    parser.add_argument("--save_precision",type=str,default=None,choices=[None, "float", "fp16", "bf16"],)
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1,)
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"],)
     parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
