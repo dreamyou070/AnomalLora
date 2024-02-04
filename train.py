@@ -1,5 +1,5 @@
 import os
-import argparse
+import argparse, torch
 from model.diffusion_model import load_SD_model
 from model.lora import LoRANetwork
 from data.mvtec import MVTecDRAEMTrainDataset
@@ -11,7 +11,6 @@ def main(args) :
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
-
     print(f' step 2. model')
     text_encoder, vae, unet = load_SD_model(args)
     network = LoRANetwork(text_encoder=text_encoder, unet=unet,
@@ -19,6 +18,9 @@ def main(args) :
     if args.network_weights is not None:
         network.load_weights(args.network_weights)
 
+    print(f' step 3. optimizer')
+    trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
+    optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
 
     print(f' step 3. dataset')
     #dataset = MVTecDRAEMTrainDataset(args.data_path + obj_name + "/train/good/",
@@ -36,5 +38,10 @@ if __name__ == '__main__':
     parser.add_argument('--network_dim', type=int,default=64)
     parser.add_argument('--network_alpha', type=float,default=4)
     parser.add_argument('--network_weights', type=str)
+    # 3. optimizer
+    parser.add_argument('--text_encoder_lr', type=float, default=1e-5)
+    parser.add_argument('--unet_lr', type=float, default=1e-5)
+    parser.add_argument('--learning_rate', type=float, default=1e-5)
+
     args = parser.parse_args()
     main(args)
