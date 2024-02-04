@@ -170,17 +170,24 @@ def main(args) :
                 normal_cls_score, anormal_cls_score = cls_score.chunk(2, dim=0) #
                 normal_trigger_score, anormal_trigger_score = trigger_score.chunk(2, dim=0)
 
-                normal_cls_score, anormal_cls_score = normal_cls_score.squeeze(), anormal_cls_score.squeeze() # head, pix_num
+                normal_cls_score, anormal_cls_score = normal_cls_score.squeeze(), anormal_cls_score.squeeze()  # head, pix_num
                 normal_trigger_score, anormal_trigger_score = normal_trigger_score.squeeze(), anormal_trigger_score.squeeze()
+                anormal_cls_score = anormal_cls_score * anomal_mask.unsqueeze(0).repeat(anormal_cls_score.shape[0], 1)
+                head_num = normal_cls_score.shape[0]
+                anormal_cls_score = anormal_cls_score * anomal_mask.unsqueeze(0).repeat(head_num, 1)
+                anormal_trigger_score = anormal_trigger_score * anomal_mask.unsqueeze(0).repeat(head_num, 1)
+
+                normal_cls_score = normal_cls_score.mean(dim=0)
+                normal_trigger_score = normal_trigger_score.mean(dim=0)
+                anormal_cls_score = anormal_cls_score.mean(dim=0)
+                anormal_trigger_score = anormal_trigger_score.mean(dim=0)
                 total_score = torch.ones_like(normal_cls_score)
 
                 normal_cls_score_loss = (normal_cls_score/total_score) ** 2
                 normal_trigger_score_loss = (1-(normal_trigger_score/total_score)) ** 2
+                anormal_cls_score_loss = (1-(anormal_cls_score/total_score)) ** 2
+                anormal_trigger_score_loss = (anormal_trigger_score/total_score) ** 2
 
-                head_num = anormal_cls_score.shape[0]
-                anormal_position = anomal_mask.unsqueeze(0).repeat(head_num, 1)
-                anormal_cls_score_loss = (1-(anormal_cls_score/anormal_position)) ** 2
-                anormal_trigger_score_loss = (anormal_trigger_score/anormal_position) ** 2
                 print(f'normal_cls_score_loss : {normal_cls_score_loss}')
                 print(f'normal_trigger_score_loss : {normal_trigger_score_loss}')
                 print(f'anormal_cls_score_loss : {anormal_cls_score_loss}')
