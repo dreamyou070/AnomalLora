@@ -140,19 +140,12 @@ def main(args) :
                 normal_query, anomal_query = normal_query.squeeze(0), anomal_query.squeeze(0) # pix_num, dim
                 pix_num = normal_query.shape[0]
                 for pix_idx in range(pix_num):
-                    normal_feat = normal_query[pix_idx].unsqueeze(0)
-                    anomal_feat = anomal_query[pix_idx].unsqueeze(0)
+                    normal_feat = normal_query[pix_idx].squeeze(0)
+                    anomal_feat = anomal_query[pix_idx].squeeze(0)
                     anomal_flag = anomal_mask[pix_idx]
                     if anomal_flag == 1 :
-                        if anomal_feat.dim() == 1:
-                            anormal_feats.append(anomal_feat)
-                        else :
-                            anormal_feats.append(anomal_feat.unsqueeze(0))
-
-                    if normal_feat.dim() == 1:
-                        normal_feats.append(normal_feat)
-                    else :
-                        normal_feats.append(normal_feat.unsqueeze(0))
+                        anormal_feats.append(anomal_feat.unsqueeze(0))
+                    normal_feats.append(normal_feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feats, dim=0)
                 anormal_feats = torch.cat(anormal_feats, dim=0)
                 print(f'normal_feats shape : {normal_feats.shape}, anormal_feats shape : {anormal_feats.shape}')
