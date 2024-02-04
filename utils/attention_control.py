@@ -35,9 +35,7 @@ def register_attention_control(unet: nn.Module,
                 trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
             hidden_states = torch.bmm(attention_probs, value)
-            # reshape hidden_states
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
-            # linear proj
             hidden_states = self.to_out[0](hidden_states)
             return hidden_states
         return forward
