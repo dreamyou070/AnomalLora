@@ -162,7 +162,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         augmented_image = self.transform(augmented_image)
         anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
         anomal_torch = torch.tensor(np.array(anomal_pil))
-        anomal_mask = torch.where(anomal_torch > 0, 1, 0)
+        anomal_mask = torch.where(anomal_torch == 0, 1, 0) # strict anomal
 
         # -------------------------------------------------------------------------------------------------------------------
         # [2] caption

@@ -148,7 +148,6 @@ def main(args) :
                     normal_feats.append(normal_feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feats, dim=0)
                 anormal_feats = torch.cat(anormal_feats, dim=0)
-                print(f'normal_feats shape : {normal_feats.shape}, anormal_feats shape : {anormal_feats.shape}')
                 normal_mu = torch.mean(normal_feats, dim=0)
                 normal_cov = torch.cov(normal_feats.transpose(0, 1))
 
@@ -198,8 +197,9 @@ def main(args) :
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
             if args.do_attn_loss:
-                loss += attn_loss
-                loss_dict['attn_loss'] = attn_loss.item()
+                print(f'attn_loss (8) : {attn_loss.shape}')
+                loss += attn_loss.mean()
+                loss_dict['attn_loss'] = attn_loss.mean().item()
 
             current_loss = loss.detach().item()
             if epoch == 0 :
