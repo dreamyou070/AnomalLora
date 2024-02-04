@@ -65,7 +65,9 @@ class MVTecDRAEMTrainDataset(Dataset):
 
     def __init__(self,
                  root_dir,
-                 anomaly_source_path, resize_shape=None):
+                 anomaly_source_path,
+                 resize_shape=None,
+                 tokenizer=None,):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -87,14 +89,20 @@ class MVTecDRAEMTrainDataset(Dataset):
                            iaa.Invert(),
                            iaa.pillike.Autocontrast(),
                            iaa.pillike.Equalize(),
-                           iaa.Affine(rotate=(-45, 45))       ]
-
+                           iaa.Affine(rotate=(-45, 45))]
         self.rot = iaa.Sequential([iaa.Affine(rotate=(-90, 90))])
-
+        self.caption = 'good'
+        self.tokenizer = tokenizer
 
     def __len__(self):
         return len(self.image_paths)
 
+    def get_input_ids(self, caption):
+        tokenizer_output = self.tokenizer(caption, padding="max_length", truncation=True,
+                                          max_length=self.tokenizer_max_length, return_tensors="pt")
+        input_ids = tokenizer_output.input_ids
+        attention_mask = tokenizer_output.attention_mask
+        return input_ids, attention_mask
 
     def randAugmenter(self):
         aug_ind = np.random.choice(np.arange(len(self.augmenters)), 3, replace=False)
@@ -175,9 +183,16 @@ class MVTecDRAEMTrainDataset(Dataset):
         image, augmented_image, anomaly_mask, has_anomaly = self.transform_image(self.image_paths[idx],
                                                                                  self.anomaly_source_paths[anomaly_source_idx])
 
+        # -------------------------------------------------------------------------------------------------------------------
+        # [3] generate random image
+        input_ids, attention_mask = self.get_input_ids(self.caption)
+
         sample = {'image': image,
                   "anomaly_mask": anomaly_mask,
                   'augmented_image': augmented_image,
-                  'has_anomaly': has_anomaly, 'idx': idx}
+                  'has_anomaly': has_anomaly,
+                  'idx': idx,
+                  'input_ids': input_ids,}
 
         return sample
+
