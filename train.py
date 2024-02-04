@@ -9,7 +9,7 @@ from diffusers import DDPMScheduler
 from accelerate import Accelerator
 from utils import prepare_dtype
 from utils.model_utils import get_noise_noisy_latents_and_timesteps
-from attention_controller import AttentionStore
+from attention_store import AttentionStore
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 
