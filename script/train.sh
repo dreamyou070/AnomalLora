@@ -5,7 +5,7 @@ obj_name='bagel'
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../train.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
- --output_dir "../../result/${obj_name}/caption_bagel_res_64_train_whole_anomal" \
+ --output_dir "../../result/${obj_name}/caption_bagel_res_64_train_whole_anomal_normal_1" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' \
  --obj_name "${obj_name}" \
