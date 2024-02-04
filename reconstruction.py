@@ -110,6 +110,7 @@ if __name__ == '__main__':
     parser.add_argument('--network_alpha', type=float,default=4)
     parser.add_argument('--network_folder', type=str)
     # step 4. dataset and dataloader
+    parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"], )
     parser.add_argument('--data_path', type=str,
                         default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
     parser.add_argument('--obj_name', type=str, default='bagel')
