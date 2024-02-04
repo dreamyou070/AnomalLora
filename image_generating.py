@@ -98,7 +98,7 @@ def main(args) :
     for adjective in anomal_concepts:
         adjective_base_folder = os.path.join(args.anomal_base_dir, adjective)
         os.makedirs(adjective_base_folder, exist_ok=True)
-        gen_caption = f'{adjective} {args.object}'
+        gen_caption = f'{adjective} {args.obj_name}'
         for i in range(100) :
             latents = pipeline(prompt=gen_caption,
                                height=512, width=512,
