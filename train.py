@@ -334,5 +334,7 @@ if __name__ == '__main__':
     parser.add_argument("--trg_layer_list", type=arg_as_list, )
     parser.add_argument("--save_model_as",type=str,default="safetensors",
                         choices=[None, "ckpt", "safetensors", "diffusers", "diffusers_safetensors"],)
+    parser.add_argument("--output_name", type=str, default=None,
+                        help="base name of trained model file / 学習後のモデルの拡張子を除くファイル名")
     args = parser.parse_args()
     main(args)
