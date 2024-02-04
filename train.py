@@ -60,25 +60,22 @@ def main(args) :
     network.apply_to(text_encoder, unet, True, True)
     if args.network_weights is not None:
         network.load_weights(args.network_weights)
-
     if args.train_unet and args.train_text_encoder:
         unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                                                    unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
+                                                 unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
     elif args.train_unet:
         unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
                                                                                        dataloader, lr_scheduler)
         text_encoder.to(accelerator.device,dtype=weight_dtype)
     elif args.train_text_encoder:
         text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
-                                                                                    optimizer, dataloader, lr_scheduler)
+                                                                                 optimizer, dataloader, lr_scheduler)
         unet.to(accelerator.device,dtype=weight_dtype)
 
     print(f'\n step 7. Train!')
 
     for epoch in range(0, args.num_epochs):
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
-        network.on_epoch_start(text_encoder, unet)
-
         for step, batch in enumerate(train_dataloader):
 
             # [1] img
