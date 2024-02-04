@@ -29,7 +29,9 @@ def main(args) :
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
 
     print(f'\n step 4. dataset and dataloader')
-    obj_dir = os.path.join(args.data_path, args.obj_name)
+    if ' ' in args.obj_name:
+        obj_name_folder = args.obj_name.replace(' ', '_')
+    obj_dir = os.path.join(args.data_path, obj_name_folder)
     train_dir = os.path.join(obj_dir, "train")
     root_dir = os.path.join(train_dir, "good/rgb")
     dataset = MVTecDRAEMTrainDataset(root_dir= root_dir,
@@ -96,14 +98,13 @@ def main(args) :
                                                        random_vector_generator=None,
                                                        trg_layer_list=None)
 
-    anomal_concepts = ['crack', 'cut', 'hole', 'contaminate', 'crash', 'dirty', 'bad', 'torn', 'crumpled',
-                       'deformed']
+    anomal_concepts = ['thread', 'bent', 'hole', 'cut', 'crash', 'broken', '']
     args.anomal_base_dir = os.path.join(train_dir, 'anomal')
     os.makedirs(args.anomal_base_dir, exist_ok=True)
     for adjective in anomal_concepts:
         adjective_base_folder = os.path.join(args.anomal_base_dir, adjective)
         os.makedirs(adjective_base_folder, exist_ok=True)
-        gen_caption = f'the concept of {adjective}'
+        gen_caption = f'the image of {adjective} {args.obj_name}'
         for i in range(100) :
             latents = pipeline(prompt=gen_caption,
                                height=512, width=512,
