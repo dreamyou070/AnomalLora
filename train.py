@@ -46,7 +46,8 @@ def main(args) :
                             mixed_precision=args.mixed_precision, log_with=args.log_with,project_dir=args.logging_dir,)
     is_main_process = accelerator.is_main_process
     vae.requires_grad_(False)
-    vae.to(dtype=weight_dtype, accelerator.device)
+    vae.to(dtype=weight_dtype)
+    vae.to(accelerator.device)
     unet.requires_grad_(False)
     text_encoder.requires_grad_(False)
 
