@@ -84,7 +84,7 @@ def main(args) :
                         attn_dict = controller.step_store
                         controller.reset()
                         for layer_name in args.trg_layer_list:
-                            attn_map = attn_dict['layer_name'][0]
+                            attn_map = attn_dict[layer_name][0]
                             cks_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
                             trigger_map = trigger_map.mean(dim=0) #
                             binary_map = torch.where(trigger_map > 0.5, 1, 0).unsqueeze(0)
