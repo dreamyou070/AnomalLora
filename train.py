@@ -49,11 +49,17 @@ def main(args) :
     obj_dir = os.path.join(args.data_path, args.obj_name)
     train_dir = os.path.join(obj_dir, "train")
     root_dir = os.path.join(train_dir, "good/rgb")
-    args.anomaly_source_path = os.path.join(train_dir, "anomal")
+    if args.general_training :
+        caption = 'good'
+        args.anomaly_source_path = os.path.join(train_dir, "anomal_general")
+    else :
+        caption = args.obj_name
+        args.anomaly_source_path = os.path.join(train_dir, "anomal")
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
-                                     tokenizer=tokenizer, )
+                                     tokenizer=tokenizer,
+                                     caption = caption,)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
@@ -294,10 +300,10 @@ def main(args) :
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Anomal Lora')
+    parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--output_dir', type=str, default='output')
     parser.add_argument('--wandb_api_key', type=str,
                         default='output')
-
     parser.add_argument('--pretrained_model_name_or_path', type=str,
                         default='facebook/diffusion-dalle')
     parser.add_argument('--network_dim', type=int,default=64)
@@ -360,5 +366,6 @@ if __name__ == '__main__':
                         choices=[None, "ckpt", "safetensors", "diffusers", "diffusers_safetensors"],)
     parser.add_argument("--output_name", type=str, default=None,
                         help="base name of trained model file / 学習後のモデルの拡張子を除くファイル名")
+    parser.add_argument("--general_training", action='store_true')
     args = parser.parse_args()
     main(args)

@@ -69,7 +69,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                  root_dir,
                  anomaly_source_path,
                  resize_shape=None,
-                 tokenizer=None,):
+                 tokenizer=None,
+                 caption: str = None,):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -95,7 +96,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                            iaa.pillike.Equalize(),
                            iaa.Affine(rotate=(-45, 45))]
         self.rot = iaa.Sequential([iaa.Affine(rotate=(-90, 90))])
-        self.caption = 'good'
+
+        self.caption = caption
         self.tokenizer = tokenizer
         self.transform = transforms.Compose([transforms.ToTensor(),
                                                                 transforms.Normalize([0.5], [0.5]),])
