@@ -106,7 +106,7 @@ def main(args) :
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,input_latents)
             with accelerator.autocast():
                 noise_pred = unet(noisy_latents, timesteps, input_text_encoder_conds,
-                                                           trg_indexs_list=args.trg_indexs_list, mask_imgs=None).sample
+                                                           trg_indexs_list=args.trg_layer_list, mask_imgs=None).sample
                 normal_noise_pred, anomal_noise_pred = torch.chunk(noise_pred, 2, dim=0)
 
             ############################################################################################################
@@ -117,14 +117,50 @@ def main(args) :
                 task_loss = loss.mean()
                 task_loss = task_loss * args.task_loss_weight
 
-            ############################################################################################################
-            import time
-            time.sleep(1000)
+            ############################################ 2. Dist Loss ##################################################
+            query_dict = controller.query_dict
+            attn_dict = controller.step_store
+            controller.reset()
+            normal_feats, anormal_feats = [], []
+            dist_loss, attn_loss = 0, 0
+            anomal_mask = batch['anomaly_mask'].flatten().squeeze(0)
+            for trg_layer in args.trg_layer_list:
+                normal_query, anomal_query = query_dict[trg_layer].chunk(2, dim=0)
+                normal_query, anomal_query = normal_query.squeeze(0), anomal_query.squeeze(0) # pix_num, dim
+                pix_num = normal_query.shape[0]
+
+                for pix_idx in range(pix_num):
+                    normal_feat = normal_query[pix_idx].unsqueeze(0)
+                    anomal_feat = anomal_query[pix_idx].unsqueeze(0)
+                    anomal_flag = anomal_mask[pix_idx]
+                    if anomal_flag == 0:
+                        anormal_feats.append(anomal_feat.unsqueeze(0))
+                    normal_feats.append(normal_feat.unsqueeze(0))
+                normal_feats = torch.cat(normal_feats, dim=0)
+                anormal_feats = torch.cat(anormal_feats, dim=0)
+                normal_mu = torch.mean(normal_feats, dim=0)
+                normal_cov = torch.cov(normal_feats.transpose(0, 1))
+
+                def mahal(u, v, cov):
+                    delta = u - v
+                    m = torch.dot(delta, torch.matmul(cov, delta))
+                    return torch.sqrt(m)
+
+                normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
+                anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
+                normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
+                anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+                total_dist = normal_dist_mean + anormal_dist_mean
+                normal_dist_loss = (normal_dist_mean / total_dist) ** 2
+                anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
+                dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
+
+
 
             # [1] img
             """
             img = batch['image']
-            anomal_mask = batch['anomaly_mask']
+            
             
             idx = batch['idx']
             input_ids = batch['input_ids']
