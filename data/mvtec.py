@@ -100,8 +100,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         return len(self.image_paths)
 
     def get_input_ids(self, caption):
-        tokenizer_output = self.tokenizer(caption, padding="max_length", truncation=True,
-                                          max_length=self.tokenizer_max_length, return_tensors="pt")
+        tokenizer_output = self.tokenizer(caption, padding="max_length", truncation=True,return_tensors="pt")
         input_ids = tokenizer_output.input_ids
         attention_mask = tokenizer_output.attention_mask
         return input_ids, attention_mask
