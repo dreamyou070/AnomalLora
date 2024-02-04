@@ -28,7 +28,7 @@ def main(args) :
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
 
     print(f'\n step 4. dataset and dataloader')
-    dataset = MVTecDRAEMTrainDataset(root_dir=args.data_path + args.obj_name + "/train/good/rgb",
+    dataset = MVTecDRAEMTrainDataset(root_dir= args.data_path + args.obj_name + "/train/good/rgb",
                                      #anomaly_source_path=args.anomaly_source_path,
                                      anomaly_source_path=args.data_path, resize_shape=[512,512],tokenizer=tokenizer,)
     print(f'len(dataset) : {len(dataset)}')

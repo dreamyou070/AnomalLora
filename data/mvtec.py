@@ -75,9 +75,11 @@ class MVTecDRAEMTrainDataset(Dataset):
                 on a sample.
         """
         self.root_dir = root_dir
+        print(f'root_dir: {root_dir}')
         self.resize_shape=resize_shape
 
         self.image_paths = sorted(glob.glob(root_dir+"/*.png"))
+        print(f'len(self.image_paths): {len(self.image_paths)}')
 
         self.anomaly_source_paths = sorted(glob.glob(anomaly_source_path+"/*/*.jpg"))
         self.augmenters = [iaa.GammaContrast((0.5,2.0),per_channel=True),
