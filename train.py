@@ -109,7 +109,7 @@ def main(args) :
             with torch.set_grad_enabled(True) :
                 input_ids = batch["input_ids"].to(accelerator.device) # batch, 77 sen len
                 enc_out = text_encoder(input_ids)       # batch, 77, 768
-                encoder_hidden_states = enc_out["last_hidden_states"]
+                encoder_hidden_states = enc_out["last_hidden_state"]
                 print(f'encoder_hidden_states.shape (1, 77, 768) : {encoder_hidden_states.shape}')
 
             input_text_encoder_conds = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
