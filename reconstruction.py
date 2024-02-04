@@ -136,6 +136,12 @@ if __name__ == '__main__':
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     # step 8. test
-    parser.add_argument("--test_img_folder", type=str,)
+    import ast
+    def arg_as_list(arg):
+        v = ast.literal_eval(arg)
+        if type(v) is not list:
+            raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
+        return v
+    parser.add_argument("--trg_layer_list", type=arg_as_list)
     args = parser.parse_args()
     main(args)
