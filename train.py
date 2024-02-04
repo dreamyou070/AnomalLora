@@ -2,6 +2,7 @@ import os
 import argparse
 from model.diffusion_model import load_SD_model
 from model.lora import LoRANetwork
+from data.mvtec import MVTecDRAEMTrainDataset
 def main(args) :
 
     print(f' step 1. setting')
@@ -12,14 +13,14 @@ def main(args) :
 
 
     print(f' step 2. model')
-    text_encoder, vae, unet, _ = load_SD_model(args)
+    text_encoder, vae, unet = load_SD_model(args)
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha,)
 
     print(f' step 3. dataset')
     #dataset = MVTecDRAEMTrainDataset(args.data_path + obj_name + "/train/good/",
     #                                         args.anomaly_source_path,
     #                                     resize_shape=[256, 256])
-    #dataloader = DataLoader(dataset, batch_size=args.bs,shuffle=True, num_workers=16)
+    ##dataloader = DataLoader(dataset, batch_size=args.bs,shuffle=True, num_workers=16)
 
 
 
