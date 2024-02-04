@@ -186,7 +186,7 @@ def main(args) :
                 attn_loss += args.normal_weight * normal_trigger_score_loss + \
                              args.anormal_weight * anormal_trigger_score_loss
 
-                if args.cls_train :
+                if args.do_cls_train :
                     attn_loss += args.normal_weight * normal_cls_score_loss + \
                                  args.anormal_weight * anormal_cls_score_loss
 
@@ -307,6 +307,15 @@ if __name__ == '__main__':
         if type(v) is not list:
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
+    parser.add_argument("--do_task_loss", action='store_true')
+    parser.add_argument("--task_loss_weight", type=float, default=0.5)
+    parser.add_argument("--do_dist_loss", action='store_true')
+    parser.add_argument("--dist_loss_weight", type=float, defulat = 1)
+    parser.add_argument("--do_attn_loss", action='store_true')
+    parser.add_argument("--attn_loss_weight", type=float, default=1.0)
+    parser.add_argument("--do_cls_train", action='store_true')
+    parser.add_argument('--normal_weight', type=float, default=1.0)
+    parser.add_argument('--anormal_weight', type=float, default=1.0)
     parser.add_argument("--trg_layer_list", type=arg_as_list, )
     args = parser.parse_args()
     main(args)
