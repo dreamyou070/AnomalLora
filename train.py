@@ -7,6 +7,9 @@ from data.mvtec import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
 from accelerate import Accelerator
 from utils import prepare_dtype
+from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
+from utils.scheduling_utils import get_scheduler
+
 def main(args) :
 
     print(f'\n step 1. setting')
@@ -64,7 +67,19 @@ def main(args) :
         unet.to(accelerator.device,dtype=weight_dtype)
     network.prepare_grad_etc(text_encoder, unet)
 
-    #
+    print(f'\n step 7. inference check')
+    scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
+    scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
+                              beta_start=args.scheduler_linear_start,
+                              beta_end=args.scheduler_linear_end,
+                              beta_schedule=args.scheduler_schedule)
+    pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae,
+                                                       text_encoder=text_encoder,
+                                                       tokenizer=tokenizer, unet=unet,
+                                                       scheduler=scheduler,
+                                                       safety_checker=None,
+                                                       feature_extractor=None,
+                                                       requires_safety_checker=False, )
     # input_ids = batch["input_ids"].to(accelerator.device)
     # encoder_hidden_states = get_hidden_states(args, input_ids, tokenizer, text_encoders, weight_dtype)
 
@@ -97,6 +112,16 @@ if __name__ == '__main__':
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1,)
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"],)
     parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
-
+    # step 7. inference check
+    parser.add_argument("--log_with", type=str, default=None, choices=["tensorboard", "wandb", "all"], )
+    parser.add_argument("--log_with", type=str, default=None, choices=["tensorboard", "wandb", "all"], )
+    parser.add_argument("--sample_sampler",type=str,default="ddim",
+                        choices=["ddim","pndm","lms","euler","euler_a","heun","dpm_2","dpm_2_a","dpmsolver",
+                                 "dpmsolver++","dpmsingle","k_lms","k_euler","k_euler_a","k_dpm_2","k_dpm_2_a",],)
+    parser.add_argument("--scheduler_timesteps",type=int,default=1000,)
+    parser.add_argument("--scheduler_linear_start",type=float,default=0.00085)
+    parser.add_argument("--scheduler_linear_end",type=float,default=0.012,)
+    parser.add_argument("--scheduler_schedule",type=str,default="scaled_linear",
+                        choices=["scaled_linear","linear","cosine","cosine_warmup",],)
     args = parser.parse_args()
     main(args)
