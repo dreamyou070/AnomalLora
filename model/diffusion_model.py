@@ -2,9 +2,7 @@ import os
 from diffusers import StableDiffusionPipeline, AutoencoderKL
 from model.unet import UNet2DConditionModel
 from model.diffusion_model_conversion import (load_checkpoint_with_text_encoder_conversion,
-                                              convert_ldm_unet_checkpoint,
-                                              convert_ldm_vae_checkpoint,
-                                              convert_ldm_clip_checkpoint_v1)
+                    convert_ldm_unet_checkpoint, convert_ldm_vae_checkpoint, convert_ldm_clip_checkpoint)
 from model.diffusion_model_config import (create_unet_diffusers_config,create_vae_diffusers_config)
 from transformers import CLIPTextModel, CLIPTokenizer, CLIPTextConfig, logging
 def load_SD_model(args):
@@ -45,7 +43,7 @@ def load_SD_models(args):
     info = vae.load_state_dict(converted_vae_checkpoint)
 
     # [3] text_encoder
-    converted_text_encoder_checkpoint = convert_ldm_clip_checkpoint_v1(state_dict)
+    converted_text_encoder_checkpoint = convert_ldm_clip_checkpoint(state_dict)
     cfg = CLIPTextConfig(vocab_size=49408,hidden_size=768,intermediate_size=3072,num_hidden_layers=12,
                          num_attention_heads=12,max_position_embeddings=77,
                          hidden_act="quick_gelu",layer_norm_eps=1e-05,dropout=0.0,
