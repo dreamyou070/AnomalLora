@@ -73,29 +73,29 @@ def main(args) :
                                                                                     optimizer, dataloader, lr_scheduler)
         unet.to(accelerator.device,dtype=weight_dtype)
 
-    print(f'text encode deivce : {text_encoder.device} , unet device : {unet.device} network device : {network.device}')
-    print(f'\n step 7. inference check')
-    num_samples = dataset.__len__()
-    for sample_idx in range(num_samples) :
-        sample = dataset.__getitem__(sample_idx)
+    print(f'\n step 7. Train!')
 
-        image = sample['image']
-        anomaly_mask = sample['anomaly_mask']
-        augmented_image = sample['augmented_image']
+    for epoch in range(0, args.num_train_epochs):
+        accelerator.print(f"\nepoch {epoch + 1}/{args.num_train_epochs}")
+        network.on_epoch_start(text_encoder, unet)
 
-        print(f'image : {image.shape} , {type(image)}')
-        print(f'anomaly_mask : {anomaly_mask.shape} , {type(anomaly_mask)}')
-        print(f'augmented_image : {augmented_image.shape} , {type(augmented_image)}')
-        from PIL import Image
-        import numpy as np
-        pil_image = Image.fromarray(image.astype(np.uint8)*255)
-        pil_image.save('original.png')
-        pil_image = Image.fromarray(anomaly_mask.astype(np.uint8)*255)
-        pil_image.save('anomaly_mask.png')
-        pil_image = Image.fromarray(augmented_image.astype(np.uint8)*255)
-        pil_image.save('augmented_image.png')
-        break
+        for step, batch in enumerate(train_dataloader):
 
+            # [1] img
+            img = batch['image']
+            anomal_mask = batch['anomaly_mask']
+            synthetic_img = batch['augmented_image']
+            idx = batch['idx']
+            input_ids = batch['input_ids']
+
+            print(f'img.shape: {img.shape}')
+            print(f'anomal_mask.shape: {anomal_mask.shape}')
+            print(f'synthetic_img.shape: {synthetic_img.shape}')
+            print(f'idx.shape: {idx}')
+            print(f'input_ids.shape: {input_ids}')
+
+            import time
+            time.sleep(1000)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Anomal Lora')

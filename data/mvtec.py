@@ -7,6 +7,7 @@ import glob
 import imgaug.augmenters as iaa
 from data.perlin import rand_perlin_2d_np
 from PIL import Image
+from torchvision import transforms
 
 class MVTecDRAEMTestDataset(Dataset):
 
@@ -96,6 +97,8 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.rot = iaa.Sequential([iaa.Affine(rotate=(-90, 90))])
         self.caption = 'good'
         self.tokenizer = tokenizer
+        self.transform = transforms.Compose([transforms.ToTensor(),
+                                                                transforms.Normalize([0.5], [0.5]),])
 
     def __len__(self):
         return len(self.image_paths)
@@ -113,42 +116,24 @@ class MVTecDRAEMTrainDataset(Dataset):
                               self.augmenters[aug_ind[2]]])
         return aug
 
-    def augment_image(self, image, anomaly_source_path):
-        aug = self.randAugmenter()
+    def augment_image(self, image, anomaly_source):
+
+        # [1] get anomal mask
         perlin_scale = 6
         min_perlin_scale = 0
-        anomaly_source_img = cv2.imread(anomaly_source_path)
-        anomaly_source_img = cv2.resize(anomaly_source_img, dsize=(self.resize_shape[1], self.resize_shape[0]))
-
-        anomaly_img_augmented = aug(image=anomaly_source_img)
         perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
         perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
-
         perlin_noise = rand_perlin_2d_np((self.resize_shape[0], self.resize_shape[1]), (perlin_scalex, perlin_scaley))
-        perlin_noise = self.rot(image=perlin_noise)
+        #perlin_noise = self.rot(image=perlin_noise)
         threshold = 0.5
         perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
         perlin_thr = np.expand_dims(perlin_thr, axis=2)
 
-        img_thr = anomaly_img_augmented.astype(np.float32) * perlin_thr / 255.0
-
+        # [2] synthetic image
         beta = torch.rand(1).numpy()[0] * 0.8
-
-        augmented_image = image * (1 - perlin_thr) + (1 - beta) * img_thr + beta * image * (
-            perlin_thr)
-
-        no_anomaly = torch.rand(1).numpy()[0]
-        if no_anomaly > 0.5:
-            image = image.astype(np.float32)
-            return image, np.zeros_like(perlin_thr, dtype=np.float32), np.array([0.0],dtype=np.float32)
-        else:
-            augmented_image = augmented_image.astype(np.float32)
-            msk = (perlin_thr).astype(np.float32)
-            augmented_image = msk * augmented_image + (1-msk)*image
-            has_anomaly = 1.0
-            if np.sum(msk) == 0:
-                has_anomaly=0.0
-            return augmented_image, msk, np.array([has_anomaly],dtype=np.float32)
+        augmented_image = (1 - perlin_thr) * image + \
+                          (perlin_thr) * (beta * image + (1 - beta) * anomaly_source)
+        return augmented_image, perlin_thr
 
     def load_image(self, image_path, trg_h, trg_w):
         image = Image.open(image_path)
@@ -159,50 +144,34 @@ class MVTecDRAEMTrainDataset(Dataset):
         img = np.array(image, np.uint8)
         return img
     def transform_image(self, image_path, anomaly_source_path):
+
         # ------------------------------------------------------------------------------------------------------------
         # [1] Read the image and apply general augmentation
-        image = cv2.imread(image_path)
-        image = cv2.resize(image, dsize=(self.resize_shape[1], self.resize_shape[0]))
-        #do_aug_orig = torch.rand(1).numpy()[0] > 0.7
-        #if do_aug_orig:
-        #    image = self.rot(image=image)
-        image = np.array(image).reshape((image.shape[0], image.shape[1], image.shape[2])).astype(np.float32) / 255.0
-
-        # ------------------------------------------------------------------------------------------------------------
-        # [2] random augment image
-        augmented_image, anomaly_mask, has_anomaly = self.augment_image(image, anomaly_source_path)
-
-
-        #augmented_image = np.transpose(augmented_image, (2, 0, 1))
-        #image = np.transpose(image, (2, 0, 1))
-        #anomaly_mask = np.transpose(anomaly_mask, (2, 0, 1))
-        return image, augmented_image, anomaly_mask, has_anomaly
+        img = self.load_image(image_path, self.resize_shape[0], self.resize_shape[1])
+        anomal_img = self.load_image(anomaly_source_path, self.resize_shape[0], self.resize_shape[1])
+        augmented_image, anomaly_mask = self.augment_image(img, anomal_img)
+        return img, augmented_image, anomaly_mask
 
     def __getitem__(self, idx):
 
-        # -------------------------------------------------------------------------------------------------------------------
-        # [1] get image index
         idx = torch.randint(0, len(self.image_paths), (1,)).item()
-
-        # -------------------------------------------------------------------------------------------------------------------
-        # [2] get anomaly source index
         anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
+        image, augmented_image, anomaly_mask = self.transform_image(self.image_paths[idx],
+                                                                    self.anomaly_source_paths[anomaly_source_idx])
+        image = self.transform(image)
+        augmented_image = self.transform(augmented_image)
+        anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
+        anomal_torch = torch.tensor(np.array(anomal_pil))
+        anomal_mask = torch.where(anomal_torch > 0, 1, 0)
 
         # -------------------------------------------------------------------------------------------------------------------
-        # [3] generate random image
-        image, augmented_image, anomaly_mask, has_anomaly = self.transform_image(self.image_paths[idx],
-                                                                                 self.anomaly_source_paths[anomaly_source_idx])
-
-        # -------------------------------------------------------------------------------------------------------------------
-        # [3] generate random image
+        # [2] caption
         input_ids, attention_mask = self.get_input_ids(self.caption)
 
         sample = {'image': image,
-                  "anomaly_mask": anomaly_mask,
+                  "anomaly_mask": anomal_mask,
                   'augmented_image': augmented_image,
-                  'has_anomaly': has_anomaly,
                   'idx': idx,
                   'input_ids': input_ids,}
-
         return sample
 
