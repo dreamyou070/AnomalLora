@@ -28,7 +28,7 @@ def main(args) :
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
 
     print(f'\n step 4. dataset and dataloader')
-    dataset = MVTecDRAEMTrainDataset(root_dir=args.data_path + args.obj_name + "/train/good/",
+    dataset = MVTecDRAEMTrainDataset(root_dir=args.data_path + args.obj_name + "/train/good/rgb",
                                      #anomaly_source_path=args.anomaly_source_path,
                                 anomaly_source_path=args.data_path, resize_shape=[512,512],tokenizer=tokenizer,)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float, default=1e-5)
     # step 4. dataset and dataloader
     parser.add_argument('--data_path', type=str,
-                        default=r'../../../MyData/anomaly_detection/MVTec3D-AD/')
+                        default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
     parser.add_argument('--obj_name', type=str, default='bagel')
     parser.add_argument('--anomaly_source_path', type=str)
     parser.add_argument('--batch_size', type=int, default=1)
