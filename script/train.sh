@@ -17,4 +17,6 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --do_attn_loss --attn_loss_weight 0.1 \
  --normal_weight 1 \
  --general_training \
- --num_epochs 30
+ --num_epochs 30 \
+
+ --do_synthetic_anomaly
