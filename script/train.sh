@@ -15,5 +15,5 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --do_task_loss --task_loss_weight 1.0 \
  --do_dist_loss --dist_loss_weight 1.0 \
  --do_attn_loss --attn_loss_weight 0.01 \
- --normal_weight 0.5 \
+ --normal_weight 1 \
  --num_epochs 30
