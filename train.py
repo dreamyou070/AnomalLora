@@ -191,6 +191,25 @@ def main(args) :
                                  args.anormal_weight * anormal_cls_score_loss
 
             ############################################ 3. total Loss ##################################################
+            if args.do_task_loss:
+                loss += task_loss
+                loss_dict['task_loss'] = task_loss.item()
+            if args.do_dist_loss:
+                loss += dist_loss
+                loss_dict['dist_loss'] = dist_loss.item()
+            if args.do_attn_loss:
+                loss += attn_loss
+                loss_dict['attn_loss'] = attn_loss.item()
+            current_loss = loss.detach().item()
+            if epoch == 0 :
+                loss_list.append(current_loss)
+            else:
+                epoch_loss_total -= loss_list[step]
+                loss_list[step] = current_loss
+            epoch_loss_total += current_loss
+            avr_loss = epoch_loss_total / len(loss_list)
+            loss_dict['avr_loss'] = avr_loss
+
             accelerator.backward(loss)
             optimizer.step()
             lr_scheduler.step()
@@ -203,29 +222,8 @@ def main(args) :
                 global_step += 1
                 controller.reset()
 
-            current_loss = loss.detach().item()
-            if epoch == 0 :
-                loss_list.append(current_loss)
-            else:
-                epoch_loss_total -= loss_list[step]
-                loss_list[step] = current_loss
-            epoch_loss_total += current_loss
-            avr_loss = epoch_loss_total / len(loss_list)
-
-            if args.do_task_loss:
-                loss += task_loss
-                loss_dict['task_loss'] = task_loss.item()
-            if args.do_dist_loss:
-                loss += dist_loss
-                loss_dict['dist_loss'] = dist_loss.item()
-            if args.do_attn_loss:
-                loss += attn_loss
-                loss_dict['attn_loss'] = attn_loss.item()
-            loss_dict['avr_loss'] = avr_loss
-
             if is_main_process:
                 progress_bar.set_postfix(**loss_dict)
-
             if global_step >= args.max_train_steps:
                 break
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
