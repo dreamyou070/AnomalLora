@@ -10,19 +10,18 @@ def load_SD_model(args):
 
     # [0]
     ckpt_path = args.pretrained_model_name_or_path
-    device = args.device
-    _, state_dict = load_checkpoint_with_text_encoder_conversion(ckpt_path, device)
+    _, state_dict = load_checkpoint_with_text_encoder_conversion(ckpt_path)
 
     # [1] unet
     unet_config = create_unet_diffusers_config()
-    converted_unet_checkpoint = convert_ldm_unet_checkpoint(v2, state_dict, unet_config)
-    unet = UNet2DConditionModel(**unet_config).to(device)
+    converted_unet_checkpoint = convert_ldm_unet_checkpoint(state_dict, unet_config)
+    unet = UNet2DConditionModel(**unet_config)
     info = unet.load_state_dict(converted_unet_checkpoint)
 
     # [2] vae
     vae_config = create_vae_diffusers_config()
     converted_vae_checkpoint = convert_ldm_vae_checkpoint(state_dict, vae_config)
-    vae = AutoencoderKL(**vae_config).to(device)
+    vae = AutoencoderKL(**vae_config)
     info = vae.load_state_dict(converted_vae_checkpoint)
 
     # [3] text_encoder
