@@ -79,7 +79,9 @@ def main(args) :
                                                        scheduler=scheduler,
                                                        safety_checker=None,
                                                        feature_extractor=None,
-                                                       requires_safety_checker=False,)
+                                                       requires_safety_checker=False,
+                                                       random_vector_generator=None,
+                                                       trg_layer_list=None)
     # input_ids = batch["input_ids"].to(accelerator.device)
     # encoder_hidden_states = get_hidden_states(args, input_ids, tokenizer, text_encoders, weight_dtype)
     latents = pipeline(prompt=args.prompt, height=512, width=512, num_inference_steps=args.num_ddim_steps,
