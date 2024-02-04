@@ -167,11 +167,10 @@ class MVTecDRAEMTrainDataset(Dataset):
         # -------------------------------------------------------------------------------------------------------------------
         # [2] caption
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
-
         sample = {'image': image,
                   "anomaly_mask": anomal_mask,
                   'augmented_image': augmented_image,
                   'idx': idx,
-                  'input_ids': input_ids,}
+                  'input_ids': input_ids.squeeze(0)}
         return sample
 

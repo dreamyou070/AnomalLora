@@ -93,7 +93,7 @@ def main(args) :
                 latents = latents * vae_scale_factor
                 anomal_latents = anomal_latents * vae_scale_factor
                 input_latents = torch.cat([latents, anomal_latents], dim=0)
-            with torch.set_grad_enabled(text_encoder):
+            with torch.set_grad_enabled(True) :
                 input_ids = batch["input_ids"].to(accelerator.device) # batch, 1, 77 sen len
                 encoder_hidden_states = text_encoder(input_ids)
                 print(f'encoder_hidden_states.shape: {encoder_hidden_states}')
