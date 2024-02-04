@@ -65,8 +65,19 @@ def main(args) :
 
     print(f'\n step 6. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
+
+    if args.log_with in ["wandb", "all"]:
+        try:
+            import wandb
+        except ImportError:
+            raise ImportError("No wandb / wandb がインストールされていないようです")
+        os.environ["WANDB_DIR"] = args.logging_dir
+        if args.wandb_api_key is not None:
+            wandb.login(key=args.wandb_api_key)
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
-                            mixed_precision=args.mixed_precision, log_with=args.log_with,project_dir=args.logging_dir,)
+                              mixed_precision=args.mixed_precision,
+                              log_with=args.log_with,
+                              project_dir=args.logging_dir,)
     is_main_process = accelerator.is_main_process
     vae.requires_grad_(False)
     vae.to(dtype=weight_dtype)
@@ -232,14 +243,13 @@ def main(args) :
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad(set_to_none=True)
-
-            ############################################ 4. sampling ##################################################
-            # Checks if the accelerator has performed an optimization step behind the scenes
+            ### 4.1 logging
+            accelerator.log(loss_dict, step=global_step)
+            ### 4.2 sampling
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
                 controller.reset()
-
             if is_main_process:
                 progress_bar.set_postfix(**loss_dict)
             if global_step >= args.max_train_steps:
@@ -274,6 +284,9 @@ def main(args) :
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Anomal Lora')
     parser.add_argument('--output_dir', type=str, default='output')
+    parser.add_argument('--wandb_api_key', type=str,
+                        default='output')
+
     parser.add_argument('--pretrained_model_name_or_path', type=str,
                         default='facebook/diffusion-dalle')
     parser.add_argument('--network_dim', type=int,default=64)
