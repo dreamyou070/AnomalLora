@@ -70,7 +70,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                  anomaly_source_path,
                  resize_shape=None,
                  tokenizer=None,
-                 caption: str = None,):
+                 caption: str = None,
+                 synthhetic_anomaly: bool = True):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -102,6 +103,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.transform = transforms.Compose([transforms.ToTensor(),
                                                                 transforms.Normalize([0.5], [0.5]),])
 
+        self.synthhetic_anomaly = do_synthhetic_anomaly
     def __len__(self):
         return len(self.image_paths)
 
@@ -151,7 +153,11 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [1] Read the image and apply general augmentation
         img = self.load_image(image_path, self.resize_shape[0], self.resize_shape[1])
         anomal_img = self.load_image(anomaly_source_path, self.resize_shape[0], self.resize_shape[1])
-        augmented_image, anomaly_mask = self.augment_image(img, anomal_img)
+        if self.synthhetic_anomaly:
+            augmented_image, anomaly_mask = self.augment_image(img, anomal_img)
+        else :
+            augmented_image = img
+            anomaly_mask = torch.ones_like((64,64))
         return img, augmented_image, anomaly_mask
 
     def __getitem__(self, idx):
@@ -162,9 +168,10 @@ class MVTecDRAEMTrainDataset(Dataset):
                                                                     self.anomaly_source_paths[anomaly_source_idx])
         image = self.transform(image)
         augmented_image = self.transform(augmented_image)
-        anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
-        anomal_torch = torch.tensor(np.array(anomal_pil))
-        anomal_mask = torch.where(anomal_torch == 0, 1, 0) # strict anomal
+        if self.synthhetic_anomaly:
+            anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
+            anomal_torch = torch.tensor(np.array(anomal_pil))
+            anomal_mask = torch.where(anomal_torch == 0, 1, 0) # strict anomal
 
         # -------------------------------------------------------------------------------------------------------------------
         # [2] caption

@@ -59,7 +59,8 @@ def main(args) :
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
-                                     caption = caption,)
+                                     caption = caption,
+                                     synthhetic_anomaly=args.do_synthetic_anomaly,)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
@@ -353,6 +354,7 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
+    parser.add_argument("--do_synthetic_anomaly", action='store_true')
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
