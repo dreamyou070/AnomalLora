@@ -98,8 +98,8 @@ def main(args) :
                                                        random_vector_generator=None,
                                                        trg_layer_list=None)
 
-    anomal_concepts = ['thread', 'bent', 'hole', 'cut', 'crash', 'broken', '']
-    args.anomal_base_dir = os.path.join(train_dir, 'anomal')
+    anomal_concepts = ['hole on', 'crack on', 'burnt', 'split', 'torn', 'moldy tasteless']
+    args.anomal_base_dir = os.path.join(train_dir, 'anomal_second')
     os.makedirs(args.anomal_base_dir, exist_ok=True)
     for adjective in anomal_concepts:
         adjective_base_folder = os.path.join(args.anomal_base_dir, adjective)
