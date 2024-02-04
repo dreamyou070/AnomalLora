@@ -110,7 +110,6 @@ def main(args) :
                 input_ids = batch["input_ids"].to(accelerator.device) # batch, 77 sen len
                 enc_out = text_encoder(input_ids)       # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
-                print(f'encoder_hidden_states.shape (1, 77, 768) : {encoder_hidden_states.shape}')
 
             input_text_encoder_conds = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,input_latents)
@@ -144,11 +143,19 @@ def main(args) :
                     normal_feat = normal_query[pix_idx].unsqueeze(0)
                     anomal_feat = anomal_query[pix_idx].unsqueeze(0)
                     anomal_flag = anomal_mask[pix_idx]
-                    if anomal_flag == 0:
-                        anormal_feats.append(anomal_feat.unsqueeze(0))
-                    normal_feats.append(normal_feat.unsqueeze(0))
+                    if anomal_flag == 1 :
+                        if anomal_feat.dim() == 1:
+                            anormal_feats.append(anomal_feat)
+                        else :
+                            anormal_feats.append(anomal_feat.unsqueeze(0))
+
+                    if normal_feat.dim() == 1:
+                        normal_feats.append(normal_feat)
+                    else :
+                        normal_feats.append(normal_feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feats, dim=0)
                 anormal_feats = torch.cat(anormal_feats, dim=0)
+                print(f'normal_feats shape : {normal_feats.shape}, anormal_feats shape : {anormal_feats.shape}')
                 normal_mu = torch.mean(normal_feats, dim=0)
                 normal_cov = torch.cov(normal_feats.transpose(0, 1))
 
