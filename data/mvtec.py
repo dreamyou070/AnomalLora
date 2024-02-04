@@ -79,12 +79,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                 on a sample.
         """
         self.root_dir = root_dir
-        print(f'root_dir: {root_dir}')
         self.resize_shape=resize_shape
 
         self.image_paths = sorted(glob.glob(root_dir+"/*.png"))
-        print(f'len(self.image_paths): {len(self.image_paths)}')
-
         self.anomaly_source_paths = sorted(glob.glob(anomaly_source_path+"/*/*.png"))
         self.augmenters = [iaa.GammaContrast((0.5,2.0),per_channel=True),
                            iaa.MultiplyAndAddToBrightness(mul=(0.8,1.2),add=(-30,30)),
@@ -97,16 +94,13 @@ class MVTecDRAEMTrainDataset(Dataset):
                            iaa.pillike.Equalize(),
                            iaa.Affine(rotate=(-45, 45))]
         self.rot = iaa.Sequential([iaa.Affine(rotate=(-90, 90))])
-
         self.caption = caption
         self.tokenizer = tokenizer
-        self.transform = transforms.Compose([transforms.ToTensor(),
-                                                                transforms.Normalize([0.5], [0.5]),])
-
+        self.transform = transforms.Compose([transforms.ToTensor(),transforms.Normalize([0.5], [0.5]),])
         self.do_synthetic_anomaly = do_synthetic_anomaly
+
     def __len__(self):
         return len(self.image_paths)
-
     def get_input_ids(self, caption):
         tokenizer_output = self.tokenizer(caption, padding="max_length", truncation=True,return_tensors="pt")
         input_ids = tokenizer_output.input_ids
@@ -147,42 +141,42 @@ class MVTecDRAEMTrainDataset(Dataset):
             image = image.resize((trg_w, trg_h), Image.BICUBIC)
         img = np.array(image, np.uint8)
         return img
-    def transform_image(self, image_path, anomaly_source_path):
-
-        # ------------------------------------------------------------------------------------------------------------
-        # [1] Read the image and apply general augmentation
-        img = self.load_image(image_path, self.resize_shape[0], self.resize_shape[1])
-        anomal_img = self.load_image(anomaly_source_path, self.resize_shape[0], self.resize_shape[1])
-        if self.do_synthetic_anomaly :
-            augmented_image, anomaly_mask = self.augment_image(img, anomal_img)
-        else :
-            augmented_image = img
-            anomaly_mask = torch.ones((64, 64))
-        return img, augmented_image, anomaly_mask
 
     def __getitem__(self, idx):
 
         idx = torch.randint(0, len(self.image_paths), (1,)).item()
         anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
-        image, augmented_image, anomaly_mask = self.transform_image(self.image_paths[idx],
-                                                                    self.anomaly_source_paths[anomaly_source_idx])
-        image = self.transform(image)
-        augmented_image = self.transform(augmented_image)
+
+        # [1] base
+        img = self.load_image(self.image_paths[idx], self.resize_shape[0], self.resize_shape[1])
+        anomal_img = self.load_image(self.anomaly_source_paths[anomaly_source_idx],
+                                     self.resize_shape[0], self.resize_shape[1])
+
+        # [2] augment
+        augmented_image, anomaly_mask = self.augment_image(img, anomal_img)
+
+        # [3] final
+        image = self.transform(img)
         if self.do_synthetic_anomaly :
+            anomal_image = self.transform(augmented_image)
+            # -----------------------------------------------------------------------------------------------
             anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
             anomal_torch = torch.tensor(np.array(anomal_pil))
-            anomal_mask = torch.where(anomal_torch == 0, 1, 0) # strict anomal
+            anomal_mask = torch.where(anomal_torch == 0, 1, 0)  # strict anomal
         else :
-            anomal_mask = anomaly_mask.to(image.dtype)
+            anomal_image = self.transform(anomal_img)
+            anomal_mask = torch.ones((64,64)).to(image.dtype)
 
-        # -------------------------------------------------------------------------------------------------------------------
-        # [2] caption
+        # [4] caption
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
+
+        # [5] return
         sample = {'image': image,
                   "anomaly_mask": anomal_mask,
-                  'augmented_image': augmented_image,
+                  'augmented_image': anomal_image,
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),
                   'caption': self.caption,}
+
         return sample
 

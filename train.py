@@ -52,9 +52,11 @@ def main(args) :
     if args.general_training :
         caption = 'good'
         args.anomaly_source_path = os.path.join(train_dir, "anomal_general")
+
     else :
         caption = args.obj_name
         args.anomaly_source_path = os.path.join(train_dir, "anomal")
+    print(f' trigger word : {caption}')
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
