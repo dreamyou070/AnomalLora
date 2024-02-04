@@ -10,6 +10,7 @@ from utils import prepare_dtype
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 
+
 def main(args) :
 
     print(f'\n step 1. setting')
@@ -152,7 +153,7 @@ if __name__ == '__main__':
     parser.add_argument("--prompt", type=str, default="bagel",)
     parser.add_argument("--num_ddim_steps", type=int, default=30)
     parser.add_argument("--guidance_scale", type=float, default=8.5)
-    parser.add_argument("--negative_prompt", type=str, 
+    parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     args = parser.parse_args()
     main(args)
