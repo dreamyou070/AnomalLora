@@ -119,8 +119,9 @@ def main(args) :
               'dist_loss_weight' : args.dist_loss_weight,
               'do_attn_loss' : args.do_attn_loss,
               'attn_loss_weight' : args.attn_loss_weight,}
-    name = f'{args.obj_name}_train'
-    accelerator.init_trackers(name,config=config)
+    #accelerator.init_trackers(name, config=config)
+    accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
+
     for epoch in range(0, args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
@@ -310,8 +311,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Anomal Lora')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--output_dir', type=str, default='output')
-    parser.add_argument('--wandb_api_key', type=str,
-                        default='output')
+    parser.add_argument('--wandb_api_key', type=str,default='output')
+    parser.add_argument('--wandb_project_name', type=str,default='bagel')
     parser.add_argument('--pretrained_model_name_or_path', type=str,
                         default='facebook/diffusion-dalle')
     parser.add_argument('--network_dim', type=int,default=64)
