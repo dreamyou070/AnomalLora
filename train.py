@@ -21,10 +21,7 @@ def main(args) :
     print(f'\n step 2. model')
     tokenizer = load_tokenizer(args)
     text_encoder, vae, unet = load_SD_model(args)
-    network = LoRANetwork(text_encoder=text_encoder, unet=unet,
-                          lora_dim = args.network_dim, alpha = args.network_alpha,)
-    if args.network_weights is not None:
-        network.load_weights(args.network_weights)
+    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
 
     print(f'\n step 3. optimizer')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
@@ -34,8 +31,7 @@ def main(args) :
     dataset = MVTecDRAEMTrainDataset(root_dir=args.data_path + args.obj_name + "/train/good/",
                                      #anomaly_source_path=args.anomaly_source_path,
                                 anomaly_source_path=args.data_path, resize_shape=[512,512],tokenizer=tokenizer,)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size,
-                            shuffle=True, num_workers=16)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
     schedule_func = TYPE_TO_SCHEDULER_FUNCTION[SchedulerType.COSINE_WITH_RESTARTS]
@@ -65,7 +61,11 @@ def main(args) :
         text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
                                                                                                optimizer, dataloader, lr_scheduler)
         unet.to(accelerator.device,dtype=weight_dtype)
+    print(f' (6.2) network with stable diffusion model')
     network.prepare_grad_etc(text_encoder, unet)
+    network.apply_to(text_encoder, unet, True, True)
+    if args.network_weights is not None:
+        network.load_weights(args.network_weights)
 
     print(f'\n step 7. inference check')
     scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
@@ -79,7 +79,7 @@ def main(args) :
                                                        scheduler=scheduler,
                                                        safety_checker=None,
                                                        feature_extractor=None,
-                                                       requires_safety_checker=False, )
+                                                       requires_safety_checker=False,)
     # input_ids = batch["input_ids"].to(accelerator.device)
     # encoder_hidden_states = get_hidden_states(args, input_ids, tokenizer, text_encoders, weight_dtype)
 
@@ -110,7 +110,6 @@ if __name__ == '__main__':
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"],)
     parser.add_argument("--save_precision",type=str,default=None,choices=[None, "float", "fp16", "bf16"],)
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1,)
-    parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"],)
     parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
     # step 7. inference check
     parser.add_argument("--log_with", type=str, default=None, choices=["tensorboard", "wandb", "all"], )
