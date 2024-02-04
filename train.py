@@ -109,6 +109,7 @@ def main(args) :
     for epoch in range(0, args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
+        """
         for step, batch in enumerate(train_dataloader):
 
             with torch.no_grad():
@@ -262,6 +263,7 @@ def main(args) :
                 progress_bar.set_postfix(**loss_dict)
             if global_step >= args.max_train_steps:
                 break
+        """
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
         accelerator.wait_for_everyone()
         if is_main_process :
@@ -275,7 +277,7 @@ def main(args) :
             pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
                                         unet=unet, scheduler=scheduler,safety_checker=None, feature_extractor=None,
                                         requires_safety_checker=False, random_vector_generator=None, trg_layer_list=None)
-            pipeline.to(accelerator.device)
+            #pipeline.to(accelerator.device)
             latents = pipeline(prompt=batch['caption'], height=512, width=512,  num_inference_steps=args.num_ddim_steps,
                                guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
             gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
