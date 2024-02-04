@@ -80,20 +80,18 @@ def main(args) :
                         vae_latent = image2latent(img, vae, weight_dtype)
                         input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]  # batch, 77, 768
-                        print(f'args.trg_layer_list: {args.trg_layer_list}')
-                        unet(vae_latent,
-                             0,
-                             encoder_hidden_states,
-                             trg_indexs_list=args.trg_layer_list)
+                        unet(vae_latent,0,encoder_hidden_states,trg_indexs_list=args.trg_layer_list)
                         attn_dict = controller.step_store
                         controller.reset()
                         for layer_name in args.trg_layer_list:
                             attn_map = attn_dict[layer_name][0]
                             cks_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
                             trigger_map = trigger_map.mean(dim=0) #
-                            binary_map = torch.where(trigger_map > 0.5, 1, 0).unsqueeze(0)
-                            pix_num = binary_map.shape[-1]
+                            binary_map = torch.where(trigger_map > 0.5, 1, 0)#.unsqueeze(0)
+                            print(f'binary_map shape : {binary_map.shape}')
+                            pix_num = binary_map.shape[0]
                             res = int(pix_num ** 0.5)
+                            binary_map = binary_map.unsqueeze(0)
                             binary_map = binary_map.view(res, res)
                             binary_pil = Image.fromarray(binary_map.cpu().detach().numpy() * 255).resize((512, 512))
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
