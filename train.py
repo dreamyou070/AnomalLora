@@ -86,6 +86,7 @@ def main(args) :
         print(f'image : {image.shape} , {type(image)}')
         print(f'anomaly_mask : {anomaly_mask.shape} , {type(anomaly_mask)}')
         print(f'augmented_image : {augmented_image.shape} , {type(augmented_image)}')
+        print(image)
         break
 
 
