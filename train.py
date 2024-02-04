@@ -15,6 +15,9 @@ def main(args) :
                           lora_dim = args.network_dim,
                           alpha = args.network_alpha,)
 
+    print(f' step 3. dataset')
+
+
 
 
 if __name__ == '__main__':
@@ -23,4 +26,4 @@ if __name__ == '__main__':
     parser.add_argument('--pretrained_model_name_or_path', type=str,
                         default='facebook/diffusion-dalle')
     args = parser.parse_args()
-    main()
+    main(args)
