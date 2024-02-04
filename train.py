@@ -137,6 +137,7 @@ def main(args) :
             controller.reset()
             normal_feats, anormal_feats = [], []
             dist_loss, attn_loss = 0, 0
+            normal_loss, anomal_loss = 0, 0
             anomal_mask = batch['anomaly_mask'].flatten().squeeze(0)
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
@@ -195,10 +196,14 @@ def main(args) :
 
                 attn_loss += args.normal_weight * normal_trigger_score_loss + \
                              args.anormal_weight * anormal_trigger_score_loss
+                normal_loss += normal_trigger_score_loss
+                anomal_loss += anormal_trigger_score_loss
 
                 if args.do_cls_train :
                     attn_loss += args.normal_weight * normal_cls_score_loss + \
                                  args.anormal_weight * anormal_cls_score_loss
+                    normal_loss += normal_cls_score_loss
+                    anomal_loss += anormal_cls_score_loss
 
             ############################################ 3. total Loss ##################################################
             if args.do_task_loss:
@@ -210,6 +215,8 @@ def main(args) :
             if args.do_attn_loss:
                 loss += attn_loss.mean()
                 loss_dict['attn_loss'] = attn_loss.mean().item()
+                loss_dict['normal_loss'] = normal_loss.mean().item()
+                loss_dict['anomal_loss'] = anomal_loss.mean().item()
 
             current_loss = loss.detach().item()
             if epoch == 0 :
@@ -325,5 +332,7 @@ if __name__ == '__main__':
     parser.add_argument('--normal_weight', type=float, default=1.0)
     parser.add_argument('--anormal_weight', type=float, default=1.0)
     parser.add_argument("--trg_layer_list", type=arg_as_list, )
+    parser.add_argument("--save_model_as",type=str,default="safetensors",
+                        choices=[None, "ckpt", "safetensors", "diffusers", "diffusers_safetensors"],)
     args = parser.parse_args()
     main(args)
