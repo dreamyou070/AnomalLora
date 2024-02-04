@@ -81,7 +81,10 @@ def main(args) :
                         input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]  # batch, 77, 768
                         print(f'args.trg_layer_list: {args.trg_layer_list}')
-                        unet(vae_latent,0,encoder_hidden_states, trg_indexs_list=args.trg_layer_list,mask = None)
+                        unet(vae_latent,
+                             0,
+                             encoder_hidden_states,
+                             trg_indexs_list=args.trg_layer_list)
                         attn_dict = controller.step_store
                         controller.reset()
                         for layer_name in args.trg_layer_list:
