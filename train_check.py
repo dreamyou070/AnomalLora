@@ -135,8 +135,8 @@ def main(args) :
             anomal_concepts = ['crack', 'cut', 'hole', 'contaminate', 'crash', 'dirty', 'bad', 'torn', 'crumpled',
                                'deformed']
             for adjective in anomal_concepts:
-                adjective_base_folder = os.path.join(args.anomal_base_dir, adjective)
-                os.makedirs(adjective_base_folder, exist_ok=True)
+                #adjective_base_folder = os.path.join(args.anomal_base_dir, adjective)
+                #os.makedirs(adjective_base_folder, exist_ok=True)
                 gen_caption = f'the concept of {adjective}'
                 for i in range(1):
                     latents = pipeline(prompt=gen_caption,
