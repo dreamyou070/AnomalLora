@@ -108,7 +108,7 @@ if __name__ == '__main__':
                         default='facebook/diffusion-dalle')
     parser.add_argument('--network_dim', type=int,default=64)
     parser.add_argument('--network_alpha', type=float,default=4)
-    parser.add_argument('--network_weights', type=str)
+    parser.add_argument('--network_folder', type=str)
     # step 4. dataset and dataloader
     parser.add_argument('--data_path', type=str,
                         default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
