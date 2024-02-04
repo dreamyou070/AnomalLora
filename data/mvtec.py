@@ -154,9 +154,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [1] Read the image and apply general augmentation
         image = cv2.imread(image_path)
         image = cv2.resize(image, dsize=(self.resize_shape[1], self.resize_shape[0]))
-        do_aug_orig = torch.rand(1).numpy()[0] > 0.7
-        if do_aug_orig:
-            image = self.rot(image=image)
+        #do_aug_orig = torch.rand(1).numpy()[0] > 0.7
+        #if do_aug_orig:
+        #    image = self.rot(image=image)
         image = np.array(image).reshape((image.shape[0], image.shape[1], image.shape[2])).astype(np.float32) / 255.0
 
         # ------------------------------------------------------------------------------------------------------------
@@ -164,9 +164,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         augmented_image, anomaly_mask, has_anomaly = self.augment_image(image, anomaly_source_path)
 
 
-        augmented_image = np.transpose(augmented_image, (2, 0, 1))
-        image = np.transpose(image, (2, 0, 1))
-        anomaly_mask = np.transpose(anomaly_mask, (2, 0, 1))
+        #augmented_image = np.transpose(augmented_image, (2, 0, 1))
+        #image = np.transpose(image, (2, 0, 1))
+        #anomaly_mask = np.transpose(anomaly_mask, (2, 0, 1))
         return image, augmented_image, anomaly_mask, has_anomaly
 
     def __getitem__(self, idx):

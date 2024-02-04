@@ -86,7 +86,14 @@ def main(args) :
         print(f'image : {image.shape} , {type(image)}')
         print(f'anomaly_mask : {anomaly_mask.shape} , {type(anomaly_mask)}')
         print(f'augmented_image : {augmented_image.shape} , {type(augmented_image)}')
-        print(image)
+        from PIL import Image
+        import numpy as np
+        pil_image = Image.fromarray(image.astype(np.uint8)*255)
+        pil_image.save('original.png')
+        pil_image = Image.fromarray(anomaly_mask.astype(np.uint8)*255)
+        pil_image.save('anomaly_mask.png')
+        pil_image = Image.fromarray(augmented_image.astype(np.uint8)*255)
+        pil_image.save('augmented_image.png')
         break
 
 
