@@ -28,11 +28,9 @@ def main(args) :
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
 
     print(f'\n step 4. dataset and dataloader')
-    dataset = MVTecDRAEMTrainDataset(root_dir= args.data_path + args.obj_name + "/train/good/rgb",
+    dataset = MVTecDRAEMTrainDataset(root_dir= os.path.join(args.data_path , args.obj_name , "/train/good/rgb"),
                                      #anomaly_source_path=args.anomaly_source_path,
                                      anomaly_source_path=args.data_path, resize_shape=[512,512],tokenizer=tokenizer,)
-    print(f'len(dataset) : {len(dataset)}')
-    """
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
@@ -102,7 +100,7 @@ def main(args) :
                                guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt,)
             recon_image = pipeline.latents_to_image(latents[-1])[0].resize((512,512))
             recon_image.save(os.path.join(adjective_base_folder, f'{adjective}_{i}.png'))
-    """
+    
 
 
 if __name__ == '__main__':
