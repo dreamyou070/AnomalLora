@@ -113,45 +113,45 @@ def main(args) :
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
         ### 4.2 sampling
-        if is_main_process :
-            ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
-            unwrapped_nw = accelerator.unwrap_model(network)
-            save_model(args, ckpt_name, unwrapped_nw, save_dtype)
-            scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
-            scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
-                                      beta_start=args.scheduler_linear_start,
-                                      beta_end=args.scheduler_linear_end,
-                                      beta_schedule=args.scheduler_schedule)
-            pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae,
-                                                               text_encoder=text_encoder,
-                                                               tokenizer=tokenizer,
-                                                               unet=unet,
-                                                               scheduler=scheduler,
-                                                               safety_checker=None,
-                                                               feature_extractor=None,
-                                                               requires_safety_checker=False,
-                                                               random_vector_generator=None,
-                                                               trg_layer_list=None)
-            anomal_concepts = ['crack', 'cut', 'hole', 'contaminate', 'crash', 'dirty', 'bad', 'torn', 'crumpled',
-                               'deformed']
-            for adjective in anomal_concepts:
-                #adjective_base_folder = os.path.join(args.anomal_base_dir, adjective)
-                #os.makedirs(adjective_base_folder, exist_ok=True)
-                gen_caption = f'the concept of {adjective}'
-                for i in range(1):
-                    latents = pipeline(prompt=gen_caption,
-                                       height=512, width=512,
-                                       num_inference_steps=args.num_ddim_steps,
-                                       guidance_scale=args.guidance_scale,
-                                       negative_prompt=args.negative_prompt, )
-                    gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
-                    img_save_base_dir = args.output_dir + "/sample"
-                    os.makedirs(img_save_base_dir, exist_ok=True)
-                    ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
-                    num_suffix = f"e{epoch:06d}"
-                    img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
-                    gen_img.save(os.path.join(img_save_base_dir,img_filename))
-                    controller.reset()
+
+        ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
+        unwrapped_nw = accelerator.unwrap_model(network)
+        save_model(args, ckpt_name, unwrapped_nw, save_dtype)
+        scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
+        scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
+                                  beta_start=args.scheduler_linear_start,
+                                  beta_end=args.scheduler_linear_end,
+                                  beta_schedule=args.scheduler_schedule)
+        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae,
+                                                           text_encoder=text_encoder,
+                                                           tokenizer=tokenizer,
+                                                           unet=unet,
+                                                           scheduler=scheduler,
+                                                           safety_checker=None,
+                                                           feature_extractor=None,
+                                                           requires_safety_checker=False,
+                                                           random_vector_generator=None,
+                                                           trg_layer_list=None)
+        anomal_concepts = ['crack', 'cut', 'hole', 'contaminate', 'crash', 'dirty', 'bad', 'torn', 'crumpled',
+                           'deformed']
+        for adjective in anomal_concepts:
+            #adjective_base_folder = os.path.join(args.anomal_base_dir, adjective)
+            #os.makedirs(adjective_base_folder, exist_ok=True)
+            gen_caption = f'the concept of {adjective}'
+            for i in range(1):
+                latents = pipeline(prompt=gen_caption,
+                                   height=512, width=512,
+                                   num_inference_steps=args.num_ddim_steps,
+                                   guidance_scale=args.guidance_scale,
+                                   negative_prompt=args.negative_prompt, )
+                gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
+                img_save_base_dir = args.output_dir + "/sample"
+                os.makedirs(img_save_base_dir, exist_ok=True)
+                ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+                num_suffix = f"e{epoch:06d}"
+                img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
+                gen_img.save(os.path.join(img_save_base_dir,img_filename))
+                controller.reset()
         accelerator.end_training()
 
 
