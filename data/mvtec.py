@@ -6,6 +6,7 @@ import cv2
 import glob
 import imgaug.augmenters as iaa
 from data.perlin import rand_perlin_2d_np
+from PIL import Image
 
 class MVTecDRAEMTestDataset(Dataset):
 
@@ -149,6 +150,14 @@ class MVTecDRAEMTrainDataset(Dataset):
                 has_anomaly=0.0
             return augmented_image, msk, np.array([has_anomaly],dtype=np.float32)
 
+    def load_image(self, image_path, trg_h, trg_w):
+        image = Image.open(image_path)
+        if not image.mode == "RGB":
+            image = image.convert("RGB")
+        if trg_h and trg_w:
+            image = image.resize((trg_w, trg_h), Image.BICUBIC)
+        img = np.array(image, np.uint8)
+        return img
     def transform_image(self, image_path, anomaly_source_path):
         # ------------------------------------------------------------------------------------------------------------
         # [1] Read the image and apply general augmentation

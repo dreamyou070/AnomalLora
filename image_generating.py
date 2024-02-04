@@ -92,13 +92,14 @@ def main(args) :
                                                        random_vector_generator=None,
                                                        trg_layer_list=None)
 
-    anomal_concepts = ['crack', 'cut', 'hole', 'contaminate', 'crash', 'dirty', 'bad', 'torn']
+    anomal_concepts = ['crack', 'cut', 'hole', 'contaminate', 'crash', 'dirty', 'bad', 'torn', 'crumpled',
+                       'deformed']
     args.anomal_base_dir = os.path.join(train_dir, 'anomal')
     os.makedirs(args.anomal_base_dir, exist_ok=True)
     for adjective in anomal_concepts:
         adjective_base_folder = os.path.join(args.anomal_base_dir, adjective)
         os.makedirs(adjective_base_folder, exist_ok=True)
-        gen_caption = f'{adjective} {args.obj_name}'
+        gen_caption = f'the concept of {adjective}'
         for i in range(100) :
             latents = pipeline(prompt=gen_caption,
                                height=512, width=512,
