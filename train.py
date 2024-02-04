@@ -26,6 +26,7 @@ def main(args) :
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(args.logging_dir, exist_ok=True)
     record_save_dir = os.path.join(output_dir, 'record')
+    os.makedirs(record_save_dir, exist_ok=True)
     with open(os.path.join(record_save_dir, 'config.json'), 'w') as f:
         json.dump(vars(args), f, indent=4)
 
