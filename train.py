@@ -87,7 +87,7 @@ def main(args) :
         print(f'anomaly_mask : {anomaly_mask.shape} , {type(anomaly_mask)}')
         print(f'augmented_image : {augmented_image.shape} , {type(augmented_image)}')
         break
-        
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Anomal Lora')

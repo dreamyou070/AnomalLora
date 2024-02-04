@@ -7,5 +7,6 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --output_dir ../../result/20240204 \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' \
+ --obj_name 'bagel' \
  --train_unet \
  --train_text_encoder
