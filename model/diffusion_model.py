@@ -1,6 +1,6 @@
 import os
 from diffusers import StableDiffusionPipeline
-from unet import UNet2DConditionModel
+from model.unet import UNet2DConditionModel
 def load_SD_model(args):
 
     name_or_path = args.pretrained_model_name_or_path
@@ -14,4 +14,4 @@ def load_SD_model(args):
                                          unet.config.upcast_attention,)
     original_unet.load_state_dict(unet.state_dict())
     unet = original_unet
-    return text_encoder, vae, unet, load_stable_diffusion_format
+    return text_encoder, vae, unet

@@ -1,7 +1,7 @@
 import os
 import argparse
 from model.diffusion_model import load_SD_model
-
+from model.lora import LoRANetwork
 def main(args) :
 
     print(f' step 1. setting')
@@ -10,7 +10,10 @@ def main(args) :
 
     print(f' step 2. model')
     text_encoder, vae, unet, _ = load_SD_model(args)
-    print(f' (2.2) lora')
+    network = LoRANetwork(text_encoder=text_encoder,
+                          unet=unet,
+                          lora_dim = args.network_dim,
+                          alpha = args.network_alpha,)
 
 
 
