@@ -12,6 +12,8 @@ from utils.scheduling_utils import get_scheduler
 from utils.model_utils import get_input_ids
 from PIL import Image
 import shutil
+import numpy as np
+
 def main(args) :
 
     print(f'\n step 1. model')
@@ -86,14 +88,14 @@ def main(args) :
                         for layer_name in args.trg_layer_list:
                             attn_map = attn_dict[layer_name][0]
                             cks_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
-                            print(f'trigger_map shape (8, pix_num) : {trigger_map.shape}')
-                            trigger_map = trigger_map.mean(dim=0) #
+                            trigger_map = (trigger_map.squeeze()).mean(dim=0) #
                             binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
                             pix_num = binary_map.shape[0]
                             res = int(pix_num ** 0.5)
                             binary_map = binary_map.unsqueeze(0)
                             binary_map = binary_map.view(res, res)
-                            binary_pil = Image.fromarray(binary_map.cpu().detach().numpy() * 255).resize((512, 512))
+
+                            binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8)* 255).resize((512, 512))
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
                 # --------------------------------- gen cross attn map ---------------------------------------------- #
                 org_img_save_dir = os.path.join(save_base_folder, f'{name}_org.png')
