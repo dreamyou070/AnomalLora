@@ -1,7 +1,8 @@
 from PIL import Image
 import numpy as np
 import torch
-def load_image(self, image_path, trg_h, trg_w):
+
+def load_image(image_path, trg_h, trg_w):
     image = Image.open(image_path)
     if not image.mode == "RGB":
         image = image.convert("RGB")
