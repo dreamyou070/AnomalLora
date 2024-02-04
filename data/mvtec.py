@@ -71,7 +71,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                  resize_shape=None,
                  tokenizer=None,
                  caption: str = None,
-                 synthhetic_anomaly: bool = True):
+                 do_synthetic_anomaly: bool = True):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -103,7 +103,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.transform = transforms.Compose([transforms.ToTensor(),
                                                                 transforms.Normalize([0.5], [0.5]),])
 
-        self.synthhetic_anomaly = do_synthhetic_anomaly
+        self.do_synthetic_anomaly = do_synthetic_anomaly
     def __len__(self):
         return len(self.image_paths)
 
@@ -153,7 +153,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [1] Read the image and apply general augmentation
         img = self.load_image(image_path, self.resize_shape[0], self.resize_shape[1])
         anomal_img = self.load_image(anomaly_source_path, self.resize_shape[0], self.resize_shape[1])
-        if self.synthhetic_anomaly:
+        if self.do_synthetic_anomaly :
             augmented_image, anomaly_mask = self.augment_image(img, anomal_img)
         else :
             augmented_image = img
@@ -168,7 +168,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                                                                     self.anomaly_source_paths[anomaly_source_idx])
         image = self.transform(image)
         augmented_image = self.transform(augmented_image)
-        if self.synthhetic_anomaly:
+        if self.do_synthetic_anomaly :
             anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
             anomal_torch = torch.tensor(np.array(anomal_pil))
             anomal_mask = torch.where(anomal_torch == 0, 1, 0) # strict anomal

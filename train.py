@@ -60,7 +60,7 @@ def main(args) :
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
                                      caption = caption,
-                                     synthhetic_anomaly=args.do_synthetic_anomaly,)
+                                     do_synthetic_anomaly=args.do_synthetic_anomaly,)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
