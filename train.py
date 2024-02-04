@@ -82,6 +82,8 @@ def main(args) :
                                                        requires_safety_checker=False,)
     # input_ids = batch["input_ids"].to(accelerator.device)
     # encoder_hidden_states = get_hidden_states(args, input_ids, tokenizer, text_encoders, weight_dtype)
+    latents = pipeline(prompt=args.prompt, height=512, width=512, num_inference_steps=args.num_ddim_steps,
+                       guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt,)
 
 
 if __name__ == '__main__':
@@ -112,8 +114,6 @@ if __name__ == '__main__':
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1,)
     parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
     # step 7. inference check
-    parser.add_argument("--log_with", type=str, default=None, choices=["tensorboard", "wandb", "all"], )
-    parser.add_argument("--log_with", type=str, default=None, choices=["tensorboard", "wandb", "all"], )
     parser.add_argument("--sample_sampler",type=str,default="ddim",
                         choices=["ddim","pndm","lms","euler","euler_a","heun","dpm_2","dpm_2_a","dpmsolver",
                                  "dpmsolver++","dpmsingle","k_lms","k_euler","k_euler_a","k_dpm_2","k_dpm_2_a",],)
@@ -122,5 +122,10 @@ if __name__ == '__main__':
     parser.add_argument("--scheduler_linear_end",type=float,default=0.012,)
     parser.add_argument("--scheduler_schedule",type=str,default="scaled_linear",
                         choices=["scaled_linear","linear","cosine","cosine_warmup",],)
+    parser.add_argument("--prompt", type=str, default="good",)
+    parser.add_argument("--num_ddim_steps", type=int, default=30)
+    parser.add_argument("--guidance_scale", type=float, default=8.5)
+    parser.add_argument("--negative_prompt", type=str,
+                        default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     args = parser.parse_args()
     main(args)
