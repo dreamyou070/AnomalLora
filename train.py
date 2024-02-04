@@ -14,7 +14,10 @@ def main(args) :
 
     print(f' step 2. model')
     text_encoder, vae, unet = load_SD_model(args)
-    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha,)
+    network = LoRANetwork(text_encoder=text_encoder, unet=unet,
+                          lora_dim = args.network_dim, alpha = args.network_alpha,)
+    if args.network_weights is not None:
+        network.load_weights(args.network_weights)
 
 
     print(f' step 3. dataset')
@@ -32,5 +35,6 @@ if __name__ == '__main__':
                         default='facebook/diffusion-dalle')
     parser.add_argument('--network_dim', type=int,default=64)
     parser.add_argument('--network_alpha', type=float,default=4)
+    parser.add_argument('--network_weights', type=str)
     args = parser.parse_args()
     main(args)

@@ -5,7 +5,7 @@ import torch
 import cv2
 import glob
 import imgaug.augmenters as iaa
-from perlin import rand_perlin_2d_np
+from data.perlin import rand_perlin_2d_np
 
 class MVTecDRAEMTestDataset(Dataset):
 
