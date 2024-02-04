@@ -81,7 +81,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.image_paths = sorted(glob.glob(root_dir+"/*.png"))
         print(f'len(self.image_paths): {len(self.image_paths)}')
 
-        self.anomaly_source_paths = sorted(glob.glob(anomaly_source_path+"/*/*.jpg"))
+        self.anomaly_source_paths = sorted(glob.glob(anomaly_source_path+"/*/*.png"))
         self.augmenters = [iaa.GammaContrast((0.5,2.0),per_channel=True),
                            iaa.MultiplyAndAddToBrightness(mul=(0.8,1.2),add=(-30,30)),
                            iaa.pillike.EnhanceSharpness(),

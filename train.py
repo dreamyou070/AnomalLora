@@ -28,9 +28,14 @@ def main(args) :
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
 
     print(f'\n step 4. dataset and dataloader')
-    dataset = MVTecDRAEMTrainDataset(root_dir=args.data_path + args.obj_name + "/train/good/",
-                                     #anomaly_source_path=args.anomaly_source_path,
-                                anomaly_source_path=args.data_path, resize_shape=[512,512],tokenizer=tokenizer,)
+    obj_dir = os.path.join(args.data_path, args.obj_name)
+    train_dir = os.path.join(obj_dir, "train")
+    root_dir = os.path.join(train_dir, "good/rgb")
+    args.anomaly_source_path = os.path.join(train_dir, "anomal")
+    dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
+                                     anomaly_source_path=args.anomaly_source_path,
+                                     resize_shape=[512, 512],
+                                     tokenizer=tokenizer, )
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
@@ -70,28 +75,19 @@ def main(args) :
 
     print(f'text encode deivce : {text_encoder.device} , unet device : {unet.device} network device : {network.device}')
     print(f'\n step 7. inference check')
-    scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
-    scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
-                              beta_start=args.scheduler_linear_start,
-                              beta_end=args.scheduler_linear_end,
-                              beta_schedule=args.scheduler_schedule)
-    pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae,
-                                                       text_encoder=text_encoder,
-                                                       tokenizer=tokenizer,
-                                                       unet=unet,
-                                                       scheduler=scheduler,
-                                                       safety_checker=None,
-                                                       feature_extractor=None,
-                                                       requires_safety_checker=False,
-                                                       random_vector_generator=None,
-                                                       trg_layer_list=None)
-    # input_ids = batch["input_ids"].to(accelerator.device)
-    # encoder_hidden_states = get_hidden_states(args, input_ids, tokenizer, text_encoders, weight_dtype)
-    latents = pipeline(prompt=args.prompt, height=512, width=512, num_inference_steps=args.num_ddim_steps,
-                       guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt,)
-    recon_image = pipeline.latents_to_image(latents[-1])[0].resize((512,512))
-    recon_image.save('test.png')
+    num_samples = dataset.__len__()
+    for sample_idx in range(num_samples) :
+        sample = dataset.__getitem__(sample_idx)
 
+        image = sample['image']
+        anomaly_mask = sample['anomaly_mask']
+        augmented_image = sample['augmented_image']
+
+        print(f'image : {image.shape} , {type(image)}')
+        print(f'anomaly_mask : {anomaly_mask.shape} , {type(anomaly_mask)}')
+        print(f'augmented_image : {augmented_image.shape} , {type(augmented_image)}')
+        break
+        
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Anomal Lora')
@@ -107,7 +103,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', type=float, default=1e-5)
     # step 4. dataset and dataloader
     parser.add_argument('--data_path', type=str,
-                        default=r'../../../MyData/anomaly_detection/MVTec/')
+                        default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
     parser.add_argument('--obj_name', type=str, default='bottle')
     parser.add_argument('--anomaly_source_path', type=str)
     parser.add_argument('--batch_size', type=int, default=1)
