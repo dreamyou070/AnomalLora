@@ -34,7 +34,7 @@ def main(args) :
                             shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
-    schedule_func = TYPE_TO_SCHEDULER_FUNCTION['cosine_with_restarts']
+    schedule_func = TYPE_TO_SCHEDULER_FUNCTION[SchedulerType.COSINE_WITH_RESTARTS]
     num_training_steps = len(dataloader) * args.num_epochs
     num_cycles = args.lr_scheduler_num_cycles
     lr_scheduler = schedule_func(optimizer, num_warmup_steps=args.num_warmup_steps,
