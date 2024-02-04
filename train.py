@@ -12,6 +12,7 @@ from utils.model_utils import get_noise_noisy_latents_and_timesteps
 from attention_store import AttentionStore
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
+from utils.attention_control import register_attention_control
 
 def main(args) :
 
