@@ -168,7 +168,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [2] caption
         input_ids, attention_mask = self.get_input_ids(self.caption)
 
-        print(f'in dataset, image : {type(image)}')
+        print(f'in dataset, input_ids : {input_ids} | {input_ids.shape}')
 
         sample = {'image': image,
                   "anomaly_mask": anomal_mask,

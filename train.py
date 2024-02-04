@@ -21,6 +21,7 @@ def main(args) :
     print(f'\n step 2. model')
     tokenizer = load_tokenizer(args)
     text_encoder, vae, unet = load_SD_model(args)
+    vae_scale_factor = 0.18215
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
 
     print(f'\n step 3. optimizer')
@@ -78,10 +79,34 @@ def main(args) :
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
         for step, batch in enumerate(train_dataloader):
 
+            # ----------------------------------------- image -------------------------------------------------------- #
+            with torch.no_grad():
+                latents = vae.encode(batch["images"].to(dtype=weight_dtype)).latent_dist.sample()
+                anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
+                if torch.any(torch.isnan(latents)):
+                    accelerator.print("NaN found in latents, replacing with zeros")
+                    latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
+                    anomal_latents = torch.where(torch.isnan(anomal_latents),
+                                                 torch.zeros_like(anomal_latents),anomal_latents)
+                latents = latents * vae_scale_factor
+                anomal_latents = anomal_latents * vae_scale_factor
+                input_latents = torch.cat([latents, anomal_latents], dim=0)
+
+            # ----------------------------------------- image -------------------------------------------------------- #
+            with torch.set_grad_enabled(text_encoder):
+
+                input_ids = batch["input_ids"].to(accelerator.device)
+                encoder_hidden_states = text_encoder(input_ids)
+                print(f'encoder_hidden_states.shape: {encoder_hidden_states}')
+
+            import time
+            time.sleep(1000)
+
             # [1] img
+            """
             img = batch['image']
             anomal_mask = batch['anomaly_mask']
-            synthetic_img = batch['augmented_image']
+            
             idx = batch['idx']
             input_ids = batch['input_ids']
 
@@ -90,9 +115,8 @@ def main(args) :
             print(f'synthetic_img.shape: {synthetic_img.shape}')
             print(f'idx.shape: {idx}')
             print(f'input_ids.shape: {input_ids}')
+            """
 
-            import time
-            time.sleep(1000)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Anomal Lora')
