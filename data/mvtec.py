@@ -157,7 +157,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             augmented_image, anomaly_mask = self.augment_image(img, anomal_img)
         else :
             augmented_image = img
-            anomaly_mask = torch.ones_like((64,64))
+            anomaly_mask = torch.ones((64, 64))
         return img, augmented_image, anomaly_mask
 
     def __getitem__(self, idx):
@@ -172,6 +172,8 @@ class MVTecDRAEMTrainDataset(Dataset):
             anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
             anomal_torch = torch.tensor(np.array(anomal_pil))
             anomal_mask = torch.where(anomal_torch == 0, 1, 0) # strict anomal
+        else :
+            anomal_mask = anomaly_mask.to(image.dtype)
 
         # -------------------------------------------------------------------------------------------------------------------
         # [2] caption
