@@ -21,7 +21,7 @@ def main(args) :
     print(f'\n step 2. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
-                            mixed_precision=args.mixed_precision,log_with=args.log_with, project_dir=args.logging_dir,)
+                            mixed_precision=args.mixed_precision,log_with=args.log_with, project_dir='log')
     vae.requires_grad_(False)
     vae.to(accelerator.device, dtype=weight_dtype)
     unet.requires_grad_(False)
