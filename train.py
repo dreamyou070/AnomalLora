@@ -16,6 +16,7 @@ def main(args) :
     text_encoder, vae, unet = load_SD_model(args)
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha,)
 
+
     print(f' step 3. dataset')
     #dataset = MVTecDRAEMTrainDataset(args.data_path + obj_name + "/train/good/",
     #                                         args.anomaly_source_path,
