@@ -111,6 +111,8 @@ if __name__ == '__main__':
     parser.add_argument('--lr_scheduler_num_cycles', type=int, default=1)
     parser.add_argument('--num_warmup_steps', type=int, default=100)
     # step 6
+    parser.add_argument('--train_unet', action='store_true')
+    parser.add_argument('--train_text_encoder', action='store_true')
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"],)
     parser.add_argument("--save_precision",type=str,default=None,choices=[None, "float", "fp16", "bf16"],)
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1,)
