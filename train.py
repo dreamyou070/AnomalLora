@@ -286,6 +286,8 @@ if __name__ == '__main__':
     parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
 
     # step 7. inference check
+
+    parser.add_argument("--max_train_steps", type=int, default=10000)
     parser.add_argument("--sample_sampler",type=str,default="ddim",
                         choices=["ddim","pndm","lms","euler","euler_a","heun","dpm_2","dpm_2_a","dpmsolver",
                                  "dpmsolver++","dpmsingle","k_lms","k_euler","k_euler_a","k_dpm_2","k_dpm_2_a",],)
@@ -299,7 +301,6 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
-
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
