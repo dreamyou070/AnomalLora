@@ -147,8 +147,8 @@ def main(args) :
             attn_dict = controller.step_store
             controller.reset()
             normal_feats, anormal_feats = [], []
-            dist_loss, attn_loss = 0, 0
-            normal_loss, anomal_loss = 0, 0
+            dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
+            attn_loss, normal_loss, anomal_loss = 0, 0, 0
             anomal_mask = batch['anomaly_mask'].flatten().squeeze(0)
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
@@ -177,9 +177,15 @@ def main(args) :
                 anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
                 normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
                 anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+
                 total_dist = normal_dist_mean + anormal_dist_mean
+
                 normal_dist_loss = (normal_dist_mean / total_dist) ** 2
                 anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
+
+                normal_dist_loss = normal_dist_loss * args.dist_loss_weight
+                anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
+
                 dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
 
                 attention_score = attn_dict[trg_layer][0] # batch, pix_num, 2
@@ -223,6 +229,8 @@ def main(args) :
             if args.do_dist_loss:
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
+                loss_dict['normal_dist_loss'] = normal_dist_loss.item()
+                loss_dict['anormal_dist_loss'] = anormal_dist_loss.item()
             if args.do_attn_loss:
                 loss += attn_loss.mean()
                 loss_dict['attn_loss'] = attn_loss.mean().item()

@@ -1296,62 +1296,11 @@ class LoRANetwork(torch.nn.Module):
 
         if os.path.splitext(file)[1] == ".safetensors":
             from safetensors.torch import save_file
-            from library import train_util
-
-            # Precalculate model hashes to save time on indexing
             if metadata is None:
                 metadata = {}
-            model_hash, legacy_hash = train_util.precalculate_safetensors_hashes(state_dict, metadata)
-            metadata["sshs_model_hash"] = model_hash
-            metadata["sshs_legacy_hash"] = legacy_hash
-
             save_file(state_dict, file, metadata)
         else:
             torch.save(state_dict, file)
-
-    # mask is a tensor with values from 0 to 1
-    def set_region(self, sub_prompt_index, is_last_network, mask):
-        if mask.max() == 0:
-            mask = torch.ones_like(mask)
-
-        self.mask = mask
-        self.sub_prompt_index = sub_prompt_index
-        self.is_last_network = is_last_network
-
-        for lora in self.text_encoder_loras + self.unet_loras:
-            lora.set_network(self)
-
-    def set_current_generation(self, batch_size, num_sub_prompts, width, height, shared):
-        self.batch_size = batch_size
-        self.num_sub_prompts = num_sub_prompts
-        self.current_size = (height, width)
-        self.shared = shared
-
-        # create masks
-        # create masks
-        mask = self.mask
-        mask_dic = {}
-        mask = mask.unsqueeze(0).unsqueeze(1)  # b(1),c(1),h,w
-        ref_weight = self.text_encoder_loras[0].lora_down.weight if self.text_encoder_loras else self.unet_loras[0].lora_down.weight
-        dtype = ref_weight.dtype
-        device = ref_weight.device
-
-        def resize_add(mh, mw):
-            # print(mh, mw, mh * mw)
-            m = torch.nn.functional.interpolate(mask, (mh, mw), mode="bilinear")  # doesn't work in bf16
-            m = m.to(device, dtype=dtype)
-            mask_dic[mh * mw] = m
-
-        h = height // 8
-        w = width // 8
-        for _ in range(4):
-            resize_add(h, w)
-            if h % 2 == 1 or w % 2 == 1:  # add extra shape if h/w is not divisible by 2
-                resize_add(h + h % 2, w + w % 2)
-            h = (h + 1) // 2
-            w = (w + 1) // 2
-
-        self.mask_dic = mask_dic
 
     def backup_weights(self):
         # 重みのバックアップを行う
