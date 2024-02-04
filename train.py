@@ -82,9 +82,8 @@ def main(args) :
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
         for step, batch in enumerate(train_dataloader):
 
-            # ----------------------------------------- image -------------------------------------------------------- #
             with torch.no_grad():
-                latents = vae.encode(batch["images"].to(dtype=weight_dtype)).latent_dist.sample()
+                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 if torch.any(torch.isnan(latents)):
                     accelerator.print("NaN found in latents, replacing with zeros")
@@ -94,42 +93,24 @@ def main(args) :
                 latents = latents * vae_scale_factor
                 anomal_latents = anomal_latents * vae_scale_factor
                 input_latents = torch.cat([latents, anomal_latents], dim=0)
-
-            # ----------------------------------------- text -------------------------------------------------------- #
             with torch.set_grad_enabled(text_encoder):
-                input_ids = batch["input_ids"].to(accelerator.device)
+                input_ids = batch["input_ids"].to(accelerator.device) # batch, 1, 77 sen len
                 encoder_hidden_states = text_encoder(input_ids)
                 print(f'encoder_hidden_states.shape: {encoder_hidden_states}')
             input_text_encoder_conds = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
-            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,
-                                                                                    input_latents,)
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,input_latents)
             with accelerator.autocast():
-                noise_pred = self.call_unet(args,
-                                            accelerator,
-                                            unet,
-                                            noisy_latents,
-                                            timesteps,
-                                            input_text_encoder_conds,
-                                            batch,
-                                            weight_dtype, 1, None)
+                noise_pred = unet(noisy_latents, timesteps, input_text_encoder_conds,).sample
+                                  #trg_indexs_list=trg_indexs_list, mask_imgs=mask_imgs,).sample
                 normal_noise_pred, anomal_noise_pred = torch.chunk(noise_pred, 2, dim=0)
 
             # ------------------------------------- (1) task loss ------------------------------------- #
             if args.do_task_loss:
-                if args.v_parameterization:
-                    target = noise_scheduler.get_velocity(latents, noise.chunk(2, dim=0)[0],
-                                                          timesteps)
-                else:
-                    target = noise.chunk(2, dim=0)[0]
-                loss = torch.nn.functional.mse_loss(normal_noise_pred.float(),
-                                                    target.float(), reduction="none")
+                target = noise.chunk(2, dim=0)[0]
+                loss = torch.nn.functional.mse_loss(normal_noise_pred.float(), target.float(), reduction="none")
                 loss = loss.mean([1, 2, 3])
-                loss_weights = batch["loss_weights"]  # 各sampleごとのweight
-                loss = loss * loss_weights
-                task_loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
+                task_loss = loss.mean()
                 task_loss = task_loss * args.task_loss_weight
-
-
 
             import time
             time.sleep(1000)
