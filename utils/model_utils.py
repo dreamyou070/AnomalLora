@@ -5,9 +5,8 @@ def get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents, noise 
     if noise is None:
         noise = torch.randn_like(latents, device=latents.device)
     b_size = latents.shape[0]
-    min_timestep = 0 if args.min_timestep is None else args.min_timestep
-    max_timestep = noise_scheduler.config.num_train_timesteps if args.max_timestep is None else args.max_timestep
-
+    min_timestep = 0
+    max_timestep = noise_scheduler.config.num_train_timesteps
     timesteps = torch.randint(min_timestep, max_timestep, (b_size,), device=latents.device)
     timesteps = timesteps.long()
     if args.ip_noise_gamma:
