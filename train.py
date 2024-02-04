@@ -75,8 +75,8 @@ def main(args) :
 
     print(f'\n step 7. Train!')
 
-    for epoch in range(0, args.num_train_epochs):
-        accelerator.print(f"\nepoch {epoch + 1}/{args.num_train_epochs}")
+    for epoch in range(0, args.num_epochs):
+        accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
         network.on_epoch_start(text_encoder, unet)
 
         for step, batch in enumerate(train_dataloader):
@@ -126,6 +126,7 @@ if __name__ == '__main__':
     parser.add_argument("--save_precision",type=str,default=None,choices=[None, "float", "fp16", "bf16"],)
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1,)
     parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
+
     # step 7. inference check
     parser.add_argument("--sample_sampler",type=str,default="ddim",
                         choices=["ddim","pndm","lms","euler","euler_a","heun","dpm_2","dpm_2_a","dpmsolver",
