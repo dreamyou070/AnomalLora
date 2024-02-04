@@ -72,6 +72,7 @@ def main(args) :
     print(f'\n step 6. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
 
+    """
     if args.log_with in ["wandb", "all"]:
         try:
             import wandb
@@ -80,6 +81,7 @@ def main(args) :
         os.environ["WANDB_DIR"] = args.logging_dir
         if args.wandb_api_key is not None:
             wandb.login(key=args.wandb_api_key)
+    """
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
                               mixed_precision=args.mixed_precision,
                               log_with=args.log_with,
