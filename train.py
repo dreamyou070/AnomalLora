@@ -50,7 +50,6 @@ def main(args) :
     vae.to(accelerator.device)
     unet.requires_grad_(False)
     text_encoder.requires_grad_(False)
-
     if args.train_unet and args.train_text_encoder:
         unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
             unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
@@ -88,7 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('--anomaly_source_path', type=str)
     parser.add_argument('--batch_size', type=int, default=1)
     # step 5. lr
-    parser.add_argument('--num_epochs, type=int', default=10)
+    parser.add_argument('--num_epochs', type=int, default=10)
     parser.add_argument('--lr_scheduler_num_cycles', type=int, default=1)
     parser.add_argument('--num_warmup_steps', type=int, default=100)
     # step 6
