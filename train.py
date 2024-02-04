@@ -16,6 +16,7 @@ from tqdm import tqdm
 from utils.attention_control import register_attention_control
 from utils import get_epoch_ckpt_name, save_model
 import time
+import json
 
 def main(args) :
 
@@ -24,6 +25,9 @@ def main(args) :
     args.logging_dir = os.path.join(output_dir, 'log')
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(args.logging_dir, exist_ok=True)
+    record_save_dir = os.path.join(output_dir, 'record')
+    with open(os.path.join(record_save_dir, 'config.json'), 'w') as f:
+        json.dump(vars(args), f, indent=4)
 
     print(f'\n step 2. model')
     tokenizer = load_tokenizer(args)
