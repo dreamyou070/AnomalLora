@@ -31,7 +31,9 @@ def register_attention_control(unet: nn.Module,
             attention_probs = attention_scores.softmax(dim=-1)
             # cast back to the original dtype
             attention_probs = attention_probs.to(value.dtype)
+            print(f'storing map')
             if trg_indexs_list is not None and layer_name in trg_indexs_list:
+                print(f'storing map on {layer_name}')
                 trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
             hidden_states = torch.bmm(attention_probs, value)
