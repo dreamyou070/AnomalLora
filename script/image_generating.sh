@@ -8,4 +8,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --train_unet \
  --train_text_encoder \
- --obj_name "bagel" \
+ --obj_name "bagel"
