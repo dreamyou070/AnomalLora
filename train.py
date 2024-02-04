@@ -200,6 +200,7 @@ def main(args) :
             if args.do_attn_loss:
                 loss += attn_loss
                 loss_dict['attn_loss'] = attn_loss.item()
+
             current_loss = loss.detach().item()
             if epoch == 0 :
                 loss_list.append(current_loss)
