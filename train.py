@@ -5,13 +5,14 @@ from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
 from data.mvtec import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
+from accelerate import Accelerator
 def main(args) :
 
     print(f'\n step 1. setting')
     output_dir = args.output_dir
-    log_dir = os.path.join(output_dir, 'log')
+    args.log_dir = os.path.join(output_dir, 'log')
     os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(log_dir, exist_ok=True)
+    os.makedirs(args.log_dir, exist_ok=True)
 
     print(f'\n step 2. model')
     tokenizer = load_tokenizer(args)
@@ -27,9 +28,8 @@ def main(args) :
 
     print(f'\n step 4. dataset and dataloader')
     dataset = MVTecDRAEMTrainDataset(root_dir=args.data_path + args.obj_name + "/train/good/",
-                                     anomaly_source_path=args.anomaly_source_path,
-                                     resize_shape=[512,512],
-                                     tokenizer=tokenizer,)
+                                     #anomaly_source_path=args.anomaly_source_path,
+                                anomaly_source_path=args.data_path, resize_shape=[512,512],tokenizer=tokenizer,)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size,
                             shuffle=True, num_workers=16)
 
@@ -40,8 +40,29 @@ def main(args) :
     lr_scheduler = schedule_func(optimizer, num_warmup_steps=args.num_warmup_steps,
                                  num_training_steps=num_training_steps, num_cycles=num_cycles, )
 
+    print(f'\n step 6. accelerator and device')
+    weight_dtype = torch.float16 if args.use_fp16 else torch.float32
+    accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
+                            mixed_precision=args.mixed_precision, log_with=args.log_with,project_dir=args.logging_dir,)
+    is_main_process = accelerator.is_main_process
+    vae.requires_grad_(False)
+    vae.to(dtype=weight_dtype, accelerator.device)
+    unet.requires_grad_(False)
+    text_encoder.requires_grad_(False)
 
-    # dataset.take_text_model(tokenizer, text_encoder)
+    if args.train_unet and args.train_text_encoder:
+        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+            unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
+    elif args.train_unet:
+        unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
+                                                                                       dataloader, lr_scheduler)
+        text_encoder.to(accelerator.device,dtype=weight_dtype)
+    elif args.train_text_encoder:
+        text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
+                                                                                               optimizer, dataloader, lr_scheduler)
+        unet.to(accelerator.device,dtype=weight_dtype)
+    network.prepare_grad_etc(text_encoder, unet)
+
     #
     # input_ids = batch["input_ids"].to(accelerator.device)
     # encoder_hidden_states = get_hidden_states(args, input_ids, tokenizer, text_encoders, weight_dtype)
@@ -69,6 +90,10 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs, type=int', default=10)
     parser.add_argument('--lr_scheduler_num_cycles', type=int, default=1)
     parser.add_argument('--num_warmup_steps', type=int, default=100)
+    # step 6
+    parser.add_argument("--gradient_accumulation_steps",type=int,default=1,)
+    parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"],)
+    parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
 
     args = parser.parse_args()
     main(args)
