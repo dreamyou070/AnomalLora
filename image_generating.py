@@ -104,7 +104,8 @@ def main(args) :
             latents = pipeline(prompt=gen_caption,
                                height=512, width=512,
                                num_inference_steps=args.num_ddim_steps,
-                               guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt,)
+                               guidance_scale=args.guidance_scale,
+                               negative_prompt=args.negative_prompt,)
             recon_image = pipeline.latents_to_image(latents[-1])[0].resize((512,512))
             recon_image.save(os.path.join(adjective_base_folder, f'{adjective}_{i}.png'))
 
