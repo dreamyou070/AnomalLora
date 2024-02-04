@@ -31,6 +31,8 @@ def main(args) :
     print(f'\n step 4. dataset and dataloader')
     if ' ' in args.obj_name:
         obj_name_folder = args.obj_name.replace(' ', '_')
+    else :
+        obj_name_folder = args.obj_name
     obj_dir = os.path.join(args.data_path, obj_name_folder)
     train_dir = os.path.join(obj_dir, "train")
     root_dir = os.path.join(train_dir, "good/rgb")
