@@ -113,7 +113,6 @@ if __name__ == '__main__':
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"], )
     parser.add_argument("--save_precision", type=str, default=None, choices=[None, "float", "fp16", "bf16"], )
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, )
-    parser.add_argument("--log_with", type=str, default=None, choices=["tensorboard", "wandb", "all"], )
     parser.add_argument('--data_path', type=str,
                         default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
     parser.add_argument('--obj_name', type=str, default='bagel')
