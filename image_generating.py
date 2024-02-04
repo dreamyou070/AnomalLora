@@ -108,7 +108,7 @@ def main(args) :
                                guidance_scale=args.guidance_scale,
                                negative_prompt=args.negative_prompt,)
             recon_image = pipeline.latents_to_image(latents[-1])[0].resize((512,512))
-            recon_image.save(os.path.join(adjective_base_folder, f'{adjective}_{i}.png'))
+            recon_image.save(f'test.png')
 
 
 
