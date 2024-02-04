@@ -50,23 +50,25 @@ def main(args) :
     vae.to(accelerator.device)
     unet.requires_grad_(False)
     text_encoder.requires_grad_(False)
-    if args.train_unet and args.train_text_encoder:
-        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
-    elif args.train_unet:
-        unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
-                                                                                       dataloader, lr_scheduler)
-        text_encoder.to(accelerator.device,dtype=weight_dtype)
-    elif args.train_text_encoder:
-        text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
-                                                                                               optimizer, dataloader, lr_scheduler)
-        unet.to(accelerator.device,dtype=weight_dtype)
     print(f' (6.2) network with stable diffusion model')
     network.prepare_grad_etc(text_encoder, unet)
     network.apply_to(text_encoder, unet, True, True)
     if args.network_weights is not None:
         network.load_weights(args.network_weights)
 
+    if args.train_unet and args.train_text_encoder:
+        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                                                    unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
+    elif args.train_unet:
+        unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
+                                                                                       dataloader, lr_scheduler)
+        text_encoder.to(accelerator.device,dtype=weight_dtype)
+    elif args.train_text_encoder:
+        text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
+                                                                                    optimizer, dataloader, lr_scheduler)
+        unet.to(accelerator.device,dtype=weight_dtype)
+
+    print(f'text encode deivce : {text_encoder.device} , unet device : {unet.device} network device : {network.device}')
     print(f'\n step 7. inference check')
     scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
     scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
@@ -75,7 +77,8 @@ def main(args) :
                               beta_schedule=args.scheduler_schedule)
     pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae,
                                                        text_encoder=text_encoder,
-                                                       tokenizer=tokenizer, unet=unet,
+                                                       tokenizer=tokenizer,
+                                                       unet=unet,
                                                        scheduler=scheduler,
                                                        safety_checker=None,
                                                        feature_extractor=None,
