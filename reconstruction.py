@@ -79,7 +79,7 @@ def main(args) :
                         img = load_image(rgb_img_dir, 512, 512)
                         vae_latent = image2latent(img, vae, weight_dtype)
                         input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
-                        encoder_hidden_states = text_encoder(input_ids)["last_hidden_state"]  # batch, 77, 768
+                        encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]  # batch, 77, 768
                         unet(vae_latent,0,encoder_hidden_states, args.trg_layer_list, None)
                         attn_dict = controller.step_store
                         controller.reset()
