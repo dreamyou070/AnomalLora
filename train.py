@@ -181,6 +181,10 @@ def main(args) :
                 anormal_position = anomal_mask.unsqueeze(0).repeat(head_num, 1)
                 anormal_cls_score_loss = (1-(anormal_cls_score/anormal_position)) ** 2
                 anormal_trigger_score_loss = (anormal_trigger_score/anormal_position) ** 2
+                print(f'normal_cls_score_loss : {normal_cls_score_loss}')
+                print(f'normal_trigger_score_loss : {normal_trigger_score_loss}')
+                print(f'anormal_cls_score_loss : {anormal_cls_score_loss}')
+                print(f'anormal_trigger_score_loss : {anormal_trigger_score_loss}')
 
                 attn_loss += args.normal_weight * normal_trigger_score_loss + \
                              args.anormal_weight * anormal_trigger_score_loss
@@ -197,7 +201,6 @@ def main(args) :
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
             if args.do_attn_loss:
-                print(f'attn_loss (8) : {attn_loss.shape}')
                 loss += attn_loss.mean()
                 loss_dict['attn_loss'] = attn_loss.mean().item()
 
