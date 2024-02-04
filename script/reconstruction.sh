@@ -1,6 +1,6 @@
 # !/bin/bash
 
-port_number=53102
+port_number=53112
 obj_name='bagel'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
