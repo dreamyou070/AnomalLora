@@ -5,8 +5,10 @@ from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
 from data.mvtec import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
+from diffusers import DDPMScheduler
 from accelerate import Accelerator
 from utils import prepare_dtype
+from utils.model_utils import get_noise_noisy_latents_and_timesteps
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 
@@ -23,7 +25,8 @@ def main(args) :
     text_encoder, vae, unet = load_SD_model(args)
     vae_scale_factor = 0.18215
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
-
+    noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
+                                                                            num_train_timesteps=1000, clip_sample=False)
     print(f'\n step 3. optimizer')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
@@ -92,12 +95,41 @@ def main(args) :
                 anomal_latents = anomal_latents * vae_scale_factor
                 input_latents = torch.cat([latents, anomal_latents], dim=0)
 
-            # ----------------------------------------- image -------------------------------------------------------- #
+            # ----------------------------------------- text -------------------------------------------------------- #
             with torch.set_grad_enabled(text_encoder):
-
                 input_ids = batch["input_ids"].to(accelerator.device)
                 encoder_hidden_states = text_encoder(input_ids)
                 print(f'encoder_hidden_states.shape: {encoder_hidden_states}')
+            input_text_encoder_conds = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,
+                                                                                    input_latents,)
+            with accelerator.autocast():
+                noise_pred = self.call_unet(args,
+                                            accelerator,
+                                            unet,
+                                            noisy_latents,
+                                            timesteps,
+                                            input_text_encoder_conds,
+                                            batch,
+                                            weight_dtype, 1, None)
+                normal_noise_pred, anomal_noise_pred = torch.chunk(noise_pred, 2, dim=0)
+
+            # ------------------------------------- (1) task loss ------------------------------------- #
+            if args.do_task_loss:
+                if args.v_parameterization:
+                    target = noise_scheduler.get_velocity(latents, noise.chunk(2, dim=0)[0],
+                                                          timesteps)
+                else:
+                    target = noise.chunk(2, dim=0)[0]
+                loss = torch.nn.functional.mse_loss(normal_noise_pred.float(),
+                                                    target.float(), reduction="none")
+                loss = loss.mean([1, 2, 3])
+                loss_weights = batch["loss_weights"]  # 各sampleごとのweight
+                loss = loss * loss_weights
+                task_loss = loss.mean()  # 平均なのでbatch_sizeで割る必要なし
+                task_loss = task_loss * args.task_loss_weight
+
+
 
             import time
             time.sleep(1000)
