@@ -106,6 +106,7 @@ def main(args) :
                                    negative_prompt=args.negative_prompt,
                                    reference_image=vae_latent,
                                    mask=binary_map)
+                controller.reset()
                 recon_image = pipeline.latents_to_image(latents[-1])[0].resize((org_h, org_w))
                 img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
                 recon_image.save(img_dir)
