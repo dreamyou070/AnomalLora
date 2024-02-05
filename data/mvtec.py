@@ -119,18 +119,17 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [1] get anomal mask
         perlin_scale = 6
         min_perlin_scale = 0
-        perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
-        perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
+        rand_1 = torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0]
+        rand_2 = torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0]
+        perlin_scalex, perlin_scaley = 2 ** (rand_1), 2** (rand_2)
         perlin_noise = rand_perlin_2d_np((self.resize_shape[0], self.resize_shape[1]), (perlin_scalex, perlin_scaley))
-        #perlin_noise = self.rot(image=perlin_noise)
         threshold = 0.5
         perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
         perlin_thr = np.expand_dims(perlin_thr, axis=2)
 
-        # [2] synthetic image
+        # [2] synthetic image (white noise, black image)
         beta = torch.rand(1).numpy()[0] * 0.8
-        augmented_image = (1 - perlin_thr) * image + \
-                          (perlin_thr) * (beta * image + (1 - beta) * anomaly_source)
+        augmented_image = (1 - perlin_thr) * image + (perlin_thr) * (beta * image + (1 - beta) * anomaly_source)
         return augmented_image, perlin_thr
 
     def load_image(self, image_path, trg_h, trg_w):
@@ -152,7 +151,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         anomal_img = self.load_image(self.anomaly_source_paths[anomaly_source_idx],
                                      self.resize_shape[0], self.resize_shape[1])
 
-        # [2] augment
+        # [2] augment ( anomaly mask white = anomal position )
         augmented_image, anomaly_mask = self.augment_image(img, anomal_img)
 
         # [3] final
@@ -162,7 +161,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             # -----------------------------------------------------------------------------------------------
             anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
             anomal_torch = torch.tensor(np.array(anomal_pil))
-            anomal_mask = torch.where(anomal_torch == 0, 1, 0)  # strict anomal
+            anomal_mask = torch.where(anomal_torch == 1, 1, 0)  # strict anomal
         else :
             anomal_image = self.transform(anomal_img)
             anomal_mask = torch.ones((64,64)).to(image.dtype)
