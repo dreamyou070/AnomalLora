@@ -181,7 +181,6 @@ def main(args) :
                     normal_feat = normal_query[pix_idx].squeeze(0)
                     normal_feats.append(normal_feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feats, dim=0)
-                anormal_feats = torch.cat(anormal_feat_list, dim=0)
                 normal_mu = torch.mean(normal_feats, dim=0)
                 normal_cov = torch.cov(normal_feats.transpose(0, 1))
 
