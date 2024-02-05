@@ -183,6 +183,7 @@ def main(args) :
                         anormal_feats.append(anomal_feat.unsqueeze(0))
                     normal_feats.append(normal_feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feats, dim=0)
+                print(f'anormal_feats shape : {anormal_feats.shape}')
                 anormal_feats = torch.cat(anormal_feats, dim=0)
                 normal_mu = torch.mean(normal_feats, dim=0)
                 normal_cov = torch.cov(normal_feats.transpose(0, 1))
