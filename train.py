@@ -59,18 +59,16 @@ def main(args) :
     obj_dir = os.path.join(args.data_path, args.obj_name)
     train_dir = os.path.join(obj_dir, "train")
     root_dir = os.path.join(train_dir, "good/rgb")
-    if args.general_training :
-        caption = 'good'
-        args.anomaly_source_path = os.path.join(train_dir, "anomal_general")
-    else :
-        caption = args.obj_name
+    if args.trigger_word == args.obj_name:
         args.anomaly_source_path = os.path.join(train_dir, "anomal")
-    print(f' trigger word : {caption}')
+    else :
+        args.anomaly_source_path = os.path.join(train_dir, "anomal_general")
+    print(f' trigger word : {args.trigger_word}')
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
-                                     caption = caption)
+                                     caption = args.trigger_word)
 
 
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
@@ -408,5 +406,6 @@ if __name__ == '__main__':
     parser.add_argument("--output_name", type=str, default=None,
                         help="base name of trained model file / 学習後のモデルの拡張子を除くファイル名")
     parser.add_argument("--general_training", action='store_true')
+    parser.add_argument("--trigger_word", type = str, default = "good")
     args = parser.parse_args()
     main(args)
