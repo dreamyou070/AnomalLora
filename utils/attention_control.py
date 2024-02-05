@@ -56,6 +56,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                             anomal_features.append(sub_feature.unsqueeze(0))
                             anomal_map.append(1)
                         else:
+                            # ----------------------------------------------------------------------------------------- #
+                            # append normal feature
                             anomal_features.append(normal_feat.unsqueeze(0))
                             anomal_map.append(0)
                     noise = torch.cat(anomal_features, dim=0).to(hidden_states.dtype)

@@ -41,7 +41,7 @@ def main(args) :
     print(f' (2.2) LoRA network')
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
     print(f' (2.3) segmentation model')
-    seg_model = SegmentationSubNetwork(in_channels=8, out_channels=1,)
+    seg_model = SegmentationSubNetwork(in_channels=2, out_channels=1,)
 
     print(f' (2.2) attn controller')
     controller = AttentionStore()
@@ -218,7 +218,7 @@ def main(args) :
                 normal_cls_score, anormal_cls_score = normal_cls_score.squeeze(), anormal_cls_score.squeeze()  # head, pix_num
                 normal_trigger_score, anormal_trigger_score = normal_trigger_score.squeeze(), anormal_trigger_score.squeeze()
 
-                anomal_map_vector = anomal_map_vector.unsqueeze(0).repeat(normal_cls_score.shape[0], 1)
+                anomal_map_vector = anomal_map_vector.unsqueeze(0).repeat(normal_cls_score.shape[0], 1).to(anormal_cls_score.device)
                 anormal_cls_score, anormal_trigger_score = anormal_cls_score * anomal_map_vector, anormal_trigger_score * anomal_map_vector
 
                 anormal_cls_score, anormal_trigger_score = anormal_cls_score.mean(dim=0), anormal_trigger_score.mean(dim=0)
@@ -238,8 +238,13 @@ def main(args) :
                     attn_loss += args.normal_weight * normal_cls_score_loss + args.anormal_weight * anormal_cls_score_loss
                     normal_loss += normal_cls_score_loss
                     anomal_loss += anormal_cls_score_loss
+            ############################################ 3. segmentation net ###########################################
+            #org_latent =
+            #anomal_latent =
+            #seg_input = torch.cat((aug_image, pred_x0), dim=1)  # [batch, 6, 256, 256]
+            #pred_mask = seg_model(torch.cat((aug_image, pred_x0), dim=1))  # [batch, 1, 256, 256]
 
-            ############################################ 3. total Loss ##################################################
+            ############################################ 4. total Loss ##################################################
             if args.do_task_loss:
                 loss += task_loss
                 loss_dict['task_loss'] = task_loss.item()
