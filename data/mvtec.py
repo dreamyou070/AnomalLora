@@ -124,7 +124,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         perlin_scalex, perlin_scaley = 2 ** (rand_1), 2** (rand_2)
         perlin_noise = rand_perlin_2d_np((self.resize_shape[0], self.resize_shape[1]), (perlin_scalex, perlin_scaley))
         threshold = 0.3
-        perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
+        perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise)) #
         perlin_thr = np.expand_dims(perlin_thr, axis=2)
 
         # [2] synthetic image (white noise, black image)
