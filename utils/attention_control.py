@@ -6,7 +6,8 @@ from attention_store import AttentionStore
 def mahal(u, v, cov):
     delta = u - v
     cov_inv = cov.T
-    m = torch.dot(delta, torch.matmul(cov_inv, delta))
+    m_ = torch.matmul(cov_inv, delta)
+    m = torch.dot(delta, m_)
     return torch.sqrt(m)
 
 def make_perlin_noise(shape_row, shape_column):
@@ -68,7 +69,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                         sub_feature = anormal_hidden_states[pix_idx, :].squeeze(0)
                         down_dim_sub_feature = torch.index_select(sub_feature.unsqueeze(0), 1, idx)
                         normal_feat = normal_hidden_states[pix_idx, :].squeeze(0)
-                        sub_dist = mahal(down_dim_sub_feature.float(), normal_mu, normal_cov)
+                        sub_dist = mahal(down_dim_sub_feature.float().squeeze(), normal_mu.squeeze(), normal_cov)
                         if sub_dist > th.item():
                             anomal_features.append(sub_feature.unsqueeze(0))
                             anomal_map.append(1)
