@@ -45,7 +45,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     # ---------------------------------------------------------------------------------------------- #
                     if mask == 'perlin' : # mask means using perlin noise
                         perlin_noise = make_perlin_noise(pix_num, dim)
-                        perlin_noise = hidden_states.squeeze() * perlin_noise
+                        print(f'hidden_states.shape: {hidden_states} ')
+                        print(f'perlin_noise.shape: {perlin_noise} ')
+                        perlin_noise = hidden_states.squeeze() + perlin_noise
+
                         noise = torch.tensor(perlin_noise).to(hidden_states.device)
                     else :
                         noise = torch.randn_like(hidden_states).to(hidden_states.device)
