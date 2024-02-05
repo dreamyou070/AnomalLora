@@ -54,7 +54,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     anormal_hidden_states = noise.squeeze(0)
                     for pix_idx in range(pix_num):
                         sub_feature, normal_feat = anormal_hidden_states[pix_idx, :].squeeze(0), normal_hidden_states[pix_idx, :].squeeze(0)
-                        print(f'sub_feature : {sub_feature.shape}, normal_feat : {normal_feat.shape}')
                         sub_dist = mahal(sub_feature.float(), normal_mu, normal_cov)
                         if sub_dist > mean_dist.item():
                             anomal_features.append(sub_feature.unsqueeze(0))
