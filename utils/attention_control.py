@@ -44,24 +44,24 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     down_dim = 100
                     idx = torch.tensor(sample(range(0, dim), down_dim)).to(hidden_states.device)
                     # print(idx)
-                    normal_feats = torch.index_select(normal_feats, 1, idx)
-                    normal_mu = torch.mean(normal_feats, dim=0)
-                    normal_cov = torch.cov(normal_feats.transpose(0, 1))
-
-
-
+                    normal_feats = torch.index_select(normal_feats, 1, idx) # pix_num, 100
+                    normal_mu = torch.mean(normal_feats, dim=0)             # 100
+                    normal_cov = torch.cov(normal_feats.transpose(0, 1))    # 100, 100
                     # ---------------------------------------------------------------------------------------------- #
                     normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
                     max_dist = max(normal_mahalanobis_dists)
-                    #mean_dist = torch.mean(torch.tensor(normal_mahalanobis_dists))
                     th = max_dist.item() * 0.8
+
                     # ---------------------------------------------------------------------------------------------- #
                     if mask == 'perlin' : # mask means using perlin noise
                         perlin_noise = make_perlin_noise(pix_num, dim)
                         perlin_noise = torch.tensor(perlin_noise).to(hidden_states.device)
                         noise = hidden_states.squeeze() + perlin_noise
                     else :
-                        noise = torch.randn_like(hidden_states).to(hidden_states.device)
+                        noise = hidden_states + torch.randn_like(hidden_states).to(hidden_states.device)
+                        noise = noise.squeeze()
+
+
                     anomal_map, anomal_features = [], []
                     normal_hidden_states = hidden_states.squeeze(0)
                     anormal_hidden_states = noise.squeeze(0)
@@ -85,7 +85,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     # ---------------------------------------------------------------------------------------------- #
                     temp_query = torch.cat([query, self.to_q(anormal_hidden_states.unsqueeze(0))], dim=0)
                     controller.save_query(temp_query, layer_name) # [2, res*res, 320]
-                    controller.save_query([normal_mu, normal_cov], layer_name)
+                    controller.save_query([normal_mu, normal_cov, idx], layer_name)
                     controller.save_map(anomal_map, layer_name)   # [res,res]
                     temp_query = self.reshape_heads_to_batch_dim(temp_query)
                     if self.upcast_attention:

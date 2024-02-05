@@ -189,7 +189,7 @@ def main(args) :
                         anormal_feat_list.append(anormal_feat.unsqueeze(0))
                     normal_feat_list.append(normal_feat.unsqueeze(0))
 
-                mu, cov = query_dict[trg_layer][1]
+                mu, cov, idx = query_dict[trg_layer][1]
 
                 def mahal(u, v, cov):
                     delta = u - v
@@ -198,11 +198,13 @@ def main(args) :
                     return torch.sqrt(m)
 
                 n_features = torch.cat(normal_feat_list, dim=0)
+                n_features = torch.index_select(n_features, 1, idx)
                 n_dists = [mahal(feat, mu, cov) for feat in n_features]
                 normal_dist_mean = torch.tensor(n_dists).mean()
+
                 if len(anormal_feat_list) > 0:
-                    # there is no anormal feat ...
                     a_features = torch.cat(anormal_feat_list, dim=0)
+                    a_features = torch.index_select(a_features, 1, idx)
                     a_dists = [mahal(feat, mu, cov) for feat in a_features]
                     anormal_dist_mean = torch.tensor(a_dists).mean()
                 else :
