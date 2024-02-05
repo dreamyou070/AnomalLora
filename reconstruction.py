@@ -73,6 +73,7 @@ def main(args) :
             for rgb_img in rgb_imgs:
                 name, ext = os.path.splitext(rgb_img)
                 rgb_img_dir = os.path.join(rgb_folder, rgb_img)
+                org_h, org_w = Image.open(rgb_img_dir).size
                 gt_img_dir = os.path.join(gt_folder, rgb_img)
                 # --------------------------------- gen cross attn map ---------------------------------------------- #
                 if accelerator.is_main_process:
@@ -94,14 +95,26 @@ def main(args) :
                             res = int(pix_num ** 0.5)
                             binary_map = binary_map.unsqueeze(0)
                             binary_map = binary_map.view(res, res)
-
                             binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8)* 255).resize((512, 512))
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
                 # --------------------------------- gen cross attn map ---------------------------------------------- #
-                org_img_save_dir = os.path.join(save_base_folder, f'{name}_org.png')
-                shutil.copy(rgb_img_dir, org_img_save_dir)
-                gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
-                shutil.copy(gt_img_dir, gt_img_save_dir)
+                latents = pipeline(prompt=args.prompt,
+                                   height=512, width=512, num_inference_steps=args.num_ddim_steps,
+                                   guidance_scale=args.guidance_scale,
+                                   negative_prompt=args.negative_prompt,
+                                   reference_image=vae_latent,
+                                   mask=binary_map)
+                recon_image = pipeline.latents_to_image(latents[-1])[0].resize((org_h, org_w))
+                img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
+                recon_image.save(img_dir)
+
+                org_image = pipeline.latents_to_image(vae_latent)[0].resize((org_h, org_w))
+                img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
+                org_image.save(img_dir)
+                #org_img_save_dir = os.path.join(save_base_folder, f'{name}_org.png')
+                #shutil.copy(rgb_img_dir, org_img_save_dir)
+                #gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
+                #shutil.copy(gt_img_dir, gt_img_save_dir)
         del network
 
 
