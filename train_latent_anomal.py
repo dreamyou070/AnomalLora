@@ -83,7 +83,7 @@ def main(args) :
 
     print(f'\n step 6. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
-
+    """
     if args.log_with in ["wandb", "all"]:
         try:
             import wandb
@@ -92,6 +92,7 @@ def main(args) :
         os.environ["WANDB_DIR"] = args.logging_dir
         if args.wandb_api_key is not None:
             wandb.login(key=args.wandb_api_key)
+    """
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
                               mixed_precision=args.mixed_precision,
                               log_with=args.log_with,
@@ -131,7 +132,7 @@ def main(args) :
               'do_attn_loss' : args.do_attn_loss,
               'attn_loss_weight' : args.attn_loss_weight,}
     #accelerator.init_trackers(name, config=config)
-    accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
+    #accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
 
     for epoch in range(0, args.num_epochs):
         epoch_loss_total = 0
@@ -239,10 +240,14 @@ def main(args) :
                     normal_loss += normal_cls_score_loss
                     anomal_loss += anormal_cls_score_loss
             ############################################ 3. segmentation net ###########################################
-            #org_latent =
-            #anomal_latent =
-            #seg_input = torch.cat((aug_image, pred_x0), dim=1)  # [batch, 6, 256, 256]
-            #pred_mask = seg_model(torch.cat((aug_image, pred_x0), dim=1))  # [batch, 1, 256, 256]
+            # org_map = normal_trigger_score.unsqueeze(0).unsqueeze(0)
+            # anomal_latent = anormal_trigger_score.unsqueeze(0).unsqueeze(0)
+            # seg_input = torch.cat((aug_image, pred_x0), dim=1)  # [batch, 2, 64,64]
+            # pred_mask = seg_model(seg_input)  # [batch, 1, 64, 64]
+            # pred_mask_trg =anomal_map.unsqueeze(1).unsqueeze(1)
+            # focal_loss = loss_focal(pred_mask, pred_mask_trg)
+            # smL1_loss = loss_smL1(pred_mask, pred_mask_trg)
+            # loss = noise_loss + 5 * focal_loss + smL1_loss
 
             ############################################ 4. total Loss ##################################################
             if args.do_task_loss:
