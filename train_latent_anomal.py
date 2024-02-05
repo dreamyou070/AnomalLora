@@ -139,7 +139,7 @@ def main(args) :
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
 
         for step, batch in enumerate(train_dataloader):
-
+            loss = 0
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
                 if torch.any(torch.isnan(latents)):
@@ -157,9 +157,8 @@ def main(args) :
             ############################################# 1. task loss #################################################
             if args.do_task_loss:
                 target = noise.chunk(2, dim=0)[0]
-                loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
-                loss = loss.mean([1, 2, 3])
-                task_loss = loss.mean()
+                task_loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
+                task_loss = task_loss.mean([1, 2, 3]).mean()
                 task_loss = task_loss * args.task_loss_weight
 
             ############################################ 2. Dist Loss ##################################################
