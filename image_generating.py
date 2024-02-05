@@ -3,7 +3,7 @@ import argparse, torch
 from model.diffusion_model import load_SD_model
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
-from data.mvtec import MVTecDRAEMTrainDataset
+from data.mvtec_sy import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
 from accelerate import Accelerator
 from utils import prepare_dtype

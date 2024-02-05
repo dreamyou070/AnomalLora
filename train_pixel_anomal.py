@@ -4,7 +4,7 @@ from model.diffusion_model import load_SD_model
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
 from model.segmentation_model import SegmentationSubNetwork
-from data.mvtec import MVTecDRAEMTrainDataset
+from data.mvtec_sy import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
 from diffusers import DDPMScheduler
 from accelerate import Accelerator
@@ -69,7 +69,6 @@ def main(args) :
                                      tokenizer=tokenizer,
                                      caption = args.trigger_word)
 
-
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
@@ -78,8 +77,6 @@ def main(args) :
     num_cycles = args.lr_scheduler_num_cycles
     lr_scheduler = schedule_func(optimizer, num_warmup_steps=args.num_warmup_steps,
                                  num_training_steps=num_training_steps, num_cycles=num_cycles, )
-    scheduler_seg = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_seg,
-                                                        T_max=10, eta_min=0, last_epoch=- 1, verbose=False)
 
     print(f'\n step 6. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
@@ -151,20 +148,17 @@ def main(args) :
                                                  torch.zeros_like(anomal_latents),anomal_latents)
                 latents = latents * vae_scale_factor # [1,4,64,64]
                 anomal_latents = anomal_latents * vae_scale_factor
-                print(f'img shape (1,3,512,512) : {img.shape} | vae laatent shape (1,4,64,64) : {latents.shape}')
                 input_latents = torch.cat([latents, anomal_latents], dim=0)
             with torch.set_grad_enabled(True) :
                 input_ids = batch["input_ids"].to(accelerator.device) # batch, 77 sen len
                 enc_out = text_encoder(input_ids)       # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
-
             input_text_encoder_conds = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,input_latents)
             with accelerator.autocast():
                 noise_pred = unet(noisy_latents, timesteps, input_text_encoder_conds,
                                                            trg_indexs_list=args.trg_layer_list, mask_imgs=None).sample
                 normal_noise_pred, anomal_noise_pred = torch.chunk(noise_pred, 2, dim=0)
-
             ############################################# 1. task loss #################################################
             if args.do_task_loss:
                 target = noise.chunk(2, dim=0)[0]
@@ -183,7 +177,6 @@ def main(args) :
 
             anomal_mask_ = batch['anomaly_mask'].squeeze(0) # [64,64]
             anomal_mask = anomal_mask_.flatten().squeeze(0)
-            anomal_position_num = anomal_mask.sum()
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
                 # (1) query dist
@@ -213,7 +206,6 @@ def main(args) :
                 anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
                 normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
                 anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
-
                 total_dist = normal_dist_mean + anormal_dist_mean
 
                 normal_dist_loss = (normal_dist_mean / total_dist) ** 2
@@ -257,16 +249,6 @@ def main(args) :
                                  args.anormal_weight * anormal_cls_score_loss
                     normal_loss += normal_cls_score_loss
                     anomal_loss += anormal_cls_score_loss
-
-            ############################################ 4. segmentation model ##################################################
-            seg_model_input = torch.cat([latents, anomal_latents], dim=1) # 1, 8, 64, 64
-            pred_mask = seg_model(seg_model_input)
-            pred_mask_target = anomal_mask_.unsqueeze(0).unsqueeze(0)
-            print(f'pred_mask : {pred_mask.shape}, pred_mask_target : {pred_mask_target.shape}')
-            # loss
-            #focal_loss = loss_focal(pred_mask, anomaly_mask)
-            #smL1_loss = loss_smL1(pred_mask, anomaly_mask)
-            #loss = noise_loss + 5 * focal_loss + smL1_loss
 
             ############################################ 3. total Loss ##################################################
             if args.do_task_loss:
