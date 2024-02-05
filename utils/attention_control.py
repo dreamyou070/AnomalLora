@@ -50,8 +50,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     else :
                         noise = torch.randn_like(hidden_states).to(hidden_states.device)
                     anomal_map, anomal_features = [], []
+                    normal_hidden_states = hidden_states.squeeze(0)
+                    anormal_hidden_states = noise.squeeze(0)
                     for pix_idx in range(pix_num):
-                        sub_feature, normal_feat = noise[pix_idx, :].squeeze(0), normal_query[pix_idx, :].squeeze(0)
+                        sub_feature, normal_feat = anormal_hidden_states[pix_idx, :].squeeze(0), normal_hidden_states[pix_idx, :].squeeze(0)
                         print(f'sub_feature : {sub_feature.shape}, normal_feat : {normal_feat.shape}')
                         sub_dist = mahal(sub_feature.float(), normal_mu, normal_cov)
                         if sub_dist > mean_dist.item():
@@ -62,12 +64,12 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                             # append normal feature
                             anomal_features.append(normal_feat.unsqueeze(0))
                             anomal_map.append(0)
-                    noise = torch.cat(anomal_features, dim=0).to(hidden_states.dtype) # pix_num, dim
+                    anormal_hidden_states = torch.cat(anomal_features, dim=0).to(hidden_states.dtype) # pix_num, dim
                     anomal_map = torch.tensor(anomal_map).unsqueeze(0)
                     res = int(pix_num ** 0.5)
                     anomal_map = anomal_map.view(res, res)
                     # ---------------------------------------------------------------------------------------------- #
-                    temp_query = torch.cat([query, self.to_q(noise.unsqueeze(0))], dim=0)
+                    temp_query = torch.cat([query, self.to_q(anormal_hidden_states.unsqueeze(0))], dim=0)
                     controller.save_query(temp_query, layer_name) # [2, res*res, 320]
                     controller.save_query([normal_mu, normal_cov], layer_name)
                     controller.save_map(anomal_map, layer_name)   # [res,res]
