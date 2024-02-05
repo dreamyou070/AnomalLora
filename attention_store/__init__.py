@@ -19,6 +19,7 @@ class AttentionStore :
         self.value_dict = {}
         self.repeat = 0
         self.normal_score_list = []
+        self.map_dict = {}
     def get_empty_store(self):
         return {}
 
@@ -28,6 +29,13 @@ class AttentionStore :
             self.query_dict[layer_name].append(query)
         else:
             self.query_dict[layer_name].append(query)
+
+    def save_map(self, map, layer_name):
+        if layer_name not in self.map_dict.keys():
+            self.map_dict[layer_name] = []
+            self.map_dict[layer_name].append(map)
+        else:
+            self.map_dict[layer_name].append(map)
 
     def save_key(self, key, layer_name):
         if layer_name not in self.key_dict.keys():
@@ -48,6 +56,8 @@ class AttentionStore :
             self.step_store[layer_name].append(attn)
             #self.step_store[layer_name] = self.step_store[layer_name] + attn
         return attn
+
+
 
 
     def self_query_key_value_caching(self,query_value, key_value, value_value, layer_name):
@@ -97,3 +107,4 @@ class AttentionStore :
         self.value_dict = {}
         self.repeat = 0
         self.normal_score_list = []
+        self.map_dict = {}

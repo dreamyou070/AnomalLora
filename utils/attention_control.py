@@ -3,40 +3,81 @@ from data.perlin import rand_perlin_2d_np
 import torch
 from attention_store import AttentionStore
 
-def register_attention_control(unet: nn.Module,
-                               controller: AttentionStore, ):  # if mask_threshold is 1, use itself
+def mahal(u, v, cov):
+    delta = u - v
+    m = torch.dot(delta, torch.matmul(cov, delta))
+    return torch.sqrt(m)
+
+def make_perlin_noise(shape_row, shape_column):
+    perlin_scale = 6
+    min_perlin_scale = 0
+    rand_1 = torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0]
+    rand_2 = torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0]
+    perlin_scalex, perlin_scaley = 2 ** (rand_1), 2 ** (rand_2)
+    perlin_noise = rand_perlin_2d_np((shape_row, shape_column), (perlin_scalex, perlin_scaley))
+    return perlin_noise
+
+
+
+def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  # if mask_threshold is 1, use itself
 
     def ca_forward(self, layer_name):
-
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
 
             query = self.to_q(hidden_states)
             if trg_indexs_list is not None and layer_name in trg_indexs_list:
                 b = hidden_states.shape[0]
                 if b == 1 :
-                    pix_num, dim = hidden_states.shape[1], hidden_states.shape[2]
+                    normal_feats = []
+                    pix_num, dim = query.shape[1], query.shape[2]
+                    normal_query = query.squeeze(0)
+                    for pix_idx in range(pix_num):
+                        normal_feat = normal_query[pix_idx].squeeze(0)
+                        normal_feats.append(normal_feat)
+                    normal_feats = torch.cat(normal_feats, dim=0)
+                    normal_mu = torch.mean(normal_feats, dim=0)
+                    normal_cov = torch.cov(normal_feats.transpose(0, 1))
+                    normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
+                    max_dist = max(normal_mahalanobis_dists)
+                    mean_dist = torch.mean(torch.tensor(normal_mahalanobis_dists))
                     if mask == 'perlin' : # mask means using perlin noise
-                        perlin_scale = 6
-                        min_perlin_scale = 0
-                        rand_1 = torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0]
-                        rand_2 = torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0]
-                        perlin_scalex, perlin_scaley = 2 ** (rand_1), 2 ** (rand_2)
-                        perlin_noise = rand_perlin_2d_np((pix_num, dim), (perlin_scalex, perlin_scaley))
+                        perlin_noise = make_perlin_noise(pix_num, dim)
                         noise = torch.tensor(perlin_noise).to(hidden_states.device)
                     else :
                         noise = torch.randn_like(query).to(hidden_states.device)
+
+                    anomal_features = []
+                    anomal_map = []
+                    for pix_idx in range(pix_num):
+                        sub_feature = noise[pix_idx].squeeze(0)
+                        normal_feat = normal_query[pix_idx].squeeze(0)
+                        sub_dist = mahal(sub_feature, normal_mu, normal_cov)
+                        if sub_dist > mean_dist.item() :
+                            anomal_features.append(sub_feature)
+                            anomal_map.append(1)
+                        else :
+                            anomal_features.append(normal_feat)
+                            anomal_map.append(0)
+                    noise = torch.stack(anomal_features, dim=0)
                     noise = noise.to(hidden_states.dtype)
                     anomal_query = self.to_q(noise)
                     if anomal_query.dim() != 3:
                         anomal_query = anomal_query.unsqueeze(0)
                     temp_query = torch.cat([query, anomal_query], dim=0)
+
+                    anomal_map = torch.tensor(anomal_map).unsqueeze(0)
+                    res = int(pix_num ** 0.5)
+                    anomal_map = anomal_map.view(res,res)
                     controller.save_query(temp_query, layer_name)
+                    controller.save_map(anomal_map, layer_name)
+
                     temp_query = self.reshape_heads_to_batch_dim(temp_query)
+
                     if self.upcast_attention:
                         temp_query = temp_query.float()
-
                 else :
                     controller.save_query(query, layer_name)
+
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
