@@ -53,7 +53,7 @@ def main(args) :
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
     print(f' (3.2) seg optimizer')
-    optimizer_seg = torch.optim.AdamW(seg_model.parameters(), lr=args['seg_lr'], weight_decay=args['weight_decay'])
+    optimizer_seg = torch.optim.AdamW(seg_model.parameters(), lr=args.learning_rate)
 
     print(f'\n step 4. dataset and dataloader')
     obj_dir = os.path.join(args.data_path, args.obj_name)
