@@ -208,7 +208,6 @@ def main(args) :
                     total_dist += anormal_dist_mean
 
                 print(f'len of anormal feat : {len(anormal_feat_list)}')
-
                 normal_dist_loss = (normal_dist_mean / total_dist) ** 2
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
                 dist_loss += normal_dist_loss.requires_grad_()
