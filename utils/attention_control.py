@@ -5,7 +5,8 @@ from attention_store import AttentionStore
 
 def mahal(u, v, cov):
     delta = u - v
-    m = torch.dot(delta, torch.matmul(cov, delta))
+    cov_inv = cov.T
+    m = torch.dot(delta, torch.matmul(cov_inv, delta))
     return torch.sqrt(m)
 
 def make_perlin_noise(shape_row, shape_column):
@@ -36,12 +37,23 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                         normal_feat = normal_query[pix_idx].squeeze(0)
                         normal_feats.append(normal_feat.unsqueeze(0))
                     normal_feats = torch.cat(normal_feats, dim=0)
+
+                    """ random down sampling the dim """
+                    from random import sample
+                    down_dim = 100
+                    idx = torch.tensor(sample(range(0, dim), down_dim))
+                    # print(idx)
+                    normal_feats = torch.index_select(normal_feats, 1, idx)
                     normal_mu = torch.mean(normal_feats, dim=0)
                     normal_cov = torch.cov(normal_feats.transpose(0, 1))
+
+
+
                     # ---------------------------------------------------------------------------------------------- #
                     normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
                     max_dist = max(normal_mahalanobis_dists)
-                    mean_dist = torch.mean(torch.tensor(normal_mahalanobis_dists))
+                    #mean_dist = torch.mean(torch.tensor(normal_mahalanobis_dists))
+                    th = max_dist.item() * 0.8
                     # ---------------------------------------------------------------------------------------------- #
                     if mask == 'perlin' : # mask means using perlin noise
                         perlin_noise = make_perlin_noise(pix_num, dim)
@@ -53,9 +65,11 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     normal_hidden_states = hidden_states.squeeze(0)
                     anormal_hidden_states = noise.squeeze(0)
                     for pix_idx in range(pix_num):
-                        sub_feature, normal_feat = anormal_hidden_states[pix_idx, :].squeeze(0), normal_hidden_states[pix_idx, :].squeeze(0)
-                        sub_dist = mahal(sub_feature.float(), normal_mu, normal_cov)
-                        if sub_dist > mean_dist.item():
+                        sub_feature = anormal_hidden_states[pix_idx, :].squeeze(0)
+                        down_dim_sub_feature = torch.index_select(sub_feature.unsqueeze(0), 1, idx)
+                        normal_feat = normal_hidden_states[pix_idx, :].squeeze(0)
+                        sub_dist = mahal(down_dim_sub_feature.float(), normal_mu, normal_cov)
+                        if sub_dist > th.item():
                             anomal_features.append(sub_feature.unsqueeze(0))
                             anomal_map.append(1)
                         else:

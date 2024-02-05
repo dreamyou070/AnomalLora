@@ -190,9 +190,11 @@ def main(args) :
                     normal_feat_list.append(normal_feat.unsqueeze(0))
 
                 mu, cov = query_dict[trg_layer][1]
+
                 def mahal(u, v, cov):
                     delta = u - v
-                    m = torch.dot(delta, torch.matmul(cov, delta))
+                    cov_inv = cov.T
+                    m = torch.dot(delta, torch.matmul(cov_inv, delta))
                     return torch.sqrt(m)
 
                 n_features = torch.cat(normal_feat_list, dim=0)
