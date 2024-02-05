@@ -210,22 +210,19 @@ def main(args) :
                 dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
 
                 ################## ---------------------- ################## ---------------------- ##################
-                attention_score = attn_dict[trg_layer][0]  # batch, pix_num, 2
+                attention_score = attn_dict[trg_layer][0]  # 2, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 normal_cls_score, anormal_cls_score = cls_score.chunk(2, dim=0)  #
                 normal_trigger_score, anormal_trigger_score = trigger_score.chunk(2, dim=0)
 
                 normal_cls_score, anormal_cls_score = normal_cls_score.squeeze(), anormal_cls_score.squeeze()  # head, pix_num
                 normal_trigger_score, anormal_trigger_score = normal_trigger_score.squeeze(), anormal_trigger_score.squeeze()
-                anormal_cls_score = anormal_cls_score * anomal_map.repeat(anormal_cls_score.shape[0], 1)
-                head_num = normal_cls_score.shape[0]
-                anormal_cls_score = anormal_cls_score * anomal_map.unsqueeze(0).repeat(head_num, 1)
-                anormal_trigger_score = anormal_trigger_score * anomal_map.unsqueeze(0).repeat(head_num, 1)
 
-                normal_cls_score = normal_cls_score.mean(dim=0)
-                normal_trigger_score = normal_trigger_score.mean(dim=0)
-                anormal_cls_score = anormal_cls_score.mean(dim=0)
-                anormal_trigger_score = anormal_trigger_score.mean(dim=0)
+                anomal_map_vector = anomal_map_vector.unsqueeze(0).repeat(normal_cls_score.shape[0], 1)
+                anormal_cls_score, anormal_trigger_score = anormal_cls_score * anomal_map_vector, anormal_trigger_score * anomal_map_vector
+
+                anormal_cls_score, anormal_trigger_score = anormal_cls_score.mean(dim=0), anormal_trigger_score.mean(dim=0)
+                normal_cls_score, normal_trigger_score = normal_cls_score.mean(dim=0), normal_trigger_score.mean(dim=0)
                 total_score = torch.ones_like(normal_cls_score)
 
                 normal_cls_score_loss = (normal_cls_score / total_score) ** 2
@@ -233,14 +230,12 @@ def main(args) :
                 anormal_cls_score_loss = (1 - (anormal_cls_score / total_score)) ** 2
                 anormal_trigger_score_loss = (anormal_trigger_score / total_score) ** 2
 
-                attn_loss += args.normal_weight * normal_trigger_score_loss + \
-                             args.anormal_weight * anormal_trigger_score_loss
+                attn_loss += args.normal_weight * normal_trigger_score_loss + args.anormal_weight * anormal_trigger_score_loss
                 normal_loss += normal_trigger_score_loss
                 anomal_loss += anormal_trigger_score_loss
 
                 if args.do_cls_train :
-                    attn_loss += args.normal_weight * normal_cls_score_loss + \
-                                 args.anormal_weight * anormal_cls_score_loss
+                    attn_loss += args.normal_weight * normal_cls_score_loss + args.anormal_weight * anormal_cls_score_loss
                     normal_loss += normal_cls_score_loss
                     anomal_loss += anormal_cls_score_loss
 

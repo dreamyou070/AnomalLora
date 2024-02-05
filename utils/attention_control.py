@@ -51,7 +51,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     anomal_map, anomal_features = [], []
                     for pix_idx in range(pix_num):
                         sub_feature, normal_feat = noise[pix_idx].squeeze(0), normal_query[pix_idx].squeeze(0)
-                        sub_dist = mahal(sub_feature, normal_mu, normal_cov)
+                        sub_dist = mahal(sub_feature.float(), normal_mu, normal_cov)
                         if sub_dist > mean_dist.item():
                             anomal_features.append(sub_feature.unsqueeze(0))
                             anomal_map.append(1)
