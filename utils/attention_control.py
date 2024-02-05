@@ -48,7 +48,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                         perlin_noise = make_perlin_noise(pix_num, dim)
                         noise = torch.tensor(perlin_noise).to(hidden_states.device)
                     else :
-                        noise = torch.randn_like(query).to(hidden_states.device)
+                        noise = torch.randn_like(hidden_states).to(hidden_states.device)
                     anomal_map, anomal_features = [], []
                     for pix_idx in range(pix_num):
                         sub_feature, normal_feat = noise[pix_idx, :].squeeze(0), normal_query[pix_idx, :].squeeze(0)
@@ -62,7 +62,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                             # append normal feature
                             anomal_features.append(normal_feat.unsqueeze(0))
                             anomal_map.append(0)
-                    noise = torch.cat(anomal_features, dim=0).to(hidden_states.dtype)
+                    noise = torch.cat(anomal_features, dim=0).to(hidden_states.dtype) # pix_num, dim
                     anomal_map = torch.tensor(anomal_map).unsqueeze(0)
                     res = int(pix_num ** 0.5)
                     anomal_map = anomal_map.view(res, res)
