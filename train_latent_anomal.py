@@ -198,25 +198,22 @@ def main(args) :
                 n_features = torch.cat(normal_feat_list, dim=0)
                 n_dists = [mahal(feat, mu, cov) for feat in n_features]
                 normal_dist_mean = torch.tensor(n_dists).mean()
-                total_dist = normal_dist_mean
                 if len(anormal_feat_list) > 0:
                     # there is no anormal feat ...
                     a_features = torch.cat(anormal_feat_list, dim=0)
                     a_dists = [mahal(feat, mu, cov) for feat in a_features]
                     anormal_dist_mean = torch.tensor(a_dists).mean()
-                    total_dist += anormal_dist_mean
                 else :
-                    print(f'there is no anomal ')
-
+                    anormal_dist_mean = torch.zeros_like(normal_dist_mean).to(normal_dist_mean.device)
+                total_dist = normal_dist_mean + anormal_dist_mean
                 #print(f'len of anormal feat : {len(anormal_feat_list)}')
                 normal_dist_loss = (normal_dist_mean / total_dist) ** 2
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
                 dist_loss += normal_dist_loss.requires_grad_()
 
-                if len(anormal_feat_list) > 0:
-                    anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
-                    anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
-                    dist_loss += anormal_dist_loss.requires_grad_()
+                anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
+                anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
+                dist_loss += anormal_dist_loss.requires_grad_()
 
                 ################## ---------------------- ################## ---------------------- ##################
                 attention_score = attn_dict[trg_layer][0]  # 2, pix_num, 2
