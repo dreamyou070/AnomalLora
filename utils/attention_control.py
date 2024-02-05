@@ -44,10 +44,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     mean_dist = torch.mean(torch.tensor(normal_mahalanobis_dists))
                     # ---------------------------------------------------------------------------------------------- #
                     if mask == 'perlin' : # mask means using perlin noise
-                        perlin_noise = perlin_noise = make_perlin_noise(pix_num, dim)
-                        torch.tensor(perlin_noise).to(hidden_states.device)
-                        print(f'hidden_states.shape: {hidden_states} ')
-                        print(f'perlin_noise.shape: {perlin_noise} ')
+                        perlin_noise = make_perlin_noise(pix_num, dim)
+                        perlin_noise = torch.tensor(perlin_noise).to(hidden_states.device)
                         noise = hidden_states.squeeze() + perlin_noise
                     else :
                         noise = torch.randn_like(hidden_states).to(hidden_states.device)
