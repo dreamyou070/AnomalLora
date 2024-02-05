@@ -50,7 +50,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     # ---------------------------------------------------------------------------------------------- #
                     normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
                     max_dist = max(normal_mahalanobis_dists)
-                    th = max_dist.item() * 0.8
+                    th = max_dist.item() * 1
 
                     # ---------------------------------------------------------------------------------------------- #
                     if mask == 'perlin' : # mask means using perlin noise
