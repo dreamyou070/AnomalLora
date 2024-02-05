@@ -90,7 +90,7 @@ def main(args) :
             import wandb
         except ImportError:
             raise ImportError("No wandb / wandb がインストールされていないようです")
-        os.environ["WANDB_DIR"] = args.lgiogging_dir
+        os.environ["WANDB_DIR"] = args.logging_dir
         if args.wandb_api_key is not None:
             wandb.login(key=args.wandb_api_key)
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
