@@ -123,7 +123,7 @@ def main(args) :
               'attn_loss_weight' : args.attn_loss_weight,}
     #accelerator.init_trackers(name, config=config)
     accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
-
+    anormal_feat_list = []
     for epoch in range(0, args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
@@ -165,12 +165,11 @@ def main(args) :
             query_dict = controller.query_dict
             attn_dict = controller.step_store
             controller.reset()
-            normal_feats, anormal_feats = [], []
+            normal_feats = []
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
             anomal_mask = batch['anomaly_mask'].flatten().squeeze(0)
             anomal_position_num = anomal_mask.sum()
-            print(f'anomal_position_num : {anomal_position_num}')
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
                 # (1) query dist
@@ -182,11 +181,12 @@ def main(args) :
                     anomal_feat = anomal_query[pix_idx].squeeze(0)
                     anomal_flag = anomal_mask[pix_idx]
                     if anomal_flag == 1 :
-                        anormal_feats.append(anomal_feat.unsqueeze(0))
+                        if len(anormal_feat_list) > 3000:
+                            anormal_feat_list.pop(0)
+                        anormal_feat_list.append(anomal_feat.unsqueeze(0))
                     normal_feats.append(normal_feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feats, dim=0)
-                print(f'anormal_feats shape : {len(anormal_feats)}')
-                anormal_feats = torch.cat(anormal_feats, dim=0)
+                anormal_feats = torch.cat(anormal_feat_list, dim=0)
                 normal_mu = torch.mean(normal_feats, dim=0)
                 normal_cov = torch.cov(normal_feats.transpose(0, 1))
 
