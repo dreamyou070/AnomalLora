@@ -378,9 +378,9 @@ if __name__ == '__main__':
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
     parser.add_argument("--do_task_loss", action='store_true')
-    parser.add_argument("--task_loss_weight", type=float, default=0.5)
+    parser.add_argument("--task_loss_weight", type=float, default=1.0)
     parser.add_argument("--do_dist_loss", action='store_true')
-    parser.add_argument("--dist_loss_weight", type=float, default = 1)
+    parser.add_argument("--dist_loss_weight", type=float, default=1.0)
     parser.add_argument("--do_attn_loss", action='store_true')
     parser.add_argument("--attn_loss_weight", type=float, default=1.0)
     parser.add_argument("--do_cls_train", action='store_true')
