@@ -169,7 +169,7 @@ def main(args) :
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
             anomal_mask = batch['anomaly_mask'].flatten().squeeze(0)
-            print(f'anomal_mask : {anomal_mask}')
+            #print(f'anomal_mask : {anomal_mask}')
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
                 # (1) query dist
@@ -184,7 +184,7 @@ def main(args) :
                         anormal_feats.append(anomal_feat.unsqueeze(0))
                     normal_feats.append(normal_feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feats, dim=0)
-                print(f'anormal_feats shape : {anormal_feats}')
+                #print(f'anormal_feats shape : {anormal_feats}')
                 anormal_feats = torch.cat(anormal_feats, dim=0)
                 normal_mu = torch.mean(normal_feats, dim=0)
                 normal_cov = torch.cov(normal_feats.transpose(0, 1))
