@@ -132,7 +132,7 @@ def main(args) :
               'attn_loss_weight' : args.attn_loss_weight,}
     #accelerator.init_trackers(name, config=config)
     accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
-    anormal_feat_list = []
+
     for epoch in range(0, args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
@@ -166,6 +166,8 @@ def main(args) :
             attn_dict = controller.step_store
             controller.reset()
             normal_feats = []
+            anormal_feat_list = []
+
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
 
@@ -177,10 +179,6 @@ def main(args) :
                 pix_num = normal_query.shape[0]
                 for pix_idx in range(pix_num):
                     normal_feat = normal_query[pix_idx].squeeze(0)
-                    anomal_feat = anomal_query[pix_idx].squeeze(0)
-                    if len(anormal_feat_list) > 3000:
-                        anormal_feat_list.pop(0)
-                    anormal_feat_list.append(anomal_feat.unsqueeze(0))
                     normal_feats.append(normal_feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feats, dim=0)
                 anormal_feats = torch.cat(anormal_feat_list, dim=0)
@@ -193,18 +191,28 @@ def main(args) :
                     return torch.sqrt(m)
 
                 normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
+                max_dist = max(normal_mahalanobis_dists)
+
+                anomal_positions = []
+                for pix_idx in range(pix_num):
+                    anormal_feat = anomal_query[pix_idx].squeeze(0)
+                    anomal_dist = mahal(anormal_feat, normal_mu, normal_cov)
+                    if anomal_dist < max_dist:
+                        anormal_feat_list.append(anormal_feat.unsqueeze(0))
+                        anomal_positions.append(1)
+                    else :
+                        anomal_positions.append(0)
+                anormal_feats = torch.cat(anormal_feat_list, dim=0)
                 anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
+
                 normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
                 anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
-
                 total_dist = normal_dist_mean + anormal_dist_mean
-
                 normal_dist_loss = (normal_dist_mean / total_dist) ** 2
                 anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
 
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
                 anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
-
                 dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
 
                 attention_score = attn_dict[trg_layer][0] # batch, pix_num, 2
@@ -212,10 +220,21 @@ def main(args) :
                 normal_cls_score, anormal_cls_score = cls_score.chunk(2, dim=0) #
                 normal_trigger_score, anormal_trigger_score = trigger_score.chunk(2, dim=0)
 
+                ################## ---------------------- ################## ---------------------- ##################
+
+                anomal_mask = torch.tensor(anomal_positions).to(accelerator.device)
+
+                attention_score = attn_dict[trg_layer][0]  # batch, pix_num, 2
+                cls_score, trigger_score = attention_score.chunk(2, dim=-1)
+                normal_cls_score, anormal_cls_score = cls_score.chunk(2, dim=0)  #
+                normal_trigger_score, anormal_trigger_score = trigger_score.chunk(2, dim=0)
+
                 normal_cls_score, anormal_cls_score = normal_cls_score.squeeze(), anormal_cls_score.squeeze()  # head, pix_num
                 normal_trigger_score, anormal_trigger_score = normal_trigger_score.squeeze(), anormal_trigger_score.squeeze()
-                anormal_cls_score, anormal_trigger_score = anormal_cls_score.unsqueeze(0), anormal_trigger_score.unsqueeze(0)
+                anormal_cls_score = anormal_cls_score * anomal_mask.unsqueeze(0).repeat(anormal_cls_score.shape[0], 1)
                 head_num = normal_cls_score.shape[0]
+                anormal_cls_score = anormal_cls_score * anomal_mask.unsqueeze(0).repeat(head_num, 1)
+                anormal_trigger_score = anormal_trigger_score * anomal_mask.unsqueeze(0).repeat(head_num, 1)
 
                 normal_cls_score = normal_cls_score.mean(dim=0)
                 normal_trigger_score = normal_trigger_score.mean(dim=0)
@@ -223,10 +242,10 @@ def main(args) :
                 anormal_trigger_score = anormal_trigger_score.mean(dim=0)
                 total_score = torch.ones_like(normal_cls_score)
 
-                normal_cls_score_loss = (normal_cls_score/total_score) ** 2
-                normal_trigger_score_loss = (1-(normal_trigger_score/total_score)) ** 2
-                anormal_cls_score_loss = (1-(anormal_cls_score/total_score)) ** 2
-                anormal_trigger_score_loss = (anormal_trigger_score/total_score) ** 2
+                normal_cls_score_loss = (normal_cls_score / total_score) ** 2
+                normal_trigger_score_loss = (1 - (normal_trigger_score / total_score)) ** 2
+                anormal_cls_score_loss = (1 - (anormal_cls_score / total_score)) ** 2
+                anormal_trigger_score_loss = (anormal_trigger_score / total_score) ** 2
 
                 attn_loss += args.normal_weight * normal_trigger_score_loss + \
                              args.anormal_weight * anormal_trigger_score_loss
@@ -238,16 +257,6 @@ def main(args) :
                                  args.anormal_weight * anormal_cls_score_loss
                     normal_loss += normal_cls_score_loss
                     anomal_loss += anormal_cls_score_loss
-
-            ############################################ 4. segmentation model ##################################################
-            seg_model_input = torch.cat([latents, anomal_latents], dim=1) # 1, 8, 64, 64
-            pred_mask = seg_model(seg_model_input)
-            pred_mask_target = anomal_mask_.unsqueeze(0).unsqueeze(0)
-            print(f'pred_mask : {pred_mask.shape}, pred_mask_target : {pred_mask_target.shape}')
-            # loss
-            #focal_loss = loss_focal(pred_mask, anomaly_mask)
-            #smL1_loss = loss_smL1(pred_mask, anomaly_mask)
-            #loss = noise_loss + 5 * focal_loss + smL1_loss
 
             ############################################ 3. total Loss ##################################################
             if args.do_task_loss:
@@ -289,7 +298,6 @@ def main(args) :
             if global_step >= args.max_train_steps:
                 break
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
-
         accelerator.wait_for_everyone()
         ### 4.2 sampling
         if is_main_process :
