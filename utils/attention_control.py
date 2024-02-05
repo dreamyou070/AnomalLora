@@ -27,6 +27,8 @@ def register_attention_control(unet: nn.Module,
                         noise = torch.randn_like(query).to(hidden_states.device)
                     noise = noise.to(hidden_states.dtype)
                     anomal_query = self.to_q(noise)
+                    if anomal_query.dim() != 3:
+                        anomal_query = anomal_query.unsqueeze(0)
                     temp_query = torch.cat([query, anomal_query], dim=0)
                     controller.save_query(temp_query, layer_name)
                     temp_query = self.reshape_heads_to_batch_dim(temp_query)
