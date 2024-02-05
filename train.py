@@ -41,8 +41,7 @@ def main(args) :
     print(f' (2.2) LoRA network')
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
     print(f' (2.3) segmentation model')
-    seg_model = SegmentationSubNetwork(in_channels=4,
-                                       out_channels=1,)
+    seg_model = SegmentationSubNetwork(in_channels=8, out_channels=1,)
 
     print(f' (2.2) attn controller')
     controller = AttentionStore()
@@ -142,8 +141,7 @@ def main(args) :
 
             with torch.no_grad():
                 img = batch['image'].to(dtype=weight_dtype)
-                print(f'img shape : {img.shape}')
-                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
+                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
 
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 if torch.any(torch.isnan(latents)):
@@ -153,6 +151,7 @@ def main(args) :
                                                  torch.zeros_like(anomal_latents),anomal_latents)
                 latents = latents * vae_scale_factor # [1,4,64,64]
                 anomal_latents = anomal_latents * vae_scale_factor
+                print(f'img shape (1,3,512,512) : {img.shape} | vae laatent shape (1,4,64,64) : {latents.shape}')
                 input_latents = torch.cat([latents, anomal_latents], dim=0)
             with torch.set_grad_enabled(True) :
                 input_ids = batch["input_ids"].to(accelerator.device) # batch, 77 sen len
@@ -260,7 +259,7 @@ def main(args) :
                     anomal_loss += anormal_cls_score_loss
 
             ############################################ 4. segmentation model ##################################################
-            seg_model_input = torch.cat([latents, anomal_latents], dim=1)
+            seg_model_input = torch.cat([latents, anomal_latents], dim=1) # 1, 8, 64, 64
             pred_mask = seg_model(seg_model_input)
             pred_mask_target = anomal_mask_.unsqueeze(0).unsqueeze(0)
             print(f'pred_mask : {pred_mask.shape}, pred_mask_target : {pred_mask_target.shape}')
