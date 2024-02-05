@@ -245,14 +245,14 @@ def main(args) :
                 # normal_cls_score_loss_ = (normal_cls_score_ / total_score) ** 2
                 # normal_trigger_score_loss_ = (1-(normal_trigger_score_ / total_score)) ** 2
 
-                attn_loss += args.normal_weight * normal_trigger_score_loss + args.anormal_weight * anormal_trigger_score_loss \
+                attn_loss += args.normal_weight * normal_trigger_score_loss + args.anormal_weight * anormal_trigger_score_loss # \
                              # + args.normal_weight * normal_trigger_score_loss_+ args.anormal_weight * anormal_trigger_score_loss_
 
                 normal_loss += normal_trigger_score_loss # + normal_trigger_score_loss_
                 anomal_loss += anormal_trigger_score_loss
 
                 if args.do_cls_train :
-                    attn_loss += args.normal_weight * normal_cls_score_loss + args.anormal_weight * anormal_cls_score_loss + \
+                    attn_loss += args.normal_weight * normal_cls_score_loss + args.anormal_weight * anormal_cls_score_loss #+ \
                                  # args.normal_weight * normal_cls_score_loss_
                     normal_loss += normal_cls_score_loss # + normal_cls_score_loss_
                     anomal_loss += anormal_cls_score_loss
