@@ -167,7 +167,7 @@ def main(args) :
             attn_dict = controller.step_store
             map_dict = controller.map_dict
             controller.reset()
-            normal_feats = []
+            normal_feat_list = []
             anormal_feat_list = []
 
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
@@ -188,7 +188,7 @@ def main(args) :
                     anomal_flag = anomal_map_vector[pix_idx]
                     if anomal_flag == 1:
                         anormal_feat_list.append(anormal_feat.unsqueeze(0))
-                    normal_feats.append(normal_feat.unsqueeze(0))
+                    normal_feat_list.append(normal_feat.unsqueeze(0))
 
                 mu, cov = query_dict[trg_layer][1]
                 def mahal(u, v, cov):
@@ -196,7 +196,7 @@ def main(args) :
                     m = torch.dot(delta, torch.matmul(cov, delta))
                     return torch.sqrt(m)
 
-                n_features = torch.cat(normal_feats, dim=0)
+                n_features = torch.cat(normal_feat_list, dim=0)
                 n_dists = [mahal(feat, mu, cov) for feat in n_features]
                 normal_dist_mean = torch.tensor(n_dists).mean()
                 total_dist = normal_dist_mean
