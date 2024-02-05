@@ -70,14 +70,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                  anomaly_source_path,
                  resize_shape=None,
                  tokenizer=None,
-                 caption: str = None,
-                 do_synthetic_anomaly: bool = True):
-        """
-        Args:
-            root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
+                 caption: str = None,):
         self.root_dir = root_dir
         self.resize_shape=resize_shape
 
@@ -97,7 +90,6 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.caption = caption
         self.tokenizer = tokenizer
         self.transform = transforms.Compose([transforms.ToTensor(),transforms.Normalize([0.5], [0.5]),])
-        self.do_synthetic_anomaly = do_synthetic_anomaly
 
     def __len__(self):
         return len(self.image_paths)
@@ -156,15 +148,11 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         # [3] final
         image = self.transform(img)
-        if self.do_synthetic_anomaly :
-            anomal_image = self.transform(augmented_image)
-            # -----------------------------------------------------------------------------------------------
-            anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
-            anomal_torch = torch.tensor(np.array(anomal_pil))/255
-            anomal_mask = torch.where(anomal_torch > 0.5, 1, 0)  # strict anomal
-        else :
-            anomal_image = self.transform(anomal_img)
-            anomal_mask = torch.ones((64,64)).to(image.dtype)
+        anomal_image = self.transform(augmented_image)
+        # -----------------------------------------------------------------------------------------------
+        anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
+        anomal_torch = torch.tensor(np.array(anomal_pil))/255
+        anomal_mask = torch.where(anomal_torch > 0.5, 1, 0)  # strict anomal
 
         # [4] caption
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
@@ -176,6 +164,5 @@ class MVTecDRAEMTrainDataset(Dataset):
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),
                   'caption': self.caption,}
-
         return sample
 

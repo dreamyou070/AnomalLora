@@ -3,6 +3,7 @@ import argparse, torch
 from model.diffusion_model import load_SD_model
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
+from model.segmentation_model import SegmentationSubNetwork
 from data.mvtec import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
 from diffusers import DDPMScheduler
@@ -31,19 +32,28 @@ def main(args) :
         json.dump(vars(args), f, indent=4)
 
     print(f'\n step 2. model')
+    print(f' (2.1) stable diffusion model')
     tokenizer = load_tokenizer(args)
     text_encoder, vae, unet = load_SD_model(args)
     vae_scale_factor = 0.18215
-    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
     noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
-                                                                            num_train_timesteps=1000, clip_sample=False)
+                                    num_train_timesteps=1000, clip_sample=False)
+    print(f' (2.2) LoRA network')
+    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
+    print(f' (2.3) segmentation model')
+    seg_model = SegmentationSubNetwork(in_channels=4,
+                                       out_channels=1,)
+
     print(f' (2.2) attn controller')
     controller = AttentionStore()
     register_attention_control(unet, controller)
 
     print(f'\n step 3. optimizer')
+    print(f' (3.1) lora optimizer')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
+    print(f' (3.2) seg optimizer')
+    optimizer_seg = torch.optim.AdamW(seg_model.parameters(), lr=args['seg_lr'], weight_decay=args['weight_decay'])
 
     print(f'\n step 4. dataset and dataloader')
     obj_dir = os.path.join(args.data_path, args.obj_name)
@@ -60,8 +70,9 @@ def main(args) :
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
-                                     caption = caption,
-                                     do_synthetic_anomaly=args.do_synthetic_anomaly,)
+                                     caption = caption)
+
+
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
@@ -70,6 +81,8 @@ def main(args) :
     num_cycles = args.lr_scheduler_num_cycles
     lr_scheduler = schedule_func(optimizer, num_warmup_steps=args.num_warmup_steps,
                                  num_training_steps=num_training_steps, num_cycles=num_cycles, )
+    scheduler_seg = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_seg,
+                                                        T_max=10, eta_min=0, last_epoch=- 1, verbose=False)
 
     print(f'\n step 6. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
@@ -79,7 +92,7 @@ def main(args) :
             import wandb
         except ImportError:
             raise ImportError("No wandb / wandb がインストールされていないようです")
-        os.environ["WANDB_DIR"] = args.logging_dir
+        os.environ["WANDB_DIR"] = args.lgiogging_dir
         if args.wandb_api_key is not None:
             wandb.login(key=args.wandb_api_key)
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
@@ -130,14 +143,17 @@ def main(args) :
         for step, batch in enumerate(train_dataloader):
 
             with torch.no_grad():
+                img = batch['image'].to(dtype=weight_dtype)
+                print(f'img shape : {img.shape}')
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()
+
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 if torch.any(torch.isnan(latents)):
                     accelerator.print("NaN found in latents, replacing with zeros")
                     latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                     anomal_latents = torch.where(torch.isnan(anomal_latents),
                                                  torch.zeros_like(anomal_latents),anomal_latents)
-                latents = latents * vae_scale_factor
+                latents = latents * vae_scale_factor # [1,4,64,64]
                 anomal_latents = anomal_latents * vae_scale_factor
                 input_latents = torch.cat([latents, anomal_latents], dim=0)
             with torch.set_grad_enabled(True) :
@@ -167,7 +183,9 @@ def main(args) :
             normal_feats = []
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
-            anomal_mask = batch['anomaly_mask'].flatten().squeeze(0)
+
+            anomal_mask_ = batch['anomaly_mask'].squeeze(0) # [64,64]
+            anomal_mask = anomal_mask_.flatten().squeeze(0)
             anomal_position_num = anomal_mask.sum()
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
@@ -242,6 +260,16 @@ def main(args) :
                                  args.anormal_weight * anormal_cls_score_loss
                     normal_loss += normal_cls_score_loss
                     anomal_loss += anormal_cls_score_loss
+
+            ############################################ 4. segmentation model ##################################################
+            seg_model_input = torch.cat([latents, anomal_latents], dim=1)
+            pred_mask = seg_model(seg_model_input)
+            pred_mask_target = anomal_mask_.unsqueeze(0).unsqueeze(0)
+            print(f'pred_mask : {pred_mask.shape}, pred_mask_target : {pred_mask_target.shape}')
+            # loss
+            #focal_loss = loss_focal(pred_mask, anomaly_mask)
+            #smL1_loss = loss_smL1(pred_mask, anomaly_mask)
+            #loss = noise_loss + 5 * focal_loss + smL1_loss
 
             ############################################ 3. total Loss ##################################################
             if args.do_task_loss:
@@ -359,7 +387,6 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
-    parser.add_argument("--do_synthetic_anomaly", action='store_true')
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
