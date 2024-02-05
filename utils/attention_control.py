@@ -28,56 +28,50 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
             if trg_indexs_list is not None and layer_name in trg_indexs_list:
                 b = hidden_states.shape[0]
                 if b == 1 :
-                    normal_feats = []
-                    pix_num, dim = query.shape[1], query.shape[2]
                     normal_query = query.squeeze(0)
+
+                    pix_num, dim = normal_query.shape[0], normal_query.shape[1]
+                    normal_feats = []
                     for pix_idx in range(pix_num):
                         normal_feat = normal_query[pix_idx].squeeze(0)
-                        normal_feats.append(normal_feat)
+                        normal_feats.append(normal_feat.unsqueeze(0))
                     normal_feats = torch.cat(normal_feats, dim=0)
                     normal_mu = torch.mean(normal_feats, dim=0)
                     normal_cov = torch.cov(normal_feats.transpose(0, 1))
+                    # ---------------------------------------------------------------------------------------------- #
                     normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
                     max_dist = max(normal_mahalanobis_dists)
                     mean_dist = torch.mean(torch.tensor(normal_mahalanobis_dists))
+                    # ---------------------------------------------------------------------------------------------- #
                     if mask == 'perlin' : # mask means using perlin noise
                         perlin_noise = make_perlin_noise(pix_num, dim)
                         noise = torch.tensor(perlin_noise).to(hidden_states.device)
                     else :
                         noise = torch.randn_like(query).to(hidden_states.device)
-
-                    anomal_features = []
-                    anomal_map = []
+                    anomal_map, anomal_features = [], []
                     for pix_idx in range(pix_num):
-                        sub_feature = noise[pix_idx].squeeze(0)
-                        normal_feat = normal_query[pix_idx].squeeze(0)
+                        sub_feature, normal_feat = noise[pix_idx].squeeze(0), normal_query[pix_idx].squeeze(0)
                         sub_dist = mahal(sub_feature, normal_mu, normal_cov)
-                        if sub_dist > mean_dist.item() :
-                            anomal_features.append(sub_feature)
+                        if sub_dist > mean_dist.item():
+                            anomal_features.append(sub_feature.unsqueeze(0))
                             anomal_map.append(1)
-                        else :
-                            anomal_features.append(normal_feat)
+                        else:
+                            anomal_features.append(normal_feat.unsqueeze(0))
                             anomal_map.append(0)
-                    noise = torch.stack(anomal_features, dim=0)
-                    noise = noise.to(hidden_states.dtype)
-                    anomal_query = self.to_q(noise)
-                    if anomal_query.dim() != 3:
-                        anomal_query = anomal_query.unsqueeze(0)
-                    temp_query = torch.cat([query, anomal_query], dim=0)
-
+                    noise = torch.cat(anomal_features, dim=0).to(hidden_states.dtype)
                     anomal_map = torch.tensor(anomal_map).unsqueeze(0)
                     res = int(pix_num ** 0.5)
-                    anomal_map = anomal_map.view(res,res)
-                    controller.save_query(temp_query, layer_name)
-                    controller.save_map(anomal_map, layer_name)
-
+                    anomal_map = anomal_map.view(res, res)
+                    # ---------------------------------------------------------------------------------------------- #
+                    temp_query = torch.cat([query, self.to_q(noise.unsqueeze(0))], dim=0)
+                    controller.save_query(temp_query, layer_name) # [2, res*res, 320]
+                    controller.save_map(anomal_map, layer_name)   # [res,res]
                     temp_query = self.reshape_heads_to_batch_dim(temp_query)
-
                     if self.upcast_attention:
                         temp_query = temp_query.float()
+                    # ---------------------------------------------------------------------------------------------- #
                 else :
                     controller.save_query(query, layer_name)
-
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
@@ -87,13 +81,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
-            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
-                query,
-                key.transpose(-1, -2),
-                beta=0,
-                alpha=self.scale, )
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
+                                                         device=query.device), query,key.transpose(-1, -2),
+                                             beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
-            # cast back to the original dtype
             attention_probs = attention_probs.to(value.dtype)
             if trg_indexs_list is not None and layer_name in trg_indexs_list:
                 if b == 1 :
@@ -103,7 +94,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                                                      temp_query, temp_key.transpose(-1, -2), beta=0,alpha=self.scale, )
                     temp_attention_probs = temp_attention_scores.softmax(dim=-1)
                     temp_trg_map = temp_attention_probs.to(value.dtype)[:, :, :2]
-                    controller.store(temp_trg_map, layer_name)
+                    controller.store(temp_trg_map, layer_name) # 2, res*res, 2
                 else :
                     trg_map = attention_probs[:, :, :2]
                     controller.store(trg_map, layer_name)
