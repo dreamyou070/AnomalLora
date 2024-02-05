@@ -15,20 +15,23 @@ def register_attention_control(unet: nn.Module,
                 b = hidden_states.shape[0]
                 if b == 1 :
                     pix_num, dim = hidden_states.shape[1], hidden_states.shape[2]
-                    if mask : # mask means using perlin noise
+                    if mask == 'perlin' : # mask means using perlin noise
                         perlin_scale = 6
                         min_perlin_scale = 0
                         rand_1 = torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0]
                         rand_2 = torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0]
                         perlin_scalex, perlin_scaley = 2 ** (rand_1), 2 ** (rand_2)
                         perlin_noise = rand_perlin_2d_np((pix_num, dim), (perlin_scalex, perlin_scaley))
-                        perlin_noise = torch.tensor(perlin_noise).to(hidden_states.device)
-                        anomal_query = self.to_q(perlin_noise)
-                        temp_query = torch.cat([query, anomal_query], dim=0)
-                        controller.save_query(temp_query, layer_name)
-                        rand_query = self.reshape_heads_to_batch_dim(temp_query)
-                        if self.upcast_attention:
-                            temp_query = temp_query.float()
+                        noise = torch.tensor(perlin_noise).to(hidden_states.device)
+                    else :
+                        noise = torch.randn_like(query)
+                    anomal_query = self.to_q(noise)
+                    temp_query = torch.cat([query, anomal_query], dim=0)
+                    controller.save_query(temp_query, layer_name)
+                    temp_query = self.reshape_heads_to_batch_dim(temp_query)
+                    if self.upcast_attention:
+                        temp_query = temp_query.float()
+
                 else :
                     controller.save_query(query, layer_name)
             context = context if context is not None else hidden_states

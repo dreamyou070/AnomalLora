@@ -152,7 +152,7 @@ def main(args) :
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
             with accelerator.autocast():
                 noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states,
-                                  trg_indexs_list=args.trg_layer_list, mask_imgs=None).sample
+                                  trg_indexs_list=args.trg_layer_list, mask_imgs='perlin').sample
             ############################################# 1. task loss #################################################
             if args.do_task_loss:
                 target = noise.chunk(2, dim=0)[0]
