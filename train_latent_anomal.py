@@ -282,7 +282,7 @@ def main(args) :
                 loss_dict['anomal_loss'] = anomal_loss.mean().item()
 
             current_loss = loss.detach().item()
-            if epoch == 0 :
+            if epoch == args.start_epoch :
                 loss_list.append(current_loss)
             else:
                 epoch_loss_total -= loss_list[step]
