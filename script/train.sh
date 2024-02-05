@@ -1,8 +1,8 @@
 # !/bin/bash
 
-port_number=53889
+port_number=53877
 obj_name='bagel'
-caption='good'
+caption='bagel'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../train.py \
@@ -18,5 +18,5 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --do_dist_loss --dist_loss_weight 1.0 \
  --do_attn_loss --attn_loss_weight 1.0 \
  --normal_weight 1 \
- --general_training --do_synthetic_anomaly \
+ --do_synthetic_anomaly \
  --num_epochs 30
