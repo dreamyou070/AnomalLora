@@ -206,6 +206,8 @@ def main(args) :
                     a_dists = [mahal(feat, mu, cov) for feat in a_features]
                     anormal_dist_mean = torch.tensor(a_dists).mean()
                     total_dist += anormal_dist_mean
+                else :
+                    print(f'there is no anomal ')
 
                 #print(f'len of anormal feat : {len(anormal_feat_list)}')
                 normal_dist_loss = (normal_dist_mean / total_dist) ** 2
