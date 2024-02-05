@@ -229,9 +229,12 @@ def main(args) :
                 normal_trigger_score, anormal_trigger_score = normal_trigger_score.squeeze(), anormal_trigger_score.squeeze()
 
                 anomal_map_vector = anomal_map_vector.unsqueeze(0).repeat(normal_cls_score.shape[0], 1).to(anormal_cls_score.device)
+                # normal_map_vector = 1 - anomal_map_vector
                 anormal_cls_score, anormal_trigger_score = anormal_cls_score * anomal_map_vector, anormal_trigger_score * anomal_map_vector
+                # normal_cls_score_, normal_trigger_score_ = normal_cls_score * (nomal_map_vector), normal_trigger_score * (nomal_map_vector)
 
                 anormal_cls_score, anormal_trigger_score = anormal_cls_score.mean(dim=0), anormal_trigger_score.mean(dim=0)
+                # normal_cls_score_, normal_trigger_score_ = normal_cls_score_.mean(dim=0), normal_trigger_score_.mean(dim=0)
                 normal_cls_score, normal_trigger_score = normal_cls_score.mean(dim=0), normal_trigger_score.mean(dim=0)
                 total_score = torch.ones_like(normal_cls_score)
 
@@ -239,6 +242,8 @@ def main(args) :
                 normal_trigger_score_loss = (1 - (normal_trigger_score / total_score)) ** 2
                 anormal_cls_score_loss = (1 - (anormal_cls_score / total_score)) ** 2
                 anormal_trigger_score_loss = (anormal_trigger_score / total_score) ** 2
+                # normal_cls_score_loss_ = (normal_cls_score_ / total_score) ** 2
+                # normal_trigger_score_loss_ = (1-(normal_trigger_score_ / total_score)) ** 2
 
                 attn_loss += args.normal_weight * normal_trigger_score_loss + args.anormal_weight * anormal_trigger_score_loss
                 normal_loss += normal_trigger_score_loss
