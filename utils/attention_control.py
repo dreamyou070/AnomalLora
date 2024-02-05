@@ -41,7 +41,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     """ random down sampling the dim """
                     from random import sample
                     down_dim = 100
-                    idx = torch.tensor(sample(range(0, dim), down_dim))
+                    idx = torch.tensor(sample(range(0, dim), down_dim)).to(hidden_states.device)
                     # print(idx)
                     normal_feats = torch.index_select(normal_feats, 1, idx)
                     normal_mu = torch.mean(normal_feats, dim=0)
