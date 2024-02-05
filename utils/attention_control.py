@@ -38,7 +38,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     normal_feats = torch.cat(normal_feats, dim=0)
                     normal_mu = torch.mean(normal_feats, dim=0)
                     normal_cov = torch.cov(normal_feats.transpose(0, 1))
-                    print(f'normal_mu : {normal_mu.shape}, normal_cov : {normal_cov.shape}')
                     # ---------------------------------------------------------------------------------------------- #
                     normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
                     max_dist = max(normal_mahalanobis_dists)
