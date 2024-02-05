@@ -24,7 +24,8 @@ def register_attention_control(unet: nn.Module,
                         perlin_noise = rand_perlin_2d_np((pix_num, dim), (perlin_scalex, perlin_scaley))
                         noise = torch.tensor(perlin_noise).to(hidden_states.device)
                     else :
-                        noise = torch.randn_like(query)
+                        noise = torch.randn_like(query).to(hidden_states.device)
+                    noise = noise.to(hidden_states.dtype)
                     anomal_query = self.to_q(noise)
                     temp_query = torch.cat([query, anomal_query], dim=0)
                     controller.save_query(temp_query, layer_name)
