@@ -17,4 +17,6 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --trigger_word "${trigger_word}" \
  --do_task_loss --task_loss_weight 1.0 --do_cls_train \
  --do_dist_loss --dist_loss_weight 1.0 \
- --do_attn_loss --attn_loss_weight 0.01 --normal_weight 1
+ --do_attn_loss --attn_loss_weight 0.01 --normal_weight 1 \
+ --network_weights "${output_dir}/models/epoch-000004.safetensors" \
+ --start_epoch 4

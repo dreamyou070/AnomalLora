@@ -134,9 +134,9 @@ def main(args) :
     #accelerator.init_trackers(name, config=config)
     #accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
 
-    for epoch in range(0, args.num_epochs):
+    for epoch in range(args.start_epoch, args.start_epoch + args.num_epochs):
         epoch_loss_total = 0
-        accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
+        accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
 
         for step, batch in enumerate(train_dataloader):
             loss = 0
@@ -395,5 +395,6 @@ if __name__ == '__main__':
                         help="base name of trained model file / 学習後のモデルの拡張子を除くファイル名")
     parser.add_argument("--general_training", action='store_true')
     parser.add_argument("--trigger_word", type = str, default = "good")
+    parser.add_argument("--start_epoch", type=int, default=0)
     args = parser.parse_args()
     main(args)
