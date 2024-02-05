@@ -70,7 +70,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                         down_dim_sub_feature = torch.index_select(sub_feature.unsqueeze(0), 1, idx)
                         normal_feat = normal_hidden_states[pix_idx, :].squeeze(0)
                         sub_dist = mahal(down_dim_sub_feature.float().squeeze(), normal_mu.squeeze(), normal_cov)
-                        if sub_dist > th.item():
+                        if sub_dist > th:
                             anomal_features.append(sub_feature.unsqueeze(0))
                             anomal_map.append(1)
                         else:
