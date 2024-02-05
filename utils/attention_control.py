@@ -67,6 +67,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
                     # ---------------------------------------------------------------------------------------------- #
                     temp_query = torch.cat([query, self.to_q(noise.unsqueeze(0))], dim=0)
                     controller.save_query(temp_query, layer_name) # [2, res*res, 320]
+                    controller.save_query([normal_mu, normal_cov], layer_name)
                     controller.save_map(anomal_map, layer_name)   # [res,res]
                     temp_query = self.reshape_heads_to_batch_dim(temp_query)
                     if self.upcast_attention:

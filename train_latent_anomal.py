@@ -184,31 +184,36 @@ def main(args) :
 
                 for pix_idx in range(pix_num):
                     anormal_feat = anomal_query[pix_idx].squeeze(0)
+                    normal_feat = normal_query[pix_idx].squeeze(0)
                     anomal_flag = anomal_map_vector[pix_idx]
                     if anomal_flag == 1:
                         anormal_feat_list.append(anormal_feat.unsqueeze(0))
-                    else :
-                        normal_feats.append(anormal_feat.unsqueeze(0))
-                a_features = torch.cat(anormal_feat_list, dim=0)
-                n_features = torch.cat(normal_feats, dim=0)
-                mu = torch.mean(n_features, dim=0)
-                cov = torch.cov(n_features.transpose(0, 1))
+                    normal_feats.append(normal_feat.unsqueeze(0))
 
+                mu, cov = query_dict[trg_layer][1]
                 def mahal(u, v, cov):
                     delta = u - v
                     m = torch.dot(delta, torch.matmul(cov, delta))
                     return torch.sqrt(m)
-                n_dists = [mahal(feat, mu, cov) for feat in n_features]
-                a_dists = [mahal(feat, mu, cov) for feat in a_features]
-                normal_dist_mean = torch.tensor(n_dists).mean()
-                anormal_dist_mean = torch.tensor(a_dists).mean()
-                total_dist = normal_dist_mean + anormal_dist_mean
-                normal_dist_loss = (normal_dist_mean / total_dist) ** 2
-                anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
 
+                n_features = torch.cat(normal_feats, dim=0)
+                n_dists = [mahal(feat, mu, cov) for feat in n_features]
+                normal_dist_mean = torch.tensor(n_dists).mean()
+                total_dist = normal_dist_mean
+                if len(anormal_feat_list) > 0:
+                    a_features = torch.cat(anormal_feat_list, dim=0)
+                    a_dists = [mahal(feat, mu, cov) for feat in a_features]
+                    anormal_dist_mean = torch.tensor(a_dists).mean()
+                    total_dist += anormal_dist_mean
+
+                normal_dist_loss = (normal_dist_mean / total_dist) ** 2
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
-                anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
-                dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
+                dist_loss += normal_dist_loss.requires_grad_()
+
+                if len(anormal_feat_list) > 0:
+                    anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
+                    anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
+                    dist_loss += anormal_dist_loss.requires_grad_()
 
                 ################## ---------------------- ################## ---------------------- ##################
                 attention_score = attn_dict[trg_layer][0]  # 2, pix_num, 2
