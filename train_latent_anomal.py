@@ -268,6 +268,7 @@ def main(args) :
                     anomal_loss += anormal_cls_score_loss
 
                 ############################################ 3. segmentation net ###########################################
+                """
                 normal_query = dim_changer(normal_query)  # [batch, pix_nujm, dum -> batch, pix_num, 3]
                 normal_query = einops.rearrange(normal_query, 'b (h w) c -> b c h w', h=64, w=64)
 
@@ -281,9 +282,7 @@ def main(args) :
                 focal_loss = loss_focal(pred_mask, pred_mask_trg)
                 smL1_loss = loss_smL1(pred_mask, pred_mask_trg)
                 segmentation_loss += focal_loss + 5 * smL1_loss
-
-
-
+                """
             ############################################ 4. total Loss ##################################################
             if args.do_task_loss:
                 loss += task_loss
@@ -298,7 +297,7 @@ def main(args) :
                 #loss_dict['attn_loss'] = attn_loss.mean().item()
                 loss_dict['normal_loss'] = normal_loss.mean().item()
                 loss_dict['anomal_loss'] = anomal_loss.mean().item()
-            loss_dict['segmentation_loss'] = segmentation_loss.mean().item()
+            #loss_dict['segmentation_loss'] = segmentation_loss.mean().item()
             loss += segmentation_loss.mean()
 
             current_loss = loss.detach().item()

@@ -107,7 +107,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):  # i
                                              beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
-            if trg_indexs_list is not None and layer_name in trg_indexs_list:
+            if trg_layer_list is not None and layer_name in trg_layer_list :
                 if b == 1 :
                     temp_key = torch.cat([key, key], dim=0)
                     temp_attention_scores = torch.baddbmm(torch.empty(temp_query.shape[0], temp_query.shape[1],

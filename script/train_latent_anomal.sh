@@ -1,11 +1,11 @@
 # !/bin/bash
 
-port_number=58510
+port_number=58501
 obj_name='bagel'
 trigger_word='good'
 
-output_dir="../../result/${obj_name}/caption_good_res_64_down_dim_160_segmentation_model_test"
-network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_320/models/epoch-000037.safetensors"
+output_dir="../../result/${obj_name}/caption_good_down_dim_160"
+#network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_320/models/epoch-000037.safetensors"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --main_process_port $port_number ../train_latent_anomal.py \
