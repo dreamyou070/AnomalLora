@@ -1,10 +1,10 @@
 # !/bin/bash
 
-port_number=58502
+port_number=58503
 obj_name='bagel'
 trigger_word='good'
 
-output_dir="../../result/${obj_name}/caption_good_down_dim_240"
+output_dir="../../result/${obj_name}/caption_good_down_dim_320"
 #network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_320/models/epoch-000037.safetensors"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
@@ -22,7 +22,7 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --do_dist_loss --dist_loss_weight 1.0 \
  --do_attn_loss --attn_loss_weight 1.0 --normal_weight 1 \
  --do_anomal_sample_normal_loss \
- --down_dim 240 \
+ --down_dim 320 \
  --start_epoch 0 \
  --num_repeat 2
  #--network_weights ${network_weights} \
