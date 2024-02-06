@@ -3,6 +3,7 @@ import numpy as np
 from torch.utils.data import Dataset
 import torch
 import cv2
+import random
 import glob
 from data.perlin import rand_perlin_2d_np
 from PIL import Image
@@ -72,16 +73,23 @@ class MVTecDRAEMTrainDataset(Dataset):
                  resize_shape=None,
                  tokenizer=None,
                  caption: str = None,
-                 use_perlin: bool = False):
+                 use_perlin: bool = False,
+                 num_repeat: int = 1):
 
         self.root_dir = root_dir
         self.resize_shape=resize_shape
-        self.image_paths = sorted(glob.glob(root_dir+"/*.png"))
+
         self.anomaly_source_paths = sorted(glob.glob(anomaly_source_path+"/*/*.png"))
         self.caption = caption
         self.tokenizer = tokenizer
         self.transform = transforms.Compose([transforms.ToTensor(),transforms.Normalize([0.5], [0.5]),])
         self.use_perlin = use_perlin
+        self.num_repeat = 1
+
+        image_paths = sorted(glob.glob(root_dir + "/*.png"))
+        self.image_path = [image_path for image_path in image_paths for i in range(self.num_repeat)]
+        random.shuffle(self.image_path)
+
 
     def __len__(self):
         return len(self.image_paths)

@@ -64,7 +64,8 @@ def main(args) :
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
                                      caption=args.trigger_word,
-                                     use_perlin=True, )
+                                     use_perlin=True,
+                                     num_repeat = args.num_repeat,)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     print(f'\n step 5. lr')
@@ -347,6 +348,7 @@ if __name__ == '__main__':
     parser.add_argument('--obj_name', type=str, default='bottle')
     parser.add_argument('--anomaly_source_path', type=str)
     parser.add_argument('--batch_size', type=int, default=1)
+    parser.add_argument('--num_repeat', type=int, default=1)
     # step 5. lr
     parser.add_argument('--num_epochs', type=int, default=10)
     parser.add_argument('--lr_scheduler_num_cycles', type=int, default=1)
