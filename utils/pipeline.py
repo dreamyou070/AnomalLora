@@ -712,20 +712,11 @@ class AnomalyDetectionStableDiffusionPipeline(StableDiffusionPipeline):
         # 2. Define call parameters
         batch_size = 1 if isinstance(prompt, str) else len(prompt)
         device = self._execution_device
-        # here `guidance_scale` is defined analog to the guidance weight `w` of equation (2)
-        # of the Imagen paper: https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
-        # corresponds to doing no classifier free guidance.
         do_classifier_free_guidance = guidance_scale > 1.0
 
         # 3. Encode input prompt
-        text_embeddings = self._encode_prompt(
-            prompt,
-            device,
-            num_images_per_prompt,
-            do_classifier_free_guidance,
-            negative_prompt,
-            max_embeddings_multiples,
-        )
+        text_embeddings = self._encode_prompt(prompt,device,num_images_per_prompt,
+                                              do_classifier_free_guidance,negative_prompt,max_embeddings_multiples,)
         dtype = text_embeddings.dtype
 
         # 4. Preprocess image and mask
@@ -740,17 +731,9 @@ class AnomalyDetectionStableDiffusionPipeline(StableDiffusionPipeline):
         latent_timestep = timesteps[:1].repeat(batch_size * num_images_per_prompt)
 
         # 6. Prepare latent variables
-        latents, init_latents_orig, noise = self.prepare_latents(
-            image,
-            latent_timestep,
-            batch_size * num_images_per_prompt,
-            height,
-            width,
-            dtype,
-            device,
-            generator,
-            latents,
-        )
+        latents, init_latents_orig, noise = self.prepare_latents(image,latent_timestep,batch_size * num_images_per_prompt,
+                                                                 height,width,dtype,device,generator,
+                                                                 latents,)
         noise = latents
         # (1) init latent maskint
         #if mask is not None:
@@ -767,7 +750,6 @@ class AnomalyDetectionStableDiffusionPipeline(StableDiffusionPipeline):
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
             latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-
             unet_additional_args = {}
             # predict the noise residual
             noise_pred = self.unet(latent_model_input, t,
