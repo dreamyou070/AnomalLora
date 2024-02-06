@@ -11,4 +11,5 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --data_path "../../../MyData/anomaly_detection/MVTec3D-AD/${obj_name}/test" \
  --obj_name "${obj_name}" \
  --trg_layer_list "['down_blocks_0_attentions_1_transformer_blocks_0_attn2']" \
+ --down_dim 160 \
  --prompt "${caption}"

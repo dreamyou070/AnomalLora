@@ -166,5 +166,9 @@ if __name__ == '__main__':
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
     parser.add_argument("--trg_layer_list", type=arg_as_list)
+    from utils.attention_control import add_attn_argument, passing_argument
+    add_attn_argument(parser)
+    args = parser.parse_args()
+    passing_argument(args)
     args = parser.parse_args()
     main(args)
