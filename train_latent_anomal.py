@@ -349,8 +349,6 @@ def main(args) :
                                num_inference_steps=args.num_ddim_steps,
                                guidance_scale=args.guidance_scale,
                                negative_prompt=args.negative_prompt, )
-
-            
             gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
             img_save_base_dir = args.output_dir + "/sample"
             os.makedirs(img_save_base_dir, exist_ok=True)
