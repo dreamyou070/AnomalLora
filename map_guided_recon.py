@@ -85,9 +85,13 @@ def main(args) :
                             "last_hidden_state"]  # batch, 77, 768
 
                     latent = image2latent(img, vae, weight_dtype)
+                    org_image = pipeline.latents_to_image(latent)[0].resize((org_h, org_w))
+                    org_img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
+                    org_image.save(org_img_dir)
+
                     latent = latent.detach().requires_grad_()
                     encoder_hidden_states = encoder_hidden_states.detach().requires_grad_()
-                    for i in range(10) :
+                    for i in range(30) :
                         unet(latent,0,encoder_hidden_states,trg_indexs_list=args.trg_layer_list)
                         attn_dict = controller.step_store
                         controller.reset()
@@ -97,9 +101,13 @@ def main(args) :
                                 attn_map = attn_map.chunk(2, dim=0)[0]
                             cls_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
                             loss = cls_map.mean()
-                        print(f'loss: {loss.item()}')
                         gradient = torch.autograd.grad(loss, latent, retain_graph = True)[0]  # only grad
                         latent = latent - latent * gradient.float()
+                    latent = latent.detach()
+                    controller.reset()
+                    recon_image = pipeline.latents_to_image(latent)[0].resize((org_h, org_w))
+                    img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
+                    recon_image.save(img_dir)
 
         del network
 
