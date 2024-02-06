@@ -1,11 +1,11 @@
 # !/bin/bash
 
-port_number=58520
+port_number=58510
 obj_name='bagel'
 trigger_word='good'
 
-output_dir="../../result/${obj_name}/caption_${trigger_word}_res_64_attnloss_1_down_dim_240"
-network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_320/models/epoch-000021.safetensors"
+output_dir="../../result/${obj_name}/caption_${trigger_word}_res_64_attnloss_1_down_dim_160"
+network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_160/models/epoch-000007.safetensors"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --main_process_port $port_number ../train_latent_anomal.py \
@@ -22,7 +22,7 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --do_dist_loss --dist_loss_weight 1.0 \
  --do_attn_loss --attn_loss_weight 1.0 --normal_weight 1 \
  --do_anomal_sample_normal_loss \
- --down_dim 240 \
+ --down_dim 160 \
  --network_weights ${network_weights} \
- --start_epoch 21 \
- --num_repeat 2
+ --start_epoch 7 \
+ --num_repeat 5
