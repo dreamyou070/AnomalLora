@@ -199,8 +199,9 @@ def main(args) :
                     anomal_flag = anomal_map_vector[pix_idx]
                     if anomal_flag == 1:
                         anormal_feat_list.append(anormal_feat.unsqueeze(0))
-                    #else :
-                    #    normal_feat_list.append(anormal_feat.unsqueeze(0))
+                    else :
+                        if args.more_generalize:
+                            normal_feat_list.append(anormal_feat.unsqueeze(0))
                     normal_feat_list.append(normal_feat.unsqueeze(0))
                 n_features = torch.cat(normal_feat_list, dim=0)
                 n_features = torch.index_select(n_features, 1, idx)
@@ -235,6 +236,7 @@ def main(args) :
                 normal_trigger_score, anormal_trigger_score = normal_trigger_score.squeeze(), anormal_trigger_score.squeeze()
 
                 anomal_map_vector = anomal_map_vector.unsqueeze(0).repeat(normal_cls_score.shape[0], 1).to(anormal_cls_score.device)
+                #if args.more_generalize:
                 normal_map_vector = 1 - anomal_map_vector
                 anormal_cls_score, anormal_trigger_score = anormal_cls_score * anomal_map_vector, anormal_trigger_score * anomal_map_vector
                 normal_cls_score_, normal_trigger_score_ = normal_cls_score * normal_map_vector, normal_trigger_score * normal_map_vector
