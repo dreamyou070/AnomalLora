@@ -18,6 +18,28 @@ from utils.attention_control import register_attention_control,add_attn_argument
 from utils import get_epoch_ckpt_name, save_model
 import time
 import json
+from torch import nn
+class BinaryFocalLoss(nn.Module):
+    def __init__(self, alpha=0.5, gamma=4, logits=False, reduce=True):
+        super(BinaryFocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.logits = logits
+        self.reduce = reduce
+
+    def forward(self, inputs, targets):
+        if self.logits:
+            BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
+        else:
+            BCE_loss = F.binary_cross_entropy(inputs, targets, reduction='none')
+        pt = torch.exp(-BCE_loss)
+        F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
+
+        if self.reduce:
+            return torch.mean(F_loss)
+        else:
+            return F_loss
+
 
 def main(args) :
 
@@ -57,6 +79,9 @@ def main(args) :
     segmentation_trainable_params = [{"params" : seg_model.parameters(), "lr" : args.seg_lr},
                                      {"params" : dim_changer.parameters(), "lr" : args.seg_lr}]
     optimizer_seg = torch.optim.AdamW(segmentation_trainable_params)
+
+    loss_focal = BinaryFocalLoss()
+    loss_smL1 = nn.SmoothL1Loss()
 
     print(f'\n step 4. dataset and dataloader')
     obj_dir = os.path.join(args.data_path, args.obj_name)
@@ -109,15 +134,15 @@ def main(args) :
     if args.network_weights is not None:
         network.load_weights(args.network_weights)
     if args.train_unet and args.train_text_encoder:
-        unet, text_encoder, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler = accelerator.prepare(
-                            unet, text_encoder, network, optimizer, optimizer_seg, dataloader, lr_scheduler,seg_scheduler)
+        unet, text_encoder, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1 = accelerator.prepare(
+                            unet, text_encoder, network, optimizer, optimizer_seg, dataloader, lr_scheduler,seg_scheduler,loss_focal, loss_smL1)
     elif args.train_unet:
-        unet, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler = accelerator.prepare(unet, network, optimizer,
-                                                                    optimizer_seg, dataloader, lr_scheduler, seg_scheduler)
+        unet, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1 = accelerator.prepare(unet, network, optimizer,
+                                           optimizer_seg, dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1)
         text_encoder.to(accelerator.device,dtype=weight_dtype)
     elif args.train_text_encoder:
-        text_encoder, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler,seg_scheduler = accelerator.prepare(text_encoder, network,
-                                                        optimizer, optimizer_seg,dataloader, lr_scheduler, seg_scheduler)
+        text_encoder, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler,seg_scheduler,loss_focal, loss_smL1 = accelerator.prepare(text_encoder, network,
+                                optimizer, optimizer_seg,dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1)
         unet.to(accelerator.device,dtype=weight_dtype)
 
     print(f'\n step 7. Train!')
@@ -274,7 +299,6 @@ def main(args) :
                 segmentation_loss += focal_loss + 5 * smL1_loss
 
 
-            # loss = noise_loss + 5 * focal_loss + smL1_loss
 
             ############################################ 4. total Loss ##################################################
             if args.do_task_loss:
@@ -290,6 +314,8 @@ def main(args) :
                 #loss_dict['attn_loss'] = attn_loss.mean().item()
                 loss_dict['normal_loss'] = normal_loss.mean().item()
                 loss_dict['anomal_loss'] = anomal_loss.mean().item()
+            loss_dict['segmentation_loss'] = segmentation_loss.mean().item()
+            loss += segmentation_loss.mean()
 
             current_loss = loss.detach().item()
             if epoch == args.start_epoch :

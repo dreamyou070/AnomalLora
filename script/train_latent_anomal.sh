@@ -4,7 +4,7 @@ port_number=58510
 obj_name='bagel'
 trigger_word='good'
 
-output_dir="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_320"
+output_dir="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_320_segmentation_model_test"
 network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_320/models/epoch-000037.safetensors"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
@@ -24,5 +24,5 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --do_anomal_sample_normal_loss \
  --down_dim 320 \
  --network_weights ${network_weights} \
- --start_epoch 37 \
- --num_repeat 2
+ --start_epoch 0 \
+ --num_repeat 3
