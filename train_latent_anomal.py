@@ -339,14 +339,18 @@ def main(args) :
             scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
                                       beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
                                       beta_schedule=args.scheduler_schedule)
-            pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
-                                                               unet=unet, scheduler=scheduler,safety_checker=None, feature_extractor=None,
-                                                               requires_safety_checker=False, random_vector_generator=None, trg_layer_list=None)
-            latents = pipeline(prompt=batch['caption'],
+            pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder,
+                                                               tokenizer=tokenizer, unet=unet, scheduler=scheduler,
+                                                               safety_checker=None, feature_extractor=None,
+                                                               requires_safety_checker=False,
+                                                               random_vector_generator=None, trg_layer_list=None)
+            latents = pipeline(prompt=args.trigger_word,
                                height=512, width=512,
                                num_inference_steps=args.num_ddim_steps,
                                guidance_scale=args.guidance_scale,
                                negative_prompt=args.negative_prompt, )
+
+            
             gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
             img_save_base_dir = args.output_dir + "/sample"
             os.makedirs(img_save_base_dir, exist_ok=True)
