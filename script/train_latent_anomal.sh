@@ -1,12 +1,12 @@
 # !/bin/bash
 
-port_number=58513
+port_number=58514
 obj_name='bagel'
 trigger_word='bagel'
-output_dir="../../result/${obj_name}/caption_${trigger_word}_down_dim_320"
+output_dir="../../result/${obj_name}/caption_${trigger_word}_down_dim_320_more_generalize"
 #network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_320/models/epoch-000037.safetensors"
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_config \
  --main_process_port $port_number ../train_latent_anomal.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
  --output_dir ${output_dir} \
@@ -23,6 +23,7 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --do_anomal_sample_normal_loss \
  --down_dim 320 \
  --start_epoch 0 \
- --num_repeat 2
+ --num_repeat 2 \
+ --more_generalize
  #--network_weights ${network_weights} \
 
