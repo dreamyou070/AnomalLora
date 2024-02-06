@@ -92,7 +92,7 @@ def main(args) :
                     latent = latent.detach().requires_grad_()
                     encoder_hidden_states = encoder_hidden_states.detach().requires_grad_()
                     for i in range(30) :
-                        unet(latent,0,encoder_hidden_states,trg_indexs_list=args.trg_layer_list)
+                        unet(latent, 0, encoder_hidden_states, trg_indexs_list=args.trg_layer_list)
                         attn_dict = controller.step_store
                         controller.reset()
                         for layer_name in args.trg_layer_list:
@@ -103,7 +103,7 @@ def main(args) :
                             loss = cls_map.mean()
                             print(f'loss : {loss}')
                         gradient = torch.autograd.grad(loss, latent, retain_graph = True)[0]  # only grad
-                        latent = latent - (gradient * 10) .float()
+                        latent = latent - (gradient * 1000) .float()
                     latent = latent.detach()
                     controller.reset()
                     recon_image = pipeline.latents_to_image(latent)[0].resize((org_h, org_w))
