@@ -26,10 +26,10 @@ def passing_argument(args):
 def register_attention_control(unet: nn.Module,controller: AttentionStore):  # if mask_threshold is 1, use itself
 
     def ca_forward(self, layer_name):
-        def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
+        def forward(hidden_states, context=None, trg_layer_list=None, noise_type=None):
 
             query = self.to_q(hidden_states)
-            if trg_indexs_list is not None and layer_name in trg_indexs_list:
+            if trg_layer_list is not None and layer_name in trg_layer_list :
                 b = hidden_states.shape[0]
                 if b == 1 :
                     normal_query = query.squeeze(0)
@@ -55,7 +55,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):  # i
                     th = max_dist.item() * 1
 
                     # ---------------------------------------------------------------------------------------------- #
-                    if mask == 'perlin' : # mask means using perlin noise
+                    if noise_type == 'perlin' : # mask means using perlin noise
                         perlin_noise = make_perlin_noise(pix_num, dim)
                         perlin_noise = torch.tensor(perlin_noise).to(hidden_states.device)
                         noise = hidden_states.squeeze() + perlin_noise
