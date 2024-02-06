@@ -101,8 +101,9 @@ def main(args) :
                                 attn_map = attn_map.chunk(2, dim=0)[0]
                             cls_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
                             loss = cls_map.mean()
+                            print(f'loss : {loss}')
                         gradient = torch.autograd.grad(loss, latent, retain_graph = True)[0]  # only grad
-                        latent = latent - latent * gradient.float()
+                        latent = latent - gradient.float()
                     latent = latent.detach()
                     controller.reset()
                     recon_image = pipeline.latents_to_image(latent)[0].resize((org_h, org_w))
