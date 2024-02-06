@@ -130,8 +130,10 @@ def main(args) :
     if args.network_weights is not None:
         network.load_weights(args.network_weights)
     if args.train_unet and args.train_text_encoder:
-        unet, text_encoder, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1 = accelerator.prepare(
-        unet, text_encoder, network, optimizer, optimizer_seg, dataloader, lr_scheduler,seg_scheduler,loss_focal, loss_smL1)
+        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler, = accelerator.prepare(unet,
+                                                            text_encoder, network, optimizer, dataloader, lr_scheduler)
+        # unet, text_encoder, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1 = accelerator.prepare(
+        # unet, text_encoder, network, optimizer, optimizer_seg, dataloader, lr_scheduler,seg_scheduler,loss_focal, loss_smL1)
     elif args.train_unet:
         unet, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1 = accelerator.prepare(unet, network, optimizer,
                                           optimizer_seg, dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1)
