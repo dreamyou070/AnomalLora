@@ -103,7 +103,7 @@ def main(args) :
                             loss = cls_map.mean()
                             print(f'loss : {loss}')
                         gradient = torch.autograd.grad(loss, latent, retain_graph = True)[0]  # only grad
-                        latent = latent - gradient.float()
+                        latent = latent - (gradient * 10) .float()
                     latent = latent.detach()
                     controller.reset()
                     recon_image = pipeline.latents_to_image(latent)[0].resize((org_h, org_w))
