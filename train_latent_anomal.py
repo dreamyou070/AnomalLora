@@ -155,6 +155,8 @@ def main(args) :
                               beta_end=args.scheduler_linear_end,
                               beta_schedule=args.scheduler_schedule)
 
+
+    m = 0
     for epoch in range(args.start_epoch, args.start_epoch + args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
@@ -334,6 +336,7 @@ def main(args) :
                 progress_bar.set_postfix(**loss_dict)
             if global_step >= args.max_train_steps:
                 break
+
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
         accelerator.wait_for_everyone()
         ### 4.2 sampling
