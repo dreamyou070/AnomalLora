@@ -428,7 +428,7 @@ if __name__ == '__main__':
     parser.add_argument("--general_training", action='store_true')
     parser.add_argument("--trigger_word", type = str, default = "good")
     parser.add_argument("--start_epoch", type=int, default=0)
-
+    parser.add_argument("--more_generalize", action='store_true')
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)

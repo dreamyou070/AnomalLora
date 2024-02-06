@@ -21,7 +21,9 @@ def make_perlin_noise(shape_row, shape_column):
 
 def passing_argument(args):
     global down_dim
+    global more_generalize
     down_dim = args.down_dim
+    more_generalize = args.more_generalize
 
 def register_attention_control(unet: nn.Module,controller: AttentionStore):  # if mask_threshold is 1, use itself
 
@@ -73,7 +75,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):  # i
                             anomal_features.append(sub_feature.unsqueeze(0))
                             anomal_map.append(1)
                         else:
-                            anomal_features.append(normal_feat.unsqueeze(0))
+                            if more_generalize :
+                                anomal_features.append(sub_feature.unsqueeze(0))
+                            else :
+                                anomal_features.append(normal_feat.unsqueeze(0))
                             anomal_map.append(0)
                     anormal_hidden_states = torch.cat(anomal_features, dim=0).to(hidden_states.dtype) # pix_num, dim
                     anomal_map = torch.tensor(anomal_map).unsqueeze(0)
