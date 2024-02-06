@@ -168,7 +168,6 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
-    parser.add_argument("--more_general",action="store_true",)
     # step 8. test
     import ast
     def arg_as_list(arg):
@@ -177,9 +176,12 @@ if __name__ == '__main__':
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
     parser.add_argument("--trg_layer_list", type=arg_as_list)
+    parser.add_argument("--more_generalize", action='store_true')
+
     from utils.attention_control import add_attn_argument, passing_argument
+
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
-    args = parser.parse_args()
     main(args)
+
