@@ -127,9 +127,9 @@ def main(args) :
     #accelerator.init_trackers(name, config=config)
     accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
     anormal_feat_list = []
-    for epoch in range(0, args.num_epochs):
+    for epoch in range(args.start_epoch, args.num_epochs):
         epoch_loss_total = 0
-        accelerator.print(f"\nepoch {epoch + 1}/{args.num_epochs}")
+        accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
 
         for step, batch in enumerate(train_dataloader):
 
@@ -247,7 +247,7 @@ def main(args) :
                 loss_dict['anomal_loss'] = anomal_loss.mean().item()
 
             current_loss = loss.detach().item()
-            if epoch == 0 :
+            if epoch == args.start_epoch :
                 loss_list.append(current_loss)
             else:
                 epoch_loss_total -= loss_list[step]
@@ -323,6 +323,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_repeat', type=int, default=1)
     # step 5. lr
     parser.add_argument('--num_epochs', type=int, default=10)
+    parser.add_argument('--start_epoch', type=int, default=0)
     parser.add_argument('--lr_scheduler_num_cycles', type=int, default=1)
     parser.add_argument('--num_warmup_steps', type=int, default=100)
     # step 6
