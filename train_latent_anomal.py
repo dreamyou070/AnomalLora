@@ -149,6 +149,12 @@ def main(args) :
     global_step = 0
     loss_list = []
 
+    scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
+    scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
+                              beta_start=args.scheduler_linear_start,
+                              beta_end=args.scheduler_linear_end,
+                              beta_schedule=args.scheduler_schedule)
+
     for epoch in range(args.start_epoch, args.start_epoch + args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
@@ -333,12 +339,8 @@ def main(args) :
         ### 4.2 sampling
         if is_main_process :
             ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
-            unwrapped_nw = accelerator.unwrap_model(network)
-            save_model(args, ckpt_name, unwrapped_nw, save_dtype)
-            scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
-            scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
-                                      beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
-                                      beta_schedule=args.scheduler_schedule)
+            save_model(args, ckpt_name, accelerator.unwrap_model(network), save_dtype)
+
             pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder,
                                                                tokenizer=tokenizer, unet=unet, scheduler=scheduler,
                                                                safety_checker=None, feature_extractor=None,

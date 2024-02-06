@@ -25,7 +25,7 @@ def passing_argument(args):
     down_dim = args.down_dim
     more_generalize = args.more_generalize
 
-def register_attention_control(unet: nn.Module,controller: AttentionStore):  # if mask_threshold is 1, use itself
+def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, trg_layer_list=None, noise_type=None):
