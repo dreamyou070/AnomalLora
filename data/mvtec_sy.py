@@ -132,10 +132,11 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         # [2] augment ( anomaly mask white = anomal position )
         anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1]) # [512, 512], [0, 1]
-
-        # [3] anomal image
+        anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
         mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2)
-        anomal_img = (1-mask) * img  + mask * anomal_src
+        anomal_img = (1-mask) * img + mask * anomal_src
+        print(f'in dataset, img : {img}')
+        print(f'in dataset, anomal_img : {anomal_src}')
 
         # [3] final
         image = self.transform(img)
