@@ -91,7 +91,6 @@ def main(args) :
                         unet(latent,0,encoder_hidden_states,trg_indexs_list=args.trg_layer_list)
                         attn_dict = controller.step_store
                         controller.reset()
-                        vae_latent = vae_latent.detach().requires_grad_()
                         for layer_name in args.trg_layer_list:
                             attn_map = attn_dict[layer_name][0]
                             if attn_map.shape[0] != 8 :
@@ -99,7 +98,7 @@ def main(args) :
                             cls_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
                             loss = cls_map.mean()
                         print(f'loss: {loss.item()}')
-                        gradient = torch.autograd.grad(loss, vae_latent, retain_graph = True)[0]  # only grad
+                        gradient = torch.autograd.grad(loss, latent, retain_graph = True)[0]  # only grad
                         latent = latent - latent * gradient.float()
 
         del network
