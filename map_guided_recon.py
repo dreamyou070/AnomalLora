@@ -97,7 +97,7 @@ def main(args) :
                             cls_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
                             loss = cls_map.mean()
                         print(f'loss: {loss.item()}')
-                        gradient = -torch.autograd.grad(loss, vae_latent, retain_graph=True)[0]  # only grad
+                        gradient = -torch.autograd.grad(loss, vae_latent)[0]  # only grad
                         latent = latent + latent * gradient.float()
 
         del network
