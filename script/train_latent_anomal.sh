@@ -4,7 +4,7 @@ port_number=58510
 obj_name='bagel'
 trigger_word='good'
 
-output_dir="../../result/${obj_name}/caption_${trigger_word}_res_64_attnloss_1_down_dim_160"
+output_dir="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_160"
 network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_160/models/epoch-000007.safetensors"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
