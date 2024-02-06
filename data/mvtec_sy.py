@@ -138,6 +138,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         Image.fromarray(img.astype(np.uint8)).save('img_pil.png')
         Image.fromarray(anomal_src.astype(np.uint8)).save('anomal_src_pil.png')
+        Image.fromarray(anomal_img.astype(np.uint8)).save('anomal_img_pil.png')
 
         # [3] final
         image = self.transform(img)
