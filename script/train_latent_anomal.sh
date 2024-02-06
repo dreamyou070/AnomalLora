@@ -7,7 +7,7 @@ trigger_word=obj_name
 output_dir="../../result/${obj_name}/caption_${obj_name}_down_dim_320_more_generalize"
 #network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_320/models/epoch-000037.safetensors"
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train_latent_anomal.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
  --output_dir ${output_dir} \
