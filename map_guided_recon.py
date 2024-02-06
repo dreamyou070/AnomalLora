@@ -87,6 +87,7 @@ def main(args) :
                     vae_latent = image2latent(img, vae, weight_dtype)
                     latent = vae_latent
                     latent = latent.detach().requires_grad_()
+                    encoder_hidden_states = encoder_hidden_states.detach().requires_grad_()
                     for i in range(10) :
                         unet(latent,0,encoder_hidden_states,trg_indexs_list=args.trg_layer_list)
                         attn_dict = controller.step_store
