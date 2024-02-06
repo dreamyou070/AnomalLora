@@ -136,6 +136,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
         anomal_img = (1-mask) * img + mask * anomal_src
 
+        Image.fromarray(img.astype(np.uint8)).save('img_pil.png')
+        Image.fromarray(anomal_src.astype(np.uint8)).save('anomal_src_pil.png')
+
         # [3] final
         image = self.transform(img)
         anomal_image = self.transform(anomal_img)
@@ -143,6 +146,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         # -----------------------------------------------------------------------------------------------
         anomal_img_pil = Image.fromarray((mask * 255).astype(np.uint8))
         anomal_pil = anomal_img_pil.resize((64,64)).convert('L')
+        anomal_pil.save("anomal_pil.png")
         anomal_torch = torch.tensor(np.array(anomal_pil))
         anomal_mask = torch.where(anomal_torch > 0.5, 1, 0)  # strict anomal
 
