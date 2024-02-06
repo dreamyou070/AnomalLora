@@ -3,7 +3,7 @@
 port_number=53854
 obj_name='bagel'
 trigger_word='good'
-network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_pixel_anomal/models/epoch-0000030.safetensors"
+network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_pixel_anomal/models/epoch-000030.safetensors"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_config \
  --main_process_port $port_number ../train_pixel_anomal.py \
