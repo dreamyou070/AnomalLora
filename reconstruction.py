@@ -57,10 +57,10 @@ def main(args) :
         controller = AttentionStore()
         register_attention_control(unet, controller)
 
-        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae,
-                         text_encoder=text_encoder,tokenizer=tokenizer,unet=unet,scheduler=scheduler,
-                         safety_checker=None,feature_extractor=None,requires_safety_checker=False,
-                         random_vector_generator=None, trg_layer_list=None)
+        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder,
+                                                           tokenizer=tokenizer,unet=unet,scheduler=scheduler,
+                                                           safety_checker=None,feature_extractor=None,requires_safety_checker=False,
+                                                           random_vector_generator=None, trg_layer_list=None)
         latents = pipeline(prompt=args.prompt,
                            height=512, width=512,
                            num_inference_steps=args.num_ddim_steps,

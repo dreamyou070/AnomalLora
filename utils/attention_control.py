@@ -33,7 +33,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):  # i
                 b = hidden_states.shape[0]
                 if b == 1 :
                     normal_query = query.squeeze(0)
-
                     pix_num, dim = normal_query.shape[0], normal_query.shape[1]
                     normal_feats = []
                     for pix_idx in range(pix_num):
