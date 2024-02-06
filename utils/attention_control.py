@@ -19,9 +19,11 @@ def make_perlin_noise(shape_row, shape_column):
     perlin_noise = rand_perlin_2d_np((shape_row, shape_column), (perlin_scalex, perlin_scaley))
     return perlin_noise
 
+def passing_argument(args):
+    global down_dim
+    down_dim = args.down_dim
 
-
-def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  # if mask_threshold is 1, use itself
+def register_attention_control(unet: nn.Module,controller: AttentionStore):  # if mask_threshold is 1, use itself
 
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, trg_indexs_list=None, mask=None):
@@ -41,7 +43,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
 
                     """ random down sampling the dim """
                     from random import sample
-                    down_dim = 100
+                    #down_dim = args.down_dim
                     idx = torch.tensor(sample(range(0, dim), down_dim)).to(hidden_states.device)
                     # print(idx)
                     normal_feats = torch.index_select(normal_feats, 1, idx) # pix_num, 100
@@ -186,3 +188,9 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore, ):  #
         # reshape hidden_states
         hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
         return hidden_states
+
+import argparse
+
+def add_attn_argument(parser: argparse.ArgumentParser) :
+    parser.add_argument("--down_dim", type=int, default=160)
+

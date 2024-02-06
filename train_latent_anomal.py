@@ -14,7 +14,7 @@ from attention_store import AttentionStore
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 from tqdm import tqdm
-from utils.attention_control import register_attention_control
+from utils.attention_control import register_attention_control,add_attn_argument, passing_argument
 from utils import get_epoch_ckpt_name, save_model
 import time
 import json
@@ -409,5 +409,7 @@ if __name__ == '__main__':
     parser.add_argument("--trigger_word", type = str, default = "good")
     parser.add_argument("--start_epoch", type=int, default=0)
 
+    add_attn_argument(parser)
     args = parser.parse_args()
+    passing_argument(args)
     main(args)
