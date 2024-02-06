@@ -187,8 +187,8 @@ def main(args) :
             for trg_layer in args.trg_layer_list:
                 # (1) query dist
                 normal_query, anomal_query = query_dict[trg_layer][0].chunk(2, dim=0)
+                mu, cov, idx               = query_dict[trg_layer][1]
                 anomal_map = map_dict[trg_layer][0].squeeze(0)
-                mu, cov, idx = query_dict[trg_layer][1]
 
                 anomal_map_vector = anomal_map.flatten()
                 normal_query, anomal_query = normal_query.squeeze(0), anomal_query.squeeze(0) # pix_num, dim
@@ -340,7 +340,8 @@ def main(args) :
                                                                requires_safety_checker=False, random_vector_generator=None, trg_layer_list=None)
             latents = pipeline(prompt=batch['caption'],
                                height=512, width=512,  num_inference_steps=args.num_ddim_steps,
-                               guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
+                               guidance_scale=args.guidance_scale,
+                               negative_prompt=args.negative_prompt, )
             gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
             img_save_base_dir = args.output_dir + "/sample"
             os.makedirs(img_save_base_dir, exist_ok=True)
@@ -348,7 +349,7 @@ def main(args) :
             num_suffix = f"e{epoch:06d}"
             img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
             gen_img.save(os.path.join(img_save_base_dir,img_filename))
-            controller.reset()
+            #controller.reset()
         accelerator.end_training()
 
 

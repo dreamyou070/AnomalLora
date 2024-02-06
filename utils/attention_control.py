@@ -43,7 +43,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):  # i
 
                     """ random down sampling the dim """
                     from random import sample
-                    #down_dim = args.down_dim
                     idx = torch.tensor(sample(range(0, dim), down_dim)).to(hidden_states.device)
                     # print(idx)
                     normal_feats = torch.index_select(normal_feats, 1, idx) # pix_num, 100
@@ -62,7 +61,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):  # i
                     else :
                         noise = hidden_states + torch.randn_like(hidden_states).to(hidden_states.device)
                         noise = noise.squeeze()
-
 
                     anomal_map, anomal_features = [], []
                     normal_hidden_states = hidden_states.squeeze(0)
@@ -84,9 +82,9 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):  # i
                     anomal_map = anomal_map.view(res, res)
                     # ---------------------------------------------------------------------------------------------- #
                     temp_query = torch.cat([query, self.to_q(anormal_hidden_states.unsqueeze(0))], dim=0)
-                    controller.save_query(temp_query, layer_name) # [2, res*res, 320]
-                    controller.save_query([normal_mu, normal_cov, idx], layer_name)
-                    controller.save_map(anomal_map, layer_name)   # [res,res]
+                    controller.save_query(temp_query, layer_name) # [2, res*res, 320] #################################
+                    controller.save_query([normal_mu, normal_cov, idx], layer_name)   #################################
+                    controller.save_map(anomal_map, layer_name)   # [res,res]         #################################
                     temp_query = self.reshape_heads_to_batch_dim(temp_query)
                     if self.upcast_attention:
                         temp_query = temp_query.float()
@@ -146,46 +144,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):  # i
     controller.num_att_layers = cross_att_count
 
 
-    def forward(self, hidden_states, context=None, trg_indexs_list=None, mask=None):
-
-        query = self.to_q(hidden_states)
-        context = context if context is not None else hidden_states
-        key = self.to_k(context)
-        value = self.to_v(context)
-
-        query = self.reshape_heads_to_batch_dim(query)
-        key = self.reshape_heads_to_batch_dim(key)
-        value = self.reshape_heads_to_batch_dim(value)
-
-        hidden_states = self._attention(query, key, value)
-
-        # linear proj
-        hidden_states = self.to_out[0](hidden_states)
-        # hidden_states = self.to_out[1](hidden_states)     # no dropout
-        return hidden_states
-
-    def _attention(self, query, key, value):
-        if self.upcast_attention:
-            query = query.float()
-            key = key.float()
-
-        attention_scores = torch.baddbmm(
-            torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
-            query,
-            key.transpose(-1, -2),
-            beta=0,
-            alpha=self.scale,)
-        attention_probs = attention_scores.softmax(dim=-1)
-
-        # cast back to the original dtype
-        attention_probs = attention_probs.to(value.dtype)
-
-        # compute attention output
-        hidden_states = torch.bmm(attention_probs, value)
-
-        # reshape hidden_states
-        hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
-        return hidden_states
 
 import argparse
 
