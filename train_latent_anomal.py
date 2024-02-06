@@ -343,7 +343,8 @@ def main(args) :
                                                                unet=unet, scheduler=scheduler,safety_checker=None, feature_extractor=None,
                                                                requires_safety_checker=False, random_vector_generator=None, trg_layer_list=None)
             latents = pipeline(prompt=batch['caption'],
-                               height=512, width=512,  num_inference_steps=args.num_ddim_steps,
+                               height=512, width=512,
+                               num_inference_steps=args.num_ddim_steps,
                                guidance_scale=args.guidance_scale,
                                negative_prompt=args.negative_prompt, )
             gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))

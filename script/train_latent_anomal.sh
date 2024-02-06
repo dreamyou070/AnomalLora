@@ -1,13 +1,13 @@
 # !/bin/bash
 
-port_number=58504
+port_number=58515
 obj_name='bagel'
 trigger_word=obj_name
 
-output_dir="../../result/${obj_name}/caption_${obj_name}_down_dim_320_more_generalize"
+output_dir="../../result/${obj_name}/caption_${obj_name}_up_dim_320_more_generalize"
 #network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_down_dim_320/models/epoch-000037.safetensors"
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --main_process_port $port_number ../train_latent_anomal.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
  --output_dir ${output_dir} \
@@ -15,7 +15,7 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' \
  --obj_name "${obj_name}" \
  --train_unet --train_text_encoder \
- --trg_layer_list "['down_blocks_0_attentions_1_transformer_blocks_0_attn2']" \
+ --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']" \
  --num_epochs 100 \
  --trigger_word "${trigger_word}" \
  --do_task_loss --task_loss_weight 1.0 --do_cls_train \
