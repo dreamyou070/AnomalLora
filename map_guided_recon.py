@@ -86,6 +86,7 @@ def main(args) :
 
                     vae_latent = image2latent(img, vae, weight_dtype)
                     latent = vae_latent
+                    latent = latent.detach().requires_grad_()
                     for i in range(10) :
                         unet(latent,0,encoder_hidden_states,trg_indexs_list=args.trg_layer_list)
                         attn_dict = controller.step_store
@@ -98,7 +99,7 @@ def main(args) :
                             cls_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
                             loss = cls_map.mean()
                         print(f'loss: {loss.item()}')
-                        gradient = -torch.autograd.grad(loss, vae_latent)[0]  # only grad
+                        gradient = -torch.autograd.grad(loss, vae_latent, retain_graph = True)[0]  # only grad
                         latent = latent + latent * gradient.float()
 
         del network
