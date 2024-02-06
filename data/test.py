@@ -1,8 +1,12 @@
 import numpy as np
 import random
-dir_list = [1,2,3]
-repeat = 3
-a_list = [ a for a in dir_list for i in range(repeat)]
-print(a_list)
-random.shuffle(a_list)
-print(a_list)
+import torch
+import einops
+
+query_1 = torch.randn(1,64*64, 320)
+
+fc_layer = torch.nn.Linear(320, 3)
+output = fc_layer(query_1)
+print(output.shape)
+output = einops.rearrange(output, 'b (h w) c -> b c h w', h=64, w=64)
+print(output.shape)

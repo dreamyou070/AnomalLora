@@ -3,7 +3,7 @@ import argparse, torch
 from model.diffusion_model import load_SD_model
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
-from model.segmentation_model import SegmentationSubNetwork
+from model.segmentation_model import SegmentationSubNetwork, DimentionChanger
 from data.mvtec_sy import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
 from diffusers import DDPMScheduler
@@ -41,7 +41,9 @@ def main(args) :
     print(f' (2.2) LoRA network')
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
     print(f' (2.3) segmentation model')
-    seg_model = SegmentationSubNetwork(in_channels=2, out_channels=1,)
+    out_dim = 3
+    dim_changer = DimentionChanger(in_dim=320, out_dim = out_dim)
+    seg_model = SegmentationSubNetwork(in_channels=out_dim * 2, out_channels=1, )
 
     print(f' (2.2) attn controller')
     controller = AttentionStore()
@@ -52,7 +54,9 @@ def main(args) :
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
     print(f' (3.2) seg optimizer')
-    optimizer_seg = torch.optim.AdamW(seg_model.parameters(), lr=args.learning_rate)
+    segmentation_trainable_params = [{"params" : seg_model.parameters(), "lr" : args.seg_lr},
+                                     {"params" : dim_changer.parameters(), "lr" : args.seg_lr}]
+    optimizer_seg = torch.optim.AdamW(segmentation_trainable_params)
 
     print(f'\n step 4. dataset and dataloader')
     obj_dir = os.path.join(args.data_path, args.obj_name)
@@ -74,8 +78,8 @@ def main(args) :
     num_cycles = args.lr_scheduler_num_cycles
     lr_scheduler = schedule_func(optimizer, num_warmup_steps=args.num_warmup_steps,
                                  num_training_steps=num_training_steps, num_cycles=num_cycles, )
-    scheduler_seg = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_seg,
-                                                        T_max=10, eta_min=0, last_epoch=- 1, verbose=False)
+    seg_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_seg,
+                                            T_max=10, eta_min=0, last_epoch=- 1, verbose=False)
 
     print(f'\n step 6. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
@@ -105,15 +109,15 @@ def main(args) :
     if args.network_weights is not None:
         network.load_weights(args.network_weights)
     if args.train_unet and args.train_text_encoder:
-        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                                                 unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
+        unet, text_encoder, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler = accelerator.prepare(
+                            unet, text_encoder, network, optimizer, optimizer_seg, dataloader, lr_scheduler,seg_scheduler)
     elif args.train_unet:
-        unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
-                                                                                       dataloader, lr_scheduler)
+        unet, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler = accelerator.prepare(unet, network, optimizer,
+                                                                    optimizer_seg, dataloader, lr_scheduler, seg_scheduler)
         text_encoder.to(accelerator.device,dtype=weight_dtype)
     elif args.train_text_encoder:
-        text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
-                                                                                 optimizer, dataloader, lr_scheduler)
+        text_encoder, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler,seg_scheduler = accelerator.prepare(text_encoder, network,
+                                                        optimizer, optimizer_seg,dataloader, lr_scheduler, seg_scheduler)
         unet.to(accelerator.device,dtype=weight_dtype)
 
     print(f'\n step 7. Train!')
@@ -162,8 +166,9 @@ def main(args) :
 
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
-
+            segmentation_loss = 0
             loss_dict = {}
+
             for trg_layer in args.trg_layer_list:
                 # (1) query dist
                 normal_query, anomal_query = query_dict[trg_layer][0].chunk(2, dim=0)
@@ -250,14 +255,25 @@ def main(args) :
                     if args.do_anomal_sample_normal_loss :
                         normal_loss += normal_cls_score_loss_
                     anomal_loss += anormal_cls_score_loss
-            ############################################ 3. segmentation net ###########################################
-            # org_map = normal_trigger_score.unsqueeze(0).unsqueeze(0)
-            # anomal_latent = anormal_trigger_score.unsqueeze(0).unsqueeze(0)
-            # seg_input = torch.cat((aug_image, pred_x0), dim=1)  # [batch, 2, 64,64]
-            # pred_mask = seg_model(seg_input)  # [batch, 1, 64, 64]
-            # pred_mask_trg =anomal_map.unsqueeze(1).unsqueeze(1)
-            # focal_loss = loss_focal(pred_mask, pred_mask_trg)
-            # smL1_loss = loss_smL1(pred_mask, pred_mask_trg)
+
+                ############################################ 3. segmentation net ###########################################
+                import einops
+
+                normal_query = dim_changer(normal_query)  # batch, pix_num, 3
+                normal_query = einops.rearrange(normal_query, 'b (h w) c -> b c h w', h=64, w=64)
+
+                anormal_query = dim_changer(anomal_query) # batch, pix_num, 3
+                anormal_query = einops.rearrange(anormal_query, 'b (h w) c -> b c h w', h=64, w=64)
+
+                seg_input = torch.cat((normal_query, anormal_query), dim=1)  # [batch, 6, 64,64]
+                pred_mask = seg_model(seg_input)  # [batch, 1, 64, 64]
+                pred_mask_trg = anomal_map.unsqueeze(0).unsqueeze(0)
+
+                focal_loss = loss_focal(pred_mask, pred_mask_trg)
+                smL1_loss = loss_smL1(pred_mask, pred_mask_trg)
+                segmentation_loss += focal_loss + 5 * smL1_loss
+
+
             # loss = noise_loss + 5 * focal_loss + smL1_loss
 
             ############################################ 4. total Loss ##################################################
@@ -342,6 +358,8 @@ if __name__ == '__main__':
     parser.add_argument('--text_encoder_lr', type=float, default=1e-5)
     parser.add_argument('--unet_lr', type=float, default=1e-5)
     parser.add_argument('--learning_rate', type=float, default=1e-5)
+    parser.add_argument('--seg_lr', type=float, default=1e-5)
+
     # step 4. dataset and dataloader
     parser.add_argument('--data_path', type=str,
                         default=r'../../../MyData/anomaly_detection/MVTec3D-AD')

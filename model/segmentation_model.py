@@ -1,6 +1,17 @@
 import torch
 import torch.nn as nn
 
+class DimentionChanger(torch.nn.Module):
+
+    def __init__(self, in_dim, out_dim):
+
+        super().__init__()
+        self.fc_layer = torch.nn.Linear(in_dim, out_dim, bias=False)
+        torch.nn.init.kaiming_uniform_(self.fc_layer.weight)
+
+    def forward(self, x):
+        out = self.fc_layer(x)
+        return out
 
 class SegmentationSubNetwork(nn.Module):
     def __init__(self, in_channels=3, out_channels=3,
@@ -14,6 +25,7 @@ class SegmentationSubNetwork(nn.Module):
         self.out_features = out_features
 
     def forward(self, x):
+
         b1, b2, b3, b4, b5, b6 = self.encoder_segment(x)
         output_segment = self.decoder_segment(b1, b2, b3, b4, b5, b6)
         if self.out_features:

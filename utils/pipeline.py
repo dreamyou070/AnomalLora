@@ -783,7 +783,6 @@ class AnomalyDetectionStableDiffusionPipeline(StableDiffusionPipeline):
                 latents = ref * mask + latents * (1 - mask)
             latent_list.append(latents)
 
-        #return latents
         return latent_list
 
     @torch.no_grad()
