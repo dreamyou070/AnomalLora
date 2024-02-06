@@ -298,7 +298,7 @@ def main(args) :
                 loss_dict['normal_loss'] = normal_loss.mean().item()
                 loss_dict['anomal_loss'] = anomal_loss.mean().item()
             #loss_dict['segmentation_loss'] = segmentation_loss.mean().item()
-            loss += segmentation_loss.mean()
+            #loss += segmentation_loss.mean()
 
             current_loss = loss.detach().item()
             if epoch == args.start_epoch :
