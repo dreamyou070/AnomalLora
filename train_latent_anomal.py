@@ -65,7 +65,7 @@ def main(args) :
                                      tokenizer=tokenizer,
                                      caption=args.trigger_word,
                                      use_perlin=True, )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     print(f'\n step 5. lr')
     schedule_func = TYPE_TO_SCHEDULER_FUNCTION[SchedulerType.COSINE_WITH_RESTARTS]
