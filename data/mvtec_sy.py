@@ -4,10 +4,12 @@ from torch.utils.data import Dataset
 import torch
 import cv2
 import glob
-import imgaug.augmenters as iaa
 from data.perlin import rand_perlin_2d_np
 from PIL import Image
 from torchvision import transforms
+from numpy.random import default_rng
+import cv2
+import skimage.exposure
 
 class MVTecDRAEMTestDataset(Dataset):
 
@@ -62,7 +64,6 @@ class MVTecDRAEMTestDataset(Dataset):
         return sample
 
 
-
 class MVTecDRAEMTrainDataset(Dataset):
 
     def __init__(self,
@@ -70,26 +71,17 @@ class MVTecDRAEMTrainDataset(Dataset):
                  anomaly_source_path,
                  resize_shape=None,
                  tokenizer=None,
-                 caption: str = None,):
+                 caption: str = None,
+                 use_perlin: bool = False):
+
         self.root_dir = root_dir
         self.resize_shape=resize_shape
-
         self.image_paths = sorted(glob.glob(root_dir+"/*.png"))
         self.anomaly_source_paths = sorted(glob.glob(anomaly_source_path+"/*/*.png"))
-        self.augmenters = [iaa.GammaContrast((0.5,2.0),per_channel=True),
-                           iaa.MultiplyAndAddToBrightness(mul=(0.8,1.2),add=(-30,30)),
-                           iaa.pillike.EnhanceSharpness(),
-                           iaa.AddToHueAndSaturation((-50,50),per_channel=True),
-                           iaa.Solarize(0.5, threshold=(32,128)),
-                           iaa.Posterize(),
-                           iaa.Invert(),
-                           iaa.pillike.Autocontrast(),
-                           iaa.pillike.Equalize(),
-                           iaa.Affine(rotate=(-45, 45))]
-        self.rot = iaa.Sequential([iaa.Affine(rotate=(-90, 90))])
         self.caption = caption
         self.tokenizer = tokenizer
         self.transform = transforms.Compose([transforms.ToTensor(),transforms.Normalize([0.5], [0.5]),])
+        self.use_perlin = use_perlin
 
     def __len__(self):
         return len(self.image_paths)
@@ -98,31 +90,26 @@ class MVTecDRAEMTrainDataset(Dataset):
         input_ids = tokenizer_output.input_ids
         attention_mask = tokenizer_output.attention_mask
         return input_ids, attention_mask
+    def make_random_mask(self, height, width) -> np.ndarray :
 
-    def randAugmenter(self):
-        aug_ind = np.random.choice(np.arange(len(self.augmenters)), 3, replace=False)
-        aug = iaa.Sequential([self.augmenters[aug_ind[0]],
-                              self.augmenters[aug_ind[1]],
-                              self.augmenters[aug_ind[2]]])
-        return aug
-
-    def augment_image(self, image, anomaly_source):
-
-        # [1] get anomal mask
-        perlin_scale = 6
-        min_perlin_scale = 0
-        rand_1 = torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0]
-        rand_2 = torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0]
-        perlin_scalex, perlin_scaley = 2 ** (rand_1), 2** (rand_2)
-        perlin_noise = rand_perlin_2d_np((self.resize_shape[0], self.resize_shape[1]), (perlin_scalex, perlin_scaley))
-        threshold = 0.3
-        perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise)) #
-        perlin_thr = np.expand_dims(perlin_thr, axis=2)
-
-        # [2] synthetic image (white noise, black image)
-        beta = torch.rand(1).numpy()[0] * 0.8
-        augmented_image = (1 - perlin_thr) * image + (perlin_thr) * (beta * image + (1 - beta) * anomaly_source)
-        return augmented_image, perlin_thr
+        if self.use_perlin:
+            perlin_scale = 6
+            min_perlin_scale = 0
+            perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
+            perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
+            noise = rand_perlin_2d_np((height, width), (perlin_scalex, perlin_scaley))
+        else:
+            random_generator = default_rng(seed=42)
+            noise = random_generator.integers(0, 255, (height, width), np.uint8, True)
+        blur = cv2.GaussianBlur(noise, (0, 0), sigmaX=15, sigmaY=15, borderType=cv2.BORDER_DEFAULT)
+        stretch = skimage.exposure.rescale_intensity(blur, in_range='image', out_range=(0, 255)).astype(np.uint8)
+        thresh = cv2.threshold(stretch, 175, 255, cv2.THRESH_BINARY)[1]
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+        mask = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        mask_pil = Image.fromarray(mask).convert('L')
+        mask_np = np.array(mask_pil) / 255  # height, width, [0,1]
+        return mask_np, mask_pil
 
     def load_image(self, image_path, trg_h, trg_w):
         image = Image.open(image_path)
@@ -140,18 +127,23 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         # [1] base
         img = self.load_image(self.image_paths[idx], self.resize_shape[0], self.resize_shape[1])
-        anomal_img = self.load_image(self.anomaly_source_paths[anomaly_source_idx],
+        anomal_src = self.load_image(self.anomaly_source_paths[anomaly_source_idx],
                                      self.resize_shape[0], self.resize_shape[1])
 
         # [2] augment ( anomaly mask white = anomal position )
-        augmented_image, anomaly_mask = self.augment_image(img, anomal_img)
+        anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1]) # [512, 512], [0, 1]
+
+        # [3] anomal image
+        mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2)
+        anomal_img = (1-mask) * img  + mask * anomal_src
 
         # [3] final
         image = self.transform(img)
-        anomal_image = self.transform(augmented_image)
+        anomal_image = self.transform(anomal_img)
+
         # -----------------------------------------------------------------------------------------------
-        anomal_pil = Image.fromarray((np.squeeze(anomaly_mask, axis=2) * 255).astype(np.uint8)).resize((64, 64))
-        anomal_torch = torch.tensor(np.array(anomal_pil))/255
+        anomal_pil = anomal_mask_pil.resize((64,64)).convert('L')
+        anomal_torch = torch.tensor(np.array(anomal_pil))
         anomal_mask = torch.where(anomal_torch > 0.5, 1, 0)  # strict anomal
 
         # [4] caption
@@ -165,4 +157,3 @@ class MVTecDRAEMTrainDataset(Dataset):
                   'input_ids': input_ids.squeeze(0),
                   'caption': self.caption,}
         return sample
-

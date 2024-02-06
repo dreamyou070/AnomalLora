@@ -58,18 +58,15 @@ def main(args) :
     obj_dir = os.path.join(args.data_path, args.obj_name)
     train_dir = os.path.join(obj_dir, "train")
     root_dir = os.path.join(train_dir, "good/rgb")
-    if args.trigger_word == args.obj_name:
-        args.anomaly_source_path = os.path.join(train_dir, "anomal")
-    else :
-        args.anomaly_source_path = os.path.join(train_dir, "anomal_general")
-    print(f' trigger word : {args.trigger_word}')
+    args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
-                                     caption = args.trigger_word)
-
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
+                                     caption = args.trigger_word,
+                                     use_perlin = True,)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size,
+                                             shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
     schedule_func = TYPE_TO_SCHEDULER_FUNCTION[SchedulerType.COSINE_WITH_RESTARTS]
@@ -137,15 +134,8 @@ def main(args) :
         for step, batch in enumerate(train_dataloader):
 
             with torch.no_grad():
-                img = batch['image'].to(dtype=weight_dtype)
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
-
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
-                if torch.any(torch.isnan(latents)):
-                    accelerator.print("NaN found in latents, replacing with zeros")
-                    latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
-                    anomal_latents = torch.where(torch.isnan(anomal_latents),
-                                                 torch.zeros_like(anomal_latents),anomal_latents)
                 latents = latents * vae_scale_factor # [1,4,64,64]
                 anomal_latents = anomal_latents * vae_scale_factor
                 input_latents = torch.cat([latents, anomal_latents], dim=0)
@@ -179,19 +169,20 @@ def main(args) :
             anomal_mask = anomal_mask_.flatten().squeeze(0)
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
-                # (1) query dist
+
+                ############################################ 2. Dist Loss ##############################################
                 normal_query, anomal_query = query_dict[trg_layer][0].chunk(2, dim=0)
                 normal_query, anomal_query = normal_query.squeeze(0), anomal_query.squeeze(0) # pix_num, dim
                 pix_num = normal_query.shape[0]
                 for pix_idx in range(pix_num):
-                    normal_feat = normal_query[pix_idx].squeeze(0)
-                    anomal_feat = anomal_query[pix_idx].squeeze(0)
+                    feat = anomal_query[pix_idx].squeeze(0)
                     anomal_flag = anomal_mask[pix_idx]
                     if anomal_flag == 1 :
                         if len(anormal_feat_list) > 3000:
                             anormal_feat_list.pop(0)
-                        anormal_feat_list.append(anomal_feat.unsqueeze(0))
-                    normal_feats.append(normal_feat.unsqueeze(0))
+                        anormal_feat_list.append(feat.unsqueeze(0))
+                    else :
+                        normal_feats.append(feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feats, dim=0)
                 anormal_feats = torch.cat(anormal_feat_list, dim=0)
                 normal_mu = torch.mean(normal_feats, dim=0)
@@ -207,48 +198,41 @@ def main(args) :
                 normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
                 anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
                 total_dist = normal_dist_mean + anormal_dist_mean
-
                 normal_dist_loss = (normal_dist_mean / total_dist) ** 2
                 anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
-
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
                 anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
-
                 dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
 
+                ############################################ 3. Attn Loss ##############################################
                 attention_score = attn_dict[trg_layer][0] # batch, pix_num, 2
+                attention_score = attention_score.chunk(2, dim=0)[-1]
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
-                normal_cls_score, anormal_cls_score = cls_score.chunk(2, dim=0) #
-                normal_trigger_score, anormal_trigger_score = trigger_score.chunk(2, dim=0)
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+                head, pix_num = cls_score.shape
 
-                normal_cls_score, anormal_cls_score = normal_cls_score.squeeze(), anormal_cls_score.squeeze()  # head, pix_num
-                normal_trigger_score, anormal_trigger_score = normal_trigger_score.squeeze(), anormal_trigger_score.squeeze()
-                anormal_cls_score = anormal_cls_score * anomal_mask.unsqueeze(0).repeat(anormal_cls_score.shape[0], 1)
-                head_num = normal_cls_score.shape[0]
-                anormal_cls_score = anormal_cls_score * anomal_mask.unsqueeze(0).repeat(head_num, 1)
-                anormal_trigger_score = anormal_trigger_score * anomal_mask.unsqueeze(0).repeat(head_num, 1)
+                anomal_position = anomal_mask.unsqueeze(0).repeat(head, 1)
+                normal_position = 1 - anomal_position
 
-                normal_cls_score = normal_cls_score.mean(dim=0)
-                normal_trigger_score = normal_trigger_score.mean(dim=0)
-                anormal_cls_score = anormal_cls_score.mean(dim=0)
-                anormal_trigger_score = anormal_trigger_score.mean(dim=0)
+                normal_cls_score = (cls_score * normal_position).mean(dim=0)
+                normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
+                anormal_cls_score = (cls_score * anomal_position).mean(dim=0)
+                anormal_trigger_score = (trigger_score * anomal_position).mean(dim=0)
                 total_score = torch.ones_like(normal_cls_score)
 
-                normal_cls_score_loss = (normal_cls_score/total_score) ** 2
-                normal_trigger_score_loss = (1-(normal_trigger_score/total_score)) ** 2
-                anormal_cls_score_loss = (1-(anormal_cls_score/total_score)) ** 2
-                anormal_trigger_score_loss = (anormal_trigger_score/total_score) ** 2
+                normal_cls_loss = (normal_cls_score / total_score) ** 2
+                normal_trigger_loss = (1- (normal_trigger_score / total_score)) ** 2
+                anormal_cls_loss = (1-(anormal_cls_score / total_score)) ** 2
+                anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
 
-                attn_loss += args.normal_weight * normal_trigger_score_loss + \
-                             args.anormal_weight * anormal_trigger_score_loss
-                normal_loss += normal_trigger_score_loss
-                anomal_loss += anormal_trigger_score_loss
+                attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
+                normal_loss += normal_trigger_loss
+                anomal_loss += anormal_trigger_loss
 
                 if args.do_cls_train :
-                    attn_loss += args.normal_weight * normal_cls_score_loss + \
-                                 args.anormal_weight * anormal_cls_score_loss
-                    normal_loss += normal_cls_score_loss
-                    anomal_loss += anormal_cls_score_loss
+                    attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
+                    normal_loss += normal_cls_loss
+                    anomal_loss += anormal_cls_loss
 
             ############################################ 3. total Loss ##################################################
             if args.do_task_loss:
