@@ -80,11 +80,12 @@ def main(args) :
                     with torch.no_grad():
                         from utils.image_utils import load_image, image2latent
                         img = load_image(rgb_img_dir, 512, 512)
-                        vae_latent = image2latent(img, vae, weight_dtype)
                         input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
-                        encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]  # batch, 77, 768
-                        latent = vae_latent
+                        encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))[
+                            "last_hidden_state"]  # batch, 77, 768
 
+                    vae_latent = image2latent(img, vae, weight_dtype)
+                    latent = vae_latent
                     for i in range(10) :
                         unet(latent,0,encoder_hidden_states,trg_indexs_list=args.trg_layer_list)
                         attn_dict = controller.step_store
