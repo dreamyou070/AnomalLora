@@ -19,8 +19,8 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_config \
  --do_dist_loss --dist_loss_weight 1.0 \
  --do_attn_loss --attn_loss_weight 1.0 \
  --normal_weight 1 \
- --num_epochs 300 \
+ --num_epochs 10 \
  --trigger_word "${trigger_word}" \
  --network_weights ${network_weights} \
  --start_epoch 30
-
+ --num_repeat 1
