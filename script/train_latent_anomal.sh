@@ -24,4 +24,5 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --do_anomal_sample_normal_loss \
  --down_dim 240 \
  --network_weights ${network_weights} \
- --start_epoch 21
+ --start_epoch 21 \
+ --num_repeat 2
