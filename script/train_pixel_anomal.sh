@@ -4,6 +4,7 @@ port_number=53854
 obj_name='bagel'
 trigger_word='good'
 network_weights="../../result/${obj_name}/caption_good_res_64_attnloss_1_pixel_anomal/models/epoch-0000030.safetensors"
+
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_config \
  --main_process_port $port_number ../train_pixel_anomal.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
@@ -20,5 +21,6 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_config \
  --normal_weight 1 \
  --num_epochs 300 \
  --trigger_word "${trigger_word}" \
+ --network_weights ${network_weights} \
  --start_epoch 30
 
