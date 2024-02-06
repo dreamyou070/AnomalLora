@@ -770,7 +770,7 @@ class AnomalyDetectionStableDiffusionPipeline(StableDiffusionPipeline):
 
             unet_additional_args = {}
             # predict the noise residual
-            noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings, **unet_additional_args).sample
+            noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings,**unet_additional_args).sample
 
             # perform guidance
             if do_classifier_free_guidance:

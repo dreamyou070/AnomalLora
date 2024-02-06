@@ -19,6 +19,7 @@ from utils import get_epoch_ckpt_name, save_model
 import time
 import json
 from torch import nn
+import einops
 class BinaryFocalLoss(nn.Module):
     def __init__(self, alpha=0.5, gamma=4, logits=False, reduce=True):
         super(BinaryFocalLoss, self).__init__()
@@ -40,6 +41,12 @@ class BinaryFocalLoss(nn.Module):
         else:
             return F_loss
 
+
+def mahal(u, v, cov):
+    delta = u - v
+    cov_inv = cov.T
+    m = torch.dot(delta, torch.matmul(cov_inv, delta))
+    return torch.sqrt(m)
 
 def main(args) :
 
@@ -108,20 +115,9 @@ def main(args) :
 
     print(f'\n step 6. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
-    """
-    if args.log_with in ["wandb", "all"]:
-        try:
-            import wandb
-        except ImportError:
-            raise ImportError("No wandb / wandb がインストールされていないようです")
-        os.environ["WANDB_DIR"] = args.logging_dir
-        if args.wandb_api_key is not None:
-            wandb.login(key=args.wandb_api_key)
-    """
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
                               mixed_precision=args.mixed_precision,
-                              log_with=args.log_with,
-                              project_dir=args.logging_dir,)
+                              log_with=args.log_with, project_dir=args.logging_dir,)
     is_main_process = accelerator.is_main_process
     vae.requires_grad_(False)
     vae.to(dtype=weight_dtype)
@@ -135,10 +131,10 @@ def main(args) :
         network.load_weights(args.network_weights)
     if args.train_unet and args.train_text_encoder:
         unet, text_encoder, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1 = accelerator.prepare(
-                            unet, text_encoder, network, optimizer, optimizer_seg, dataloader, lr_scheduler,seg_scheduler,loss_focal, loss_smL1)
+        unet, text_encoder, network, optimizer, optimizer_seg, dataloader, lr_scheduler,seg_scheduler,loss_focal, loss_smL1)
     elif args.train_unet:
         unet, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1 = accelerator.prepare(unet, network, optimizer,
-                                           optimizer_seg, dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1)
+                                          optimizer_seg, dataloader, lr_scheduler, seg_scheduler,loss_focal, loss_smL1)
         text_encoder.to(accelerator.device,dtype=weight_dtype)
     elif args.train_text_encoder:
         text_encoder, network, optimizer, optimizer_seg, train_dataloader, lr_scheduler,seg_scheduler,loss_focal, loss_smL1 = accelerator.prepare(text_encoder, network,
@@ -151,9 +147,6 @@ def main(args) :
     global_step = 0
     loss_list = []
 
-    #accelerator.init_trackers(name, config=config)
-    #accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
-
     for epoch in range(args.start_epoch, args.start_epoch + args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
@@ -162,9 +155,6 @@ def main(args) :
             loss = 0
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
-                if torch.any(torch.isnan(latents)):
-                    accelerator.print("NaN found in latents, replacing with zeros")
-                    latents = torch.where(torch.isnan(latents), torch.zeros_like(latents), latents)
                 latents = latents * vae_scale_factor # [1,4,64,64]
             with torch.set_grad_enabled(True) :
                 input_ids = batch["input_ids"].to(accelerator.device) # batch, 77 sen len
@@ -173,10 +163,10 @@ def main(args) :
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
             with accelerator.autocast():
                 noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states,
-                                  trg_indexs_list=args.trg_layer_list, mask_imgs='perlin').sample
+                                  trg_layer_list=args.trg_layer_list, noise_type='perlin').sample
             ############################################# 1. task loss #################################################
             if args.do_task_loss:
-                target = noise.chunk(2, dim=0)[0]
+                target = noise
                 task_loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
                 task_loss = task_loss.mean([1, 2, 3]).mean()
                 task_loss = task_loss * args.task_loss_weight
@@ -198,31 +188,24 @@ def main(args) :
                 # (1) query dist
                 normal_query, anomal_query = query_dict[trg_layer][0].chunk(2, dim=0)
                 anomal_map = map_dict[trg_layer][0].squeeze(0)
+                mu, cov, idx = query_dict[trg_layer][1]
+
                 anomal_map_vector = anomal_map.flatten()
                 normal_query, anomal_query = normal_query.squeeze(0), anomal_query.squeeze(0) # pix_num, dim
                 pix_num = normal_query.shape[0]
-
                 for pix_idx in range(pix_num):
                     anormal_feat = anomal_query[pix_idx].squeeze(0)
                     normal_feat = normal_query[pix_idx].squeeze(0)
                     anomal_flag = anomal_map_vector[pix_idx]
                     if anomal_flag == 1:
                         anormal_feat_list.append(anormal_feat.unsqueeze(0))
+                    #else :
+                    #    normal_feat_list.append(anormal_feat.unsqueeze(0))
                     normal_feat_list.append(normal_feat.unsqueeze(0))
-
-                mu, cov, idx = query_dict[trg_layer][1]
-
-                def mahal(u, v, cov):
-                    delta = u - v
-                    cov_inv = cov.T
-                    m = torch.dot(delta, torch.matmul(cov_inv, delta))
-                    return torch.sqrt(m)
-
                 n_features = torch.cat(normal_feat_list, dim=0)
                 n_features = torch.index_select(n_features, 1, idx)
                 n_dists = [mahal(feat, mu, cov) for feat in n_features]
                 normal_dist_mean = torch.tensor(n_dists).mean()
-
                 if len(anormal_feat_list) > 0:
                     a_features = torch.cat(anormal_feat_list, dim=0)
                     a_features = torch.index_select(a_features, 1, idx)
@@ -230,6 +213,7 @@ def main(args) :
                     anormal_dist_mean = torch.tensor(a_dists).mean()
                 else :
                     anormal_dist_mean = torch.zeros_like(normal_dist_mean).to(normal_dist_mean.device)
+
                 total_dist = normal_dist_mean + anormal_dist_mean
                 normal_dist_loss = (normal_dist_mean / total_dist) ** 2
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
@@ -240,7 +224,9 @@ def main(args) :
                 dist_loss += anormal_dist_loss.requires_grad_()
 
                 ################## ---------------------- ################## ---------------------- ##################
+
                 attention_score = attn_dict[trg_layer][0]  # 2, pix_num, 2
+
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 normal_cls_score, anormal_cls_score = cls_score.chunk(2, dim=0)  #
                 normal_trigger_score, anormal_trigger_score = trigger_score.chunk(2, dim=0)
@@ -282,9 +268,7 @@ def main(args) :
                     anomal_loss += anormal_cls_score_loss
 
                 ############################################ 3. segmentation net ###########################################
-                import einops
-
-                normal_query = dim_changer(normal_query)  # batch, pix_num, 3
+                normal_query = dim_changer(normal_query)  # [batch, pix_nujm, dum -> batch, pix_num, 3]
                 normal_query = einops.rearrange(normal_query, 'b (h w) c -> b c h w', h=64, w=64)
 
                 anormal_query = dim_changer(anomal_query) # batch, pix_num, 3
@@ -353,8 +337,8 @@ def main(args) :
                                       beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
                                       beta_schedule=args.scheduler_schedule)
             pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
-                                        unet=unet, scheduler=scheduler,safety_checker=None, feature_extractor=None,
-                                        requires_safety_checker=False, random_vector_generator=None, trg_layer_list=None)
+                                                               unet=unet, scheduler=scheduler,safety_checker=None, feature_extractor=None,
+                                                               requires_safety_checker=False, random_vector_generator=None, trg_layer_list=None)
             latents = pipeline(prompt=batch['caption'],
                                height=512, width=512,  num_inference_steps=args.num_ddim_steps,
                                guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
