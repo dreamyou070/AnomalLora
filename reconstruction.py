@@ -106,9 +106,10 @@ def main(args) :
                             binary_map = binary_map.view(res, res)
                             binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8)* 255).resize((512, 512))
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
-                # --------------------------------- gen cross attn map ---------------------------------------------- #
+                    # --------------------------------- gen cross attn map ------------------------------------------- #
                     latents = pipeline(prompt=args.prompt,
-                                       height=512, width=512, num_inference_steps=args.num_ddim_steps,
+                                       height=512, width=512,
+                                       num_inference_steps=args.num_ddim_steps,
                                        guidance_scale=args.guidance_scale,
                                        negative_prompt=args.negative_prompt,
                                        reference_image=vae_latent,
