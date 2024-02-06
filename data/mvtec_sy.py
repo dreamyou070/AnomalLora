@@ -87,8 +87,8 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.num_repeat = 1
 
         image_paths = sorted(glob.glob(root_dir + "/*.png"))
-        self.image_path = [image_path for image_path in image_paths for i in range(self.num_repeat)]
-        random.shuffle(self.image_path)
+        self.image_paths = [image_path for image_path in image_paths for i in range(num_repeat)]
+        random.shuffle(self.image_paths)
 
 
     def __len__(self):
