@@ -66,6 +66,11 @@ def main(args) :
     if args.network_weights is not None:
         network.load_weights(args.network_weights)
 
+        network_base_dir, _ = os.path.split(args.network_weights)
+        parent_dir, _ = os.path.split(network_base_dir)
+        sampling_dir = os.path.join(parent_dir, 'sampling_test')
+        os.makedirs(sampling_dir, exist_ok=True)
+
     if args.train_unet and args.train_text_encoder:
         unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
                                                     unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
@@ -100,21 +105,14 @@ def main(args) :
                                                        random_vector_generator=None,
                                                        trg_layer_list=None)
 
-    anomal_concepts = ['random pattern']
-    args.anomal_base_dir = os.path.join(train_dir, 'anomal_second')
-    os.makedirs(args.anomal_base_dir, exist_ok=True)
-    for adjective in anomal_concepts:
-        adjective_base_folder = os.path.join(args.anomal_base_dir, adjective)
-        os.makedirs(adjective_base_folder, exist_ok=True)
-        gen_caption = f'the image of {adjective}'
-        for i in range(100) :
-            latents = pipeline(prompt=gen_caption,
-                               height=512, width=512,
-                               num_inference_steps=args.num_ddim_steps,
-                               guidance_scale=args.guidance_scale,
-                               negative_prompt=args.negative_prompt,)
-            recon_image = pipeline.latents_to_image(latents[-1])[0].resize((512,512))
-            recon_image.save(os.path.join(adjective_base_folder, f'anomal_{i}.png'))
+
+    latents = pipeline(prompt=args.prompt,
+                       height=512, width=512,
+                       num_inference_steps=args.num_ddim_steps,
+                       guidance_scale=args.guidance_scale,
+                       negative_prompt=args.negative_prompt,)
+    recon_image = pipeline.latents_to_image(latents[-1])[0].resize((512,512))
+    recon_image.save(os.path.join(sampling_dir, f'{args.prompt}.png'))
 
 
 
