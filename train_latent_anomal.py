@@ -58,18 +58,13 @@ def main(args) :
     obj_dir = os.path.join(args.data_path, args.obj_name)
     train_dir = os.path.join(obj_dir, "train")
     root_dir = os.path.join(train_dir, "good/rgb")
-    if args.trigger_word == args.obj_name:
-        args.anomaly_source_path = os.path.join(train_dir, "anomal")
-    else :
-        args.anomaly_source_path = os.path.join(train_dir, "anomal_general")
-    print(f' trigger word : {args.trigger_word}')
+    args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
-                                     caption = args.trigger_word)
-
-
+                                     caption=args.trigger_word,
+                                     use_perlin=True, )
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
 
     print(f'\n step 5. lr')
@@ -125,12 +120,7 @@ def main(args) :
                         disable=not accelerator.is_local_main_process, desc="steps")
     global_step = 0
     loss_list = []
-    config = {'do_task_loss' : args.do_task_loss,
-              'task_loss_weight' : args.task_loss_weight,
-              'do_dist_loss' : args.do_dist_loss,
-              'dist_loss_weight' : args.dist_loss_weight,
-              'do_attn_loss' : args.do_attn_loss,
-              'attn_loss_weight' : args.attn_loss_weight,}
+
     #accelerator.init_trackers(name, config=config)
     #accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
 
