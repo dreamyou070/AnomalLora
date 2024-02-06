@@ -256,7 +256,7 @@ def main(args) :
                     if args.do_anomal_sample_normal_loss :
                         attn_loss += args.normal_weight * normal_cls_score_loss_
                     normal_loss += normal_cls_score_loss
-                    if args.do_anomal_scample_normal_loss :
+                    if args.do_anomal_sample_normal_loss :
                         normal_loss += normal_cls_score_loss_
                     anomal_loss += anormal_cls_score_loss
             ############################################ 3. segmentation net ###########################################
