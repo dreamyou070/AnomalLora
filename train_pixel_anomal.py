@@ -157,19 +157,16 @@ def main(args) :
                 task_loss = loss.mean()
                 task_loss = task_loss * args.task_loss_weight
 
-            ############################################ 2. Dist Loss ##################################################
             query_dict = controller.query_dict
             attn_dict = controller.step_store
             controller.reset()
             normal_feats = []
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
-
             anomal_mask_ = batch['anomaly_mask'].squeeze(0) # [64,64]
             anomal_mask = anomal_mask_.flatten().squeeze(0)
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
-
                 ############################################ 2. Dist Loss ##############################################
                 normal_query, anomal_query = query_dict[trg_layer][0].chunk(2, dim=0)
                 normal_query, anomal_query = normal_query.squeeze(0), anomal_query.squeeze(0) # pix_num, dim
