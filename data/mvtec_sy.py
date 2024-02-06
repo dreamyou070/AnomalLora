@@ -127,20 +127,31 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         # [1] base
         img = self.load_image(self.image_paths[idx], self.resize_shape[0], self.resize_shape[1])
-        anomal_src = self.load_image(self.anomaly_source_paths[anomaly_source_idx],
-                                     self.resize_shape[0], self.resize_shape[1])
+        anomal_src = self.load_image(self.anomaly_source_paths[anomaly_source_idx], self.resize_shape[0], self.resize_shape[1])
+
+        img_pil = Image.fromarray(img)
+        anomal_src_pil = Image.fromarray(anomal_src)
 
         # [2] augment ( anomaly mask white = anomal position )
         anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1]) # [512, 512], [0, 1]
         anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
         mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2)
         anomal_img = (1-mask) * img + mask * anomal_src
-        print(f'in dataset, img : {img}')
-        print(f'in dataset, anomal_img : {anomal_src}')
+
+        anomal_img_pil = Image.fromarray(anomal_img.astype(np.uint8))
+        mask_pil = Image.fromarray((mask * 255).astype(np.uint8))
+
+        img_pil.save(f"img_pil_{idx}.png")
+        anomal_img_pil.save(f"anomal_img_pil_{idx}.png")
+        mask_pil.save(f"mask_pil_{idx}.png")
+
+
+
+
 
         # [3] final
         image = self.transform(img)
-        anomal_image = self.transform(anomal_img)
+        anomal_image = self.transform(anomal_img.float())
 
         # -----------------------------------------------------------------------------------------------
         anomal_pil = anomal_mask_pil.resize((64,64)).convert('L')
