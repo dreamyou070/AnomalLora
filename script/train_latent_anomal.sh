@@ -1,12 +1,12 @@
 # !/bin/bash
 
-port_number=58503
+port_number=58504
 obj_name='bagel'
 trigger_word='bagel'
-output_dir="../../result/${obj_name}/caption_bagel_only_task_loss"
+output_dir="../../result/${obj_name}/caption_bagel_only_task_loss_repeat_20"
 #network_weights="../../result/${obj_name}/caption_bagel_down_dim_320_more_generalize/models//epoch-000011.safetensors"
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_config \
  --main_process_port $port_number ../train_latent_anomal.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
  --output_dir ${output_dir} \
@@ -17,7 +17,7 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_config \
  --trg_layer_list "['down_blocks_0_attentions_1_transformer_blocks_0_attn2']" \
  --num_epochs 100 \
  --trigger_word "${trigger_word}" \
- --do_task_loss --task_loss_weight 1.0 --down_dim 320 --num_repeat 2
+ --do_task_loss --task_loss_weight 1.0 --down_dim 320 --num_repeat 20
  #--do_dist_loss --dist_loss_weight 1.0 --do_cls_train \
  #--do_attn_loss --attn_loss_weight 1.0 --normal_weight 1 \
  #--do_anomal_sample_normal_loss \
