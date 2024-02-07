@@ -126,6 +126,7 @@ def main(args) :
                     #shutil.copy(rgb_img_dir, org_img_save_dir)
                     #gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
                     #shutil.copy(gt_img_dir, gt_img_save_dir)
+            break
         del network
 
 
