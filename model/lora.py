@@ -97,13 +97,9 @@ class LoRAModule(torch.nn.Module):
         self.org_module.forward = self.forward
         self.with_lora = True
 
-    def restore(self):
+    def restore_weight(self):
+        self.org_module.forward = self.org_forward
         self.with_lora = False
-        torch.nn.init.zeros_(self.lora_up.weight)
-        torch.nn.init.zeros_(self.lora_down.weight)
-
-    #def original_forward(self, x):
-    #    return self.org_forward(x)
 
     def lora_net(self, x):
         lx = self.lora_down(x)
@@ -1037,10 +1033,6 @@ class LoRANetwork(torch.nn.Module):
             lora.with_lora = True
         return info
 
-    def restore(self):
-        loras = self.text_encoder_loras + self.unet_loras
-        for lora in loras:
-            lora.restore()
 
     def apply_to(self, text_encoder, unet, apply_text_encoder=True, apply_unet=True):
 
@@ -1058,106 +1050,6 @@ class LoRANetwork(torch.nn.Module):
             lora.apply_to()
             self.add_module(lora.lora_name, lora)
 
-    def add_unet_module(self,unet,
-                        block_wise: Optional[List[int]] = None,
-                        dropout: Optional[float] = None,rank_dropout: Optional[float] = None,module_dropout: Optional[float] = None,
-                        block_dims: Optional[List[int]] = None,
-                        block_alphas: Optional[List[float]] = None,
-                        conv_block_dims: Optional[List[int]] = None,
-                        conv_block_alphas: Optional[List[float]] = None,
-                        modules_dim: Optional[Dict[str, int]] = None,modules_alpha: Optional[Dict[str, int]] = None,
-                        module_class: Type[object] = LoRAModule,
-                        net_key_names: Optional[bool] = False, ) -> None:
-
-        def create_modules(is_unet: bool, text_encoder_idx: Optional[int],  # None, 1, 2
-                           root_module: torch.nn.Module,
-                           target_replace_modules: List[torch.nn.Module], ) -> List[LoRAModule]:
-            prefix = (self.LORA_PREFIX_UNET if is_unet else (self.LORA_PREFIX_TEXT_ENCODER if text_encoder_idx is None
-                                                       else (
-                    self.LORA_PREFIX_TEXT_ENCODER1 if text_encoder_idx == 1 else self.LORA_PREFIX_TEXT_ENCODER2)))
-            loras = []
-            skipped = []
-            for name, module in root_module.named_modules():
-                if module.__class__.__name__ in target_replace_modules:
-
-                    for child_name, child_module in module.named_modules():
-                        is_linear = child_module.__class__.__name__ == "Linear"
-                        is_conv2d = child_module.__class__.__name__ == "Conv2d"
-                        is_conv2d_1x1 = is_conv2d and child_module.kernel_size == (1, 1)
-                        if is_linear or is_conv2d:
-                            lora_name = prefix + "." + name + "." + child_name
-                            lora_name = lora_name.replace(".", "_")
-                            dim = None
-                            alpha = None
-                            if modules_dim is not None:
-                                if lora_name in modules_dim:
-                                    dim = modules_dim[lora_name]
-                                    alpha = modules_alpha[lora_name]
-                            elif is_unet and block_dims is not None:
-                                # U-Netでblock_dims指定あり
-                                block_idx = get_block_index(lora_name)  # block
-                                if is_linear or is_conv2d_1x1:
-                                    dim = block_dims[block_idx]
-                                    alpha = block_alphas[block_idx]
-                                elif conv_block_dims is not None:
-                                    dim = conv_block_dims[block_idx]
-                                    alpha = conv_block_alphas[block_idx]
-                            else:
-                                if is_linear or is_conv2d_1x1:
-                                    dim = self.lora_dim
-                                    alpha = self.alpha
-                                elif self.conv_lora_dim is not None:
-                                    dim = self.conv_lora_dim
-                                    alpha = self.conv_alpha
-                            if dim is None or dim == 0:
-                                if is_linear or is_conv2d_1x1 or (
-                                        self.conv_lora_dim is not None or conv_block_dims is not None):
-                                    skipped.append(lora_name)
-                                continue
-                            if block_wise == None:
-                                for key_word in net_key_names:
-                                    if key_word in lora_name:
-                                        lora = module_class(lora_name,
-                                                            child_module,
-                                                            self.multiplier,
-                                                            dim,
-                                                            alpha,
-                                                            dropout=dropout,
-                                                            rank_dropout=rank_dropout,
-                                                            module_dropout=module_dropout, )
-                                        loras.append(lora)
-
-                            else:
-                                for i, block in enumerate(BLOCKS):
-                                    if block in lora_name and block_wise[i] == 1:
-                                        lora = module_class(lora_name,
-                                                            child_module,
-                                                            self.multiplier,
-                                                            dim,
-                                                            alpha,
-                                                            dropout=dropout,
-                                                            rank_dropout=rank_dropout,
-                                                            module_dropout=module_dropout, )
-
-                                        loras.append(lora)
-            return loras, skipped
-
-        target_modules = LoRANetwork.UNET_TARGET_REPLACE_MODULE
-        self.unet_loras, skipped_un = create_modules(True, None, unet, target_modules)
-        # assertion
-        names = set()
-        for lora in self.text_encoder_loras + self.unet_loras:
-            assert lora.lora_name not in names, f"duplicated lora name: {lora.lora_name}"
-            names.add(lora.lora_name)
-
-    def apply_unet_to(self, apply_unet=True):
-        if apply_unet:
-            print("enable LoRA for U-Net")
-        else:
-            self.unet_loras = []
-        for lora in self.unet_loras:
-            lora.apply_to()
-            self.add_module(lora.lora_name, lora)
 
     def is_mergeable(self):
         return True
@@ -1326,10 +1218,12 @@ class LoRANetwork(torch.nn.Module):
                 org_module._lora_org_weight = sd["weight"].detach().clone()
                 org_module._lora_restored = True
 
+    """
     def restore_weights(self):
         # 重みのリストアを行う
         loras: List[LoRAInfModule] = self.text_encoder_loras + self.unet_loras
         for lora in loras:
+            lora.with_lora = False
             org_module = lora.org_module_ref[0]
             #if not org_module._lora_restored:
             sd = org_module.state_dict()
@@ -1338,6 +1232,11 @@ class LoRANetwork(torch.nn.Module):
             org_module.load_state_dict(sd)
             #
             #org_module._lora_restored = True
+    """
+    def restore_weights(self):
+        loras: List[LoRAInfModule] = self.text_encoder_loras + self.unet_loras
+        for lora in loras:
+            lora.restore_weight()
 
     def pre_calculation(self):
         # 事前計算を行う

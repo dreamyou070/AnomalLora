@@ -103,6 +103,12 @@ def main(args) :
                         # [1] anomal detection  --------------------------------------------------------------------- #
                         network.restore_weights()
                         network.load_weights(network_model_dir)
+
+
+
+
+
+
                         network.to(accelerator.device, dtype=weight_dtype)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
