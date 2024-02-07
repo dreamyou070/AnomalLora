@@ -1330,11 +1330,11 @@ class LoRANetwork(torch.nn.Module):
         loras: List[LoRAInfModule] = self.text_encoder_loras + self.unet_loras
         for lora in loras:
             org_module = lora.org_module_ref[0]
-            if not org_module._lora_restored:
-                sd = org_module.state_dict()
-                sd["weight"] = org_module._lora_org_weight
-                org_module.load_state_dict(sd)
-                org_module._lora_restored = True
+            #if not org_module._lora_restored:
+            sd = org_module.state_dict()
+            sd["weight"] = org_module._lora_org_weight
+            org_module.load_state_dict(sd)
+            #org_module._lora_restored = True
 
     def pre_calculation(self):
         # 事前計算を行う
