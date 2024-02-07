@@ -245,10 +245,11 @@ if __name__ == '__main__':
         return v
     parser.add_argument("--trg_layer_list", type=arg_as_list)
     parser.add_argument("--more_generalize", action='store_true')
-
     from utils.attention_control import add_attn_argument, passing_argument
-
+    from model.unet import unet_passing_argument
+    parser.add_argument("--unet_inchannels", type=int, default=4)
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
+    unet_passing_argument(args)
     main(args)
