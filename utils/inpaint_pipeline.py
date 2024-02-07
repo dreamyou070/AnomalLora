@@ -656,9 +656,9 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
         mask_condition = mask.clone()
 
         # 6. Prepare latent variables
-        #num_channels_latents = self.vae.config.latent_channels
-        #num_channels_unet = self.unet.config.in_channels
-        #return_image_latents = num_channels_unet == 4
+        num_channels_latents = self.vae.config.latent_channels
+        num_channels_unet = 9
+        return_image_latents = num_channels_unet == 4
 
         """ this latent will be updated in the diffusion process """
         latents_outputs = self.prepare_latents(batch_size * num_images_per_prompt, num_channels_latents,
@@ -666,10 +666,10 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
                                         timestep=latent_timestep, is_strength_max=is_strength_max, return_noise=True,
                                                                            return_image_latents=return_image_latents,)
 
-        #if return_image_latents:
-        #    latents, noise, image_latents = latents_outputs
-        #else:
-        #    latents, noise = latents_outputs   # here ...
+        if return_image_latents:
+            latents, noise, image_latents = latents_outputs
+        else:
+            latents, noise = latents_outputs   # here ...
 
         # 7. Prepare mask latent variables
         mask, masked_image_latents = self.prepare_mask_latents(
@@ -683,7 +683,7 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
             generator,
             do_classifier_free_guidance,
         )
-        """
+
         # 8. Check that sizes of mask, masked image and latents match
         if num_channels_unet == 9:
             # default case for runwayml/stable-diffusion-inpainting
@@ -701,7 +701,6 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
             raise ValueError(
                 f"The unet {self.unet.__class__} should have either 4 or 9 input channels, not {self.unet.config.in_channels}."
             )
-        """
 
         # 9. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
@@ -735,7 +734,7 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
 
                 # compute the previous noisy sample x_t -> x_t-1
                 latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
-                """
+
                 if num_channels_unet == 4:
                     init_latents_proper = image_latents[:1]
                     init_mask = mask[:1]
@@ -747,7 +746,7 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
                         )
 
                     latents = (1 - init_mask) * init_latents_proper + init_mask * latents
-                """
+                
                 # call the callback, if provided
                 if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
                     progress_bar.update()
