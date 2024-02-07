@@ -1,8 +1,8 @@
 # !/bin/bash
 
-port_number=59416
+port_number=59424
 obj_name='bagel'
-caption='bagel'
+caption='good'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../reconstruction.py \
