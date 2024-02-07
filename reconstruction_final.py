@@ -87,8 +87,8 @@ def main(args) :
                         lora_modules = network.text_encoder_loras + network.unet_loras
                         for lora_module in lora_modules:
                             lora_name = lora_module.lora_name
-                            lora_module.lora_up.weight.values = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
-                            lora_module.lora_down.weight.values = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
+                            lora_module.lora_up.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
+                            lora_module.lora_down.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
 
 
                         # -------------------------------------------------- #
@@ -117,8 +117,8 @@ def main(args) :
                         for lora_module in lora_modules:
                             lora_name = lora_module.lora_name
                             print(f'orginal weight : {lora_module.lora_up.weight}')
-                            lora_module.lora_up.weight.values = object_detecting_state_dict[lora_name + '.lora_up.weight']
-                            lora_module.lora_down.weight.values = object_detecting_state_dict[lora_name + '.lora_up.weight']
+                            lora_module.lora_up.weight.data = object_detecting_state_dict[lora_name + '.lora_up.weight']
+                            lora_module.lora_down.weight.data = object_detecting_state_dict[lora_name + '.lora_up.weight']
 
                         # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
@@ -169,8 +169,8 @@ def main(args) :
                         lora_modules = network.text_encoder_loras + network.unet_loras
                         for lora_module in lora_modules:
                             lora_name = lora_module.lora_name
-                            lora_module.lora_up.weight.values = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
-                            lora_module.lora_down.weight.values = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
+                            lora_module.lora_up.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
+                            lora_module.lora_down.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
 
                         # -------------------------------------------------------------------------------------------- #
 
