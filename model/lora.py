@@ -87,18 +87,28 @@ class LoRAModule(torch.nn.Module):
         self.dropout = dropout
         self.rank_dropout = rank_dropout
         self.module_dropout = module_dropout
-        self.org_weight = org_module.weight.detach().clone()
-        self.org_module_ref = [org_module]  # 後から参照できるように
+        self.org_weight = org_module.weight.detach().clone() #####################################################
+        self.org_module_ref = [org_module]  ########################################################################
 
     def apply_to(self):
         self.org_forward = self.org_module.forward
         self.org_module.forward = self.forward
+        #del self.org_module
 
-    def lora_net(self, x):
+    def forward(self, x):
+        org_forwarded = self.org_forward(x)
+
+        # module dropout
+        if self.module_dropout is not None and self.training:
+            if torch.rand(1) < self.module_dropout:
+                return org_forwarded
+
         lx = self.lora_down(x)
+
         # normal dropout
         if self.dropout is not None and self.training:
             lx = torch.nn.functional.dropout(lx, p=self.dropout)
+
         # rank dropout
         if self.rank_dropout is not None and self.training:
             mask = torch.rand((lx.size(0), self.lora_dim), device=lx.device) > self.rank_dropout
@@ -107,22 +117,17 @@ class LoRAModule(torch.nn.Module):
             elif len(lx.size()) == 4:
                 mask = mask.unsqueeze(-1).unsqueeze(-1)  # for Conv2d
             lx = lx * mask
+
             # scaling for rank dropout: treat as if the rank is changed
             # maskから計算することも考えられるが、augmentation的な効果を期待してrank_dropoutを用いる
             scale = self.scale * (1.0 / (1.0 - self.rank_dropout))  # redundant for readability
         else:
             scale = self.scale
-        lx = self.lora_up(lx)
-        lora_value = lx * self.multiplier * scale
-        return lora_value
 
-    def forward(self, x):
-        org_forwarded = self.org_forward(x)
-        # module dropout
-        #if self.module_dropout is not None and self.training:
-        #    if torch.rand(1) < self.module_dropout:
-        #        return org_forwarded
-        return org_forwarded + self.lora_net(x)
+        lx = self.lora_up(lx)
+
+        return org_forwarded + lx * self.multiplier * scale
+
 
 
 

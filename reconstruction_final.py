@@ -58,11 +58,13 @@ def main(args) :
             print(f'{k} : {raw_state_dict[k].shape}')
             if 'alpph' in k :
                 print(f'{k} : {raw_state_dict[k]}')
-
+        anomal_detecting_state_dict = load_file(network_model_dir)
+        for k in anomal_detecting_state_dict.keys():
+            raw_state_dict[k] = anomal_detecting_state_dict[k]
 
         """
 
-        anomal_detecting_state_dict = load_file(network_model_dir)
+        
 
         test_img_folder = args.data_path
         anomal_folders = os.listdir(test_img_folder)
