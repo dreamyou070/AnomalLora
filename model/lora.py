@@ -94,6 +94,7 @@ class LoRAModule(torch.nn.Module):
     def apply_to(self):
         self.org_forward = self.org_module.forward
         self.org_module.forward = self.forward
+        self.with_lora = True
 
     def restore(self):
         self.with_lora = False

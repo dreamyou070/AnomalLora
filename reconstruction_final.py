@@ -38,10 +38,13 @@ def main(args) :
     object_detector_weight = args.object_detector_weight
 
     print(f'\n step 4. inference')
+    from model.lora import LoRAInfModule
     models = os.listdir(args.network_folder)
     for model in models:
         network = LoRANetwork(text_encoder=text_encoder, unet=unet,
-                              lora_dim=args.network_dim, alpha=args.network_alpha)
+                              lora_dim=args.network_dim, alpha=args.network_alpha,
+                              module_class=LoRAInfModule)
+
         network_model_dir = os.path.join(args.network_folder, model)
 
         lora_name, ext = os.path.splitext(model)
@@ -98,7 +101,7 @@ def main(args) :
                         register_attention_control(unet, controller)
 
                         # [1] anomal detection  --------------------------------------------------------------------- #
-                        network.restore()
+                        network.restore_weights()
                         network.load_weights(network_model_dir)
                         network.to(accelerator.device, dtype=weight_dtype)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
@@ -121,7 +124,7 @@ def main(args) :
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
-                        network.restore()
+                        network.restore_weights()
                         network.load_weights(object_detector_weight)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
@@ -168,7 +171,7 @@ def main(args) :
                         controller.reset()
 
                         # (2) recon : recon_latent
-                        network.restore()
+                        network.restore_weights()
                         network.load_weights(network_model_dir)
                         network.to(accelerator.device, dtype=weight_dtype)
                         unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
