@@ -90,8 +90,9 @@ def main(args) :
                         print(f' anomal detecting loading...')
                         for k in anomal_detecting_state_dict.keys():
                             raw_state_dict[k] = anomal_detecting_state_dict[k]
-                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k:
+                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
                                 print(f'[ANOMAL] {k} : {raw_state_dict[k]}')
+                        network.load_state_dict(raw_state_dict)
                         # -------------------------------------------------- #
                         network.to(accelerator.device, dtype=weight_dtype)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
@@ -117,9 +118,9 @@ def main(args) :
                         print(f' object detecting loading...')
                         for k in object_detecting_state_dict.keys():
                             raw_state_dict[k] = object_detecting_state_dict[k]
-                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k:
+                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
                                 print(f'[OBJECT] {k} : {raw_state_dict[k]}')
-
+                        network.load_state_dict(raw_state_dict)
                         # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
@@ -169,8 +170,9 @@ def main(args) :
                         print(f' anomal detecting loading...')
                         for k in anomal_detecting_state_dict.keys():
                             raw_state_dict[k] = anomal_detecting_state_dict[k]
-                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k:
+                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
                                 print(f'[ANOMAL] {k} : {raw_state_dict[k]}')
+                        network.load_state_dict(raw_state_dict)
                         # -------------------------------------------------------------------------------------------- #
                         unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
                         recon_query_dict = controller.query_dict
