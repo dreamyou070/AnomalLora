@@ -167,7 +167,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         anomal_img = (1-mask) * img + mask * anomal_src
 
         # [4] masked image
-        masked_img = (1-mask) * img
+        masked_img = (1-mask) * img ##########################################################
 
         # [3] final
         anomal_mask_pil = Image.fromarray((mask * 255).astype(np.uint8)).resize((64,64)).convert('L')
@@ -183,7 +183,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                   "object_mask": object_mask.unsqueeze(0),  # [1, 64, 64]
                   'augmented_image': self.transform(anomal_img),
                   "anomaly_mask": anomal_mask.unsqueeze(0),  # [1, 64, 64]
-                  'masked_image': self.transform(masked_img),
+                  'masked_image': self.transform(masked_img), ###########################
                   'masked_image_mask': anomal_mask.unsqueeze(0),
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),

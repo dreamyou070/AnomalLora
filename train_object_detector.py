@@ -164,8 +164,8 @@ def main(args) :
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
                 latents = latents * vae_scale_factor  # [1,4,64,64]
 
-                masked_latents = latents * batch["masked_image"].to(dtype=weight_dtype)  # [1,4,64,64]
-                masked_latents = masked_latents * batch["masked_image_mask"].to(dtype=weight_dtype)  # [1,4,64,64]
+                masked_latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
+                masked_latents = masked_latents * vae_scale_factor  # [1,4,64,64]
                 if args.masked_training :
                     input_latent = torch.cat([latents, masked_latents], dim=0)  # [1,8,64,64]
                 else :
