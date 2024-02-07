@@ -721,8 +721,8 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
                 noise_pred = self.unet(latent_model_input,
                                        t,
                                        encoder_hidden_states=prompt_embeds,
-                                       cross_attention_kwargs=cross_attention_kwargs,
-                                       return_dict=False,
+                                       #cross_attention_kwargs=cross_attention_kwargs,
+                                       #return_dict=False,
                                        trg_layer_list = self.trg_layer_list,
                                        noise_type = None, )[0]
 
