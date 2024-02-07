@@ -102,12 +102,7 @@ def main(args) :
                         # [1] anomal detection  --------------------------------------------------------------------- #
                         network.restore_weights()
                         network.load_weights(network_model_dir)
-
-
-
-
-
-
+                        network.apply_to(text_encoder, unet, True, True)
                         network.to(accelerator.device, dtype=weight_dtype)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
@@ -131,6 +126,7 @@ def main(args) :
                         # [2] object detection --------------------------------------------------------------------- #
                         network.restore_weights()
                         network.load_weights(object_detector_weight)
+                        network.apply_to(text_encoder, unet, True, True)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
                         attn_dict = controller.step_store
@@ -178,6 +174,7 @@ def main(args) :
                         # (2) recon : recon_latent
                         network.restore_weights()
                         network.load_weights(network_model_dir)
+                        network.apply_to(text_encoder, unet, True, True)
                         network.to(accelerator.device, dtype=weight_dtype)
                         unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
                         recon_query_dict = controller.query_dict
