@@ -248,14 +248,16 @@ def main(args) :
                     attn_loss += object_cls_loss + back_cls_loss
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
-            loss += task_loss
+            print(f"task_loss : {task_loss}, attn_loss : {attn_loss}, masked_loss : {masked_loss}")
+            
+            loss += task_loss.mean()
             loss_dict['task_loss'] = task_loss.item()
 
             loss += attn_loss.mean()
             loss_dict['attn_loss'] = attn_loss.mean().item()
 
             if args.masked_training :
-                loss += masked_loss
+                loss += masked_loss.mean()
                 loss_dict['masked_loss'] = masked_loss.item()
 
             current_loss = loss.detach().item()
