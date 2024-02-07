@@ -9,6 +9,7 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
  --output_dir "../../result/${obj_name}/object_detector_masked_training" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
+ --pretrained_inpaint_model_name_or_path "../../result/${obj_name}/object_detector_inpaint_model" \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' \
  --trigger_word "${trigger_word}" \
  --obj_name "${obj_name}" \
