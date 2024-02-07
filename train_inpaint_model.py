@@ -65,10 +65,13 @@ def main(args) :
     weight_dtype, save_dtype = prepare_dtype(args)
     text_encoder, vae = text_encoder.to(weight_dtype), vae.to(weight_dtype)
     from model.unet import UNet2DConditionModel
-    unet = UNet2DConditionModel.from_pretrained(args.pretrained_inpaintmodel,
-                                                subfolder=unet,
-                                                revision="fp16",
-                                                torch_dtype=weight_dtype)
+    original_unet = UNet2DConditionModel(unet.config.sample_size,
+                                         unet.config.attention_head_dim,
+                                         unet.config.cross_attention_dim,
+                                         unet.config.use_linear_projection,
+                                         unet.config.upcast_attention,)
+    original_unet.load_state_dict(unet.state_dict())
+    unet = original_unet
     unet = unet.to(weight_dtype)
 
     vae_scale_factor = 0.18215
