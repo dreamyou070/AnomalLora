@@ -89,6 +89,7 @@ class LoRAModule(torch.nn.Module):
         self.module_dropout = module_dropout
         self.org_weight = org_module.weight.detach().clone()
         self.with_lora = True
+        self.org_module_ref = [org_module]  # 後から参照できるように
 
 
     def apply_to(self):
@@ -1332,8 +1333,10 @@ class LoRANetwork(torch.nn.Module):
             org_module = lora.org_module_ref[0]
             #if not org_module._lora_restored:
             sd = org_module.state_dict()
-            sd["weight"] = org_module._lora_org_weight
+            #sd["weight"] = org_module._lora_org_weight
+            sd["weight"] = lora.org_weight
             org_module.load_state_dict(sd)
+            #
             #org_module._lora_restored = True
 
     def pre_calculation(self):
