@@ -689,9 +689,9 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
             # default case for runwayml/stable-diffusion-inpainting
             num_channels_mask = mask.shape[1]
             num_channels_masked_image = masked_image_latents.shape[1]
-            if num_channels_latents + num_channels_mask + num_channels_masked_image != self.unet.config.in_channels:
+            if num_channels_latents + num_channels_mask + num_channels_masked_image != num_channels_unet:
                 raise ValueError(
-                    f"Incorrect configuration settings! The config of `pipeline.unet`: {self.unet.config} expects"
+                    f"Incorrect configuration settings! The config of `pipeline.unet`: {num_channels_unet} expects"
                     f" {self.unet.config.in_channels} but received `num_channels_latents`: {num_channels_latents} +"
                     f" `num_channels_mask`: {num_channels_mask} + `num_channels_masked_image`: {num_channels_masked_image}"
                     f" = {num_channels_latents+num_channels_masked_image+num_channels_mask}. Please verify the config of"
@@ -699,8 +699,7 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
                 )
         elif num_channels_unet != 4:
             raise ValueError(
-                f"The unet {self.unet.__class__} should have either 4 or 9 input channels, not {self.unet.config.in_channels}."
-            )
+                f"The unet should have either 4 or 9 input channels." )
 
         # 9. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
