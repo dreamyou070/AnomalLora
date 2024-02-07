@@ -88,18 +88,13 @@ class LoRAModule(torch.nn.Module):
         self.rank_dropout = rank_dropout
         self.module_dropout = module_dropout
         self.org_weight = org_module.weight.detach().clone()
-        self.with_lora = True
         self.org_module_ref = [org_module]  # 後から参照できるように
+        self.org_module_ref[0].state_dict['weight']
 
 
     def apply_to(self):
         self.org_forward = self.org_module.forward
         self.org_module.forward = self.forward
-        self.with_lora = True
-
-    def restore_weight(self):
-        self.org_module.forward = self.org_forward
-        self.with_lora = False
 
     def lora_net(self, x):
         lx = self.lora_down(x)
@@ -129,10 +124,8 @@ class LoRAModule(torch.nn.Module):
         #if self.module_dropout is not None and self.training:
         #    if torch.rand(1) < self.module_dropout:
         #        return org_forwarded
-        if self.with_lora :
-            return org_forwarded + self.lora_net(x)
-        else :
-            return org_forwarded
+        return org_forwarded + self.lora_net(x)
+
 
 
 class LoRAInfModule(LoRAModule):
@@ -1028,9 +1021,6 @@ class LoRANetwork(torch.nn.Module):
         else:
             weights_sd = torch.load(file, map_location="cpu")
         info = self.load_state_dict(weights_sd, False)
-        loras = self.text_encoder_loras + self.unet_loras
-        for lora in loras:
-            lora.with_lora = True
         return info
 
 

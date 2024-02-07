@@ -41,11 +41,9 @@ def main(args) :
     from model.lora import LoRAInfModule
     models = os.listdir(args.network_folder)
     for model in models:
-        network = LoRANetwork(text_encoder=text_encoder, unet=unet,
-                              lora_dim=args.network_dim, alpha=args.network_alpha,)
+
 
         network_model_dir = os.path.join(args.network_folder, model)
-
         lora_name, ext = os.path.splitext(model)
         lora_epoch = int(lora_name.split('-')[-1])
 
@@ -55,25 +53,10 @@ def main(args) :
         os.makedirs(recon_base_folder, exist_ok=True)
         lora_base_folder = os.path.join(recon_base_folder, f'lora_epoch_{lora_epoch}')
         os.makedirs(lora_base_folder, exist_ok=True)
-
+        network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha, )
         network.apply_to(text_encoder, unet, True, True)
-        """
-        controller = AttentionStore()
-        register_attention_control(unet, controller)
 
-        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder,
-                                                           tokenizer=tokenizer,unet=unet,scheduler=scheduler,
-                                                           safety_checker=None,feature_extractor=None,requires_safety_checker=False,
-                                                           random_vector_generator=None, trg_layer_list=None)
-        latents = pipeline(prompt=args.prompt,
-                           height=512, width=512, num_inference_steps=args.num_ddim_steps,
-                           guidance_scale=args.guidance_scale,
-                           negative_prompt=args.negative_prompt,)
-        base_image = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
-        base_image.save(os.path.join(recon_base_folder, f'base_gen_lora_epoch_{lora_epoch}.png'))
-        """
         test_img_folder = args.data_path
-
         anomal_folders = os.listdir(test_img_folder)
         for anomal_folder in anomal_folders:
             save_base_folder = os.path.join(lora_base_folder, anomal_folder)
@@ -100,9 +83,8 @@ def main(args) :
                         register_attention_control(unet, controller)
 
                         # [1] anomal detection  --------------------------------------------------------------------- #
-                        network.restore_weights()
-                        network.load_weights(network_model_dir)
-                        network.apply_to(text_encoder, unet, True, True)
+                        from safetensors.torch import load_file
+                        network.load_state_dict(load_file(network_model_dir), False)
                         network.to(accelerator.device, dtype=weight_dtype)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
@@ -124,14 +106,11 @@ def main(args) :
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
-                        network.restore_weights()
-                        network.load_weights(object_detector_weight)
-                        network.apply_to(text_encoder, unet, True, True)
+                        network.load_state_dict(load_file(object_detector_weight), False)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
                         attn_dict = controller.step_store
                         controller.reset()
-
                         attn_map = attn_dict[args.trg_layer_list[0]][0]
                         if attn_map.shape[0] != 8:
                             attn_map = attn_map.chunk(2, dim=0)[0]
@@ -171,11 +150,13 @@ def main(args) :
                         org_query = org_query / (torch.norm(org_query, dim=1, keepdim=True))
                         controller.reset()
 
+                        # -------------------------------------------------------------------------------------------- #
                         # (2) recon : recon_latent
-                        network.restore_weights()
-                        network.load_weights(network_model_dir)
+                        network.load_state_dict(load_file(network_model_dir), False)
                         network.apply_to(text_encoder, unet, True, True)
                         network.to(accelerator.device, dtype=weight_dtype)
+                        # -------------------------------------------------------------------------------------------- #
+
                         unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
                         recon_query_dict = controller.query_dict
                         recon_query = recon_query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
