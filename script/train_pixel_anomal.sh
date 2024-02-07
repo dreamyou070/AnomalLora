@@ -5,7 +5,7 @@ obj_name='bagel'
 trigger_word='bagel'
 network_weights="../../result/${obj_name}/caption_bagel_pixel_anomal_up/models/epoch-000030.safetensors"
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train_pixel_anomal.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
  --output_dir "../../result/${obj_name}/caption_bagel_pixel_anomal_up" \
@@ -21,5 +21,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_config \
  --normal_weight 1 \
  --num_epochs 100 \
  --trigger_word "${trigger_word}" \
- --network_weights ${network_weights} \
  --start_epoch 30 --num_repeat 20
