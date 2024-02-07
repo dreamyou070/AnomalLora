@@ -159,6 +159,7 @@ def main(args) :
 
         for step, batch in enumerate(train_dataloader):
             loss_dict = {}
+            loss = 0
             # --------------------------------------------- Task Loss --------------------------------------------- #
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
@@ -202,14 +203,12 @@ def main(args) :
 
             if args.do_task_loss:
                 target = noise
-                loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
-                task_loss = loss.mean([1, 2, 3])
+                task_loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none").mean([1, 2, 3])
                 task_loss = task_loss.mean()
                 task_loss = task_loss * args.task_loss_weight
 
             if args.masked_training :
-                masked_loss = torch.nn.functional.mse_loss(org_noise_pred.float(),
-                                                           masked_latents.float(),reduction="none")
+                masked_loss = torch.nn.functional.mse_loss(org_noise_pred.float(), masked_latents.float(),reduction="none")
                 masked_loss = masked_loss.mean([1, 2, 3])
                 masked_loss = masked_loss.mean()
 
@@ -249,7 +248,6 @@ def main(args) :
                 if args.do_cls_train :
                     attn_loss += object_cls_loss + back_cls_loss
             attn_loss = attn_loss.mean()
-
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
             print(f"task_loss : {task_loss}, attn_loss : {attn_loss}, masked_loss : {masked_loss}")
