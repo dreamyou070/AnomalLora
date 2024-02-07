@@ -18,6 +18,29 @@ from utils.attention_control import register_attention_control
 from utils import get_epoch_ckpt_name, save_model
 import time
 import json
+from torch import nn
+import einops
+import torch.nn.functional as F
+class BinaryFocalLoss(nn.Module):
+    def __init__(self, alpha=0.5, gamma=4, logits=False, reduce=True):
+        super(BinaryFocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.logits = logits
+        self.reduce = reduce
+
+    def forward(self, inputs, targets):
+        if self.logits:
+            BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
+        else:
+            BCE_loss = F.binary_cross_entropy(inputs, targets, reduction='none')
+        pt = torch.exp(-BCE_loss)
+        F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
+
+        if self.reduce:
+            return torch.mean(F_loss)
+        else:
+            return F_loss
 
 def main(args) :
 
@@ -52,7 +75,11 @@ def main(args) :
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
     print(f' (3.2) seg optimizer')
-    optimizer_seg = torch.optim.AdamW(seg_model.parameters(), lr=args.learning_rate)
+    segmentation_trainable_params = [{"params": seg_model.parameters(), "lr": args.seg_lr},]
+    optimizer_seg = torch.optim.AdamW(segmentation_trainable_params)
+    loss_focal = BinaryFocalLoss()
+    loss_smL1 = nn.SmoothL1Loss()
+
 
     print(f'\n step 4. dataset and dataloader')
     obj_dir = os.path.join(args.data_path, args.obj_name)
@@ -164,6 +191,7 @@ def main(args) :
             normal_feats = []
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
+            segmentation_loss = 0
             anomal_mask_ = batch['anomaly_mask'].squeeze(0) # [64,64]
             anomal_mask = anomal_mask_.flatten().squeeze(0)
             loss_dict = {}
@@ -231,8 +259,15 @@ def main(args) :
                     attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
                     normal_loss += normal_cls_loss
                     anomal_loss += anormal_cls_loss
+            ############################################ 3. segmentation Loss ##################################################
+            seg_input = torch.cat([latents, anomal_latents], dim=1)
+            pred_mask = seg_model(seg_input)  # [batch, 1, 64, 64]
+            pred_mask_trg = anomal_mask_.unsqueeze(0).unsqueeze(0)
+            focal_loss = loss_focal(pred_mask, pred_mask_trg)
+            smL1_loss = loss_smL1(pred_mask, pred_mask_trg)
+            segmentation_loss += focal_loss + 5 * smL1_loss
 
-            ############################################ 3. total Loss ##################################################
+            ############################################ 4. total Loss ##################################################
             if args.do_task_loss:
                 loss += task_loss
                 loss_dict['task_loss'] = task_loss.item()
@@ -246,6 +281,9 @@ def main(args) :
                 loss_dict['attn_loss'] = attn_loss.mean().item()
                 loss_dict['normal_loss'] = normal_loss.mean().item()
                 loss_dict['anomal_loss'] = anomal_loss.mean().item()
+            if args.do_seg_loss:
+                loss += segmentation_loss
+                loss_dict['seg_loss'] = segmentation_loss.item()
 
             current_loss = loss.detach().item()
             if epoch == args.start_epoch :
