@@ -156,6 +156,7 @@ def main(args) :
     accelerator.init_trackers(project_name=args.wandb_project_name, config=config, )
 
     for epoch in range(args.start_epoch, args.num_epochs):
+        """
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
         for step, batch in enumerate(train_dataloader):
@@ -247,6 +248,7 @@ def main(args) :
                 progress_bar.set_postfix(**loss_dict)
             if global_step >= args.max_train_steps:
                 break
+        """
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
         accelerator.wait_for_everyone()
         ### 4.2 sampling
@@ -258,12 +260,18 @@ def main(args) :
             scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
                                       beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
                                       beta_schedule=args.scheduler_schedule)
-            pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
-                                                               unet=unet, scheduler=scheduler, safety_checker=None,
-                                                               feature_extractor=None,
-                                                               requires_safety_checker=False,
-                                                               random_vector_generator=None, trg_layer_list=None)
+            from utils.inpaint_pipeline import AnomalyDetectionStableDiffusionPipeline_inpaint
+            pipeline = AnomalyDetectionStableDiffusionPipeline_inpaint(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
+                              unet=unet, scheduler=scheduler, safety_checker=None, feature_extractor=None,
+                                     requires_safety_checker=False, random_vector_generator=None, trg_layer_list=None)
+            from PIL import Image
+            test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/000.png')
+            test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/000.png')
+            test_rgb_pil = Image.open(test_rgb_dir)
+            test_gt_pil = Image.open(test_gt_dir)
             latents = pipeline(prompt=batch['caption'],
+                               image = test_rgb_pil,
+                               mask = test_gt_pil,
                                height=512, width=512, num_inference_steps=args.num_ddim_steps,
                                guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
             gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
