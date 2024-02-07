@@ -119,10 +119,9 @@ def main(args) :
                         lora_modules = network.text_encoder_loras + network.unet_loras
                         for lora_module in lora_modules:
                             lora_name = lora_module.lora_name
-                            print(f'orginal weight : {lora_module.lora_up.weight}')
                             lora_module.lora_up.weight.data = object_detecting_state_dict[lora_name + '.lora_up.weight']
                             lora_module.lora_down.weight.data = object_detecting_state_dict[lora_name + '.lora_up.weight']
-
+                        network.to(accelerator.device, dtype=weight_dtype)
                         # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
@@ -174,7 +173,7 @@ def main(args) :
                             lora_name = lora_module.lora_name
                             lora_module.lora_up.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
                             lora_module.lora_down.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
-
+                        network.to(accelerator.device, dtype=weight_dtype)
                         # -------------------------------------------------------------------------------------------- #
 
                         unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
