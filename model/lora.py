@@ -130,7 +130,7 @@ class LoRAModule(torch.nn.Module):
 
 
 
-class LoRAInfModule(LoRAModule):
+class LoRAInfModule(torch.nn.Module):
     """
     replaces forward method of the original Linear, instead of replacing the original Linear module.
     """
