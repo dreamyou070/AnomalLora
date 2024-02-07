@@ -63,7 +63,14 @@ def main(args) :
                                                 revision="fp16",torch_dtype=torch.float16,)
     unet, text_encoder, vae = pipe.unet, pipe.text_encoder, pipe.vae
     weight_dtype, save_dtype = prepare_dtype(args)
-    unet, text_encoder, vae = unet.to(weight_dtype), text_encoder.to(weight_dtype), vae.to(weight_dtype)
+    text_encoder, vae = text_encoder.to(weight_dtype), vae.to(weight_dtype)
+    from model.unet import UNet2DConditionModel
+    unet = UNet2DConditionModel.from_pretrained(args.pretrained_inpaintmodel,
+                                                subfolder=unet,
+                                                revision="fp16",
+                                                torch_dtype=weight_dtype)
+    unet = unet.to(weight_dtype)
+
     vae_scale_factor = 0.18215
     noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
                                     num_train_timesteps=1000, clip_sample=False)
