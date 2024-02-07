@@ -262,14 +262,14 @@ def main(args) :
                                       beta_schedule=args.scheduler_schedule)
             from utils.inpaint_pipeline import AnomalyDetectionStableDiffusionPipeline_inpaint
             pipeline = AnomalyDetectionStableDiffusionPipeline_inpaint(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
-                              unet=unet, scheduler=scheduler, safety_checker=None, feature_extractor=None,
-                                     requires_safety_checker=False, random_vector_generator=None, trg_layer_list=None)
+                                           unet=unet, scheduler=scheduler, safety_checker=None, feature_extractor=None,
+                                           requires_safety_checker=False,  trg_layer_list=None)
             from PIL import Image
             test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/000.png')
             test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/000.png')
             test_rgb_pil = Image.open(test_rgb_dir)
             test_gt_pil = Image.open(test_gt_dir)
-            latents = pipeline(prompt=batch['caption'],
+            latents = pipeline(prompt='bagel',
                                image = test_rgb_pil,
                                mask = test_gt_pil,
                                height=512, width=512, num_inference_steps=args.num_ddim_steps,

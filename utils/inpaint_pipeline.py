@@ -123,8 +123,11 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
         safety_checker: StableDiffusionSafetyChecker,
         feature_extractor: CLIPImageProcessor,
         requires_safety_checker: bool = True,
+        trg_layer_list: List[str] = None,
     ):
         super().__init__()
+
+        self.trg_layer_list = trg_layer_list
 
         if hasattr(scheduler.config, "steps_offset") and scheduler.config.steps_offset != 1:
             deprecation_message = (
@@ -716,13 +719,13 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
                     latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
 
                 # predict the noise residual
-                noise_pred = self.unet(
-                    latent_model_input,
-                    t,
-                    encoder_hidden_states=prompt_embeds,
-                    cross_attention_kwargs=cross_attention_kwargs,
-                    return_dict=False,
-                )[0]
+                noise_pred = self.unet(latent_model_input,
+                                       t,
+                                       encoder_hidden_states=prompt_embeds,
+                                       cross_attention_kwargs=cross_attention_kwargs,
+                                       return_dict=False,
+                                       trg_layer_list = self.trg_layer_list,
+                                       noise_type = None, )[0]
 
                 # perform guidance
                 if do_classifier_free_guidance:
