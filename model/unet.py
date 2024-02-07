@@ -9,7 +9,7 @@ from einops import rearrange
 BLOCK_OUT_CHANNELS: Tuple[int] = (320, 640, 1280, 1280)
 TIMESTEP_INPUT_DIM = BLOCK_OUT_CHANNELS[0]
 TIME_EMBED_DIM = BLOCK_OUT_CHANNELS[0] * 4
-IN_CHANNELS: int = 4
+# IN_CHANNELS: int = 4
 OUT_CHANNELS: int = 4
 LAYERS_PER_BLOCK: int = 2
 LAYERS_PER_BLOCK_UP: int = LAYERS_PER_BLOCK + 1
@@ -21,6 +21,13 @@ TRANSFORMER_NORM_NUM_GROUPS = 32
 
 DOWN_BLOCK_TYPES = ["CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "DownBlock2D"]
 UP_BLOCK_TYPES = ["UpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D"]
+
+
+def unet_passing_argument(args):
+    global IN_CHANNELS
+    IN_CHANNELS = args.unet_inchannels
+
+
 
 
 EPSILON = 1e-6
