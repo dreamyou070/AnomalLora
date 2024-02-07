@@ -5,7 +5,7 @@ obj_name='bagel'
 trigger_word='bagel'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
- --main_process_port $port_number ../train_input_model.py \
+ --main_process_port $port_number ../train_inpaint_model.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
  --output_dir "../../result/${obj_name}/object_detector_inpaint_model" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
