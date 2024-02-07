@@ -42,8 +42,7 @@ def main(args) :
     models = os.listdir(args.network_folder)
     for model in models:
         network = LoRANetwork(text_encoder=text_encoder, unet=unet,
-                              lora_dim=args.network_dim, alpha=args.network_alpha,
-                              module_class=LoRAInfModule)
+                              lora_dim=args.network_dim, alpha=args.network_alpha,)
 
         network_model_dir = os.path.join(args.network_folder, model)
 
