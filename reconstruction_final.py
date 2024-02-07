@@ -131,7 +131,7 @@ def main(args) :
                         controller.reset()
                         attn_map = attn_dict[args.trg_layer_list[0]][0]     # head, pix_num, 2
                         object_map = attn_map.chunk(2, dim=-1)[0].squeeze() # pix_num
-                        object_map = object_map.mean(dim=0).unsqueeze(0)     # 1, pix_num
+                        object_map = object_map.mean(dim=0).unsqueeze(0)    # 1, pix_num
                         res = int(object_map.shape[-1] ** 0.5)
                         object_map = object_map.view(res, res)
                         object_pil = Image.fromarray(

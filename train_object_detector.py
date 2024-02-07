@@ -150,11 +150,7 @@ def main(args) :
     global_step = 0
     loss_list = []
     config = {'do_task_loss' : args.do_task_loss,
-              'task_loss_weight' : args.task_loss_weight,
-              'do_dist_loss' : args.do_dist_loss,
-              'dist_loss_weight' : args.dist_loss_weight,
-              'do_attn_loss' : args.do_attn_loss,
-              'attn_loss_weight' : args.attn_loss_weight,}
+              'task_loss_weight' : args.task_loss_weight,}
     accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
 
     for epoch in range(args.start_epoch, args.num_epochs):
@@ -211,7 +207,7 @@ def main(args) :
                 task_loss = loss.mean()
                 task_loss = task_loss * args.task_loss_weight
 
-            if args.do_dist_loss:
+            if args.masked_training :
                 masked_loss = torch.nn.functional.mse_loss(org_noise_pred.float(),
                                                            masked_latents.float(),reduction="none")
                 masked_loss = masked_loss.mean([1, 2, 3])
