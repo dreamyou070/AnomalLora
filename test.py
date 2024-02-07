@@ -1,6 +1,8 @@
 import torch
 
-
-attn_loss = torch.randn(4)
-attn_loss = attn_loss.mean()
-print(attn_loss)
+loss_1 = torch.randn(1)
+loss_2 = torch.randn(1)
+loss_3 = torch.randn(1)
+print(loss_1, loss_2, loss_3)
+loss = loss_1 + loss_2 + loss_3
+print(loss)

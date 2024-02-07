@@ -264,6 +264,8 @@ def main(args) :
                 loss += masked_loss
                 loss_dict['masked_loss'] = masked_loss.item()
 
+            print(f'loss : {loss}')
+
             current_loss = loss.detach().item()
             if epoch == args.start_epoch :
                 loss_list.append(current_loss)
