@@ -97,6 +97,8 @@ class LoRAModule(torch.nn.Module):
 
     def restore(self):
         self.with_lora = False
+        torch.nn.init.zeros_(self.lora_up.weight)
+        torch.nn.init.zeros_(self.lora_down.weight)
 
     #def original_forward(self, x):
     #    return self.org_forward(x)
@@ -1028,6 +1030,9 @@ class LoRANetwork(torch.nn.Module):
         else:
             weights_sd = torch.load(file, map_location="cpu")
         info = self.load_state_dict(weights_sd, False)
+        loras = self.text_encoder_loras + self.unet_loras
+        for lora in loras:
+            lora.with_lora = True
         return info
 
     def restore(self):
