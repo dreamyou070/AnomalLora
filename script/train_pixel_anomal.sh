@@ -21,4 +21,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --normal_weight 1 \
  --num_epochs 100 \
  --trigger_word "${trigger_word}" \
- --start_epoch 30 --num_repeat 20
+ --start_epoch 0 --num_repeat 20

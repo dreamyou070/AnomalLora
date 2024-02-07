@@ -134,15 +134,33 @@ class MVTecDRAEMTrainDataset(Dataset):
         anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
 
         # [1] base
+        img_path = self.image_paths[idx]
+        parent, name = os.path.split(img_path)
+        parent, _ = os.path.split(parent)
+        object_mask_dir = os.path.join(parent, f"object_mask/{name}")
+
         img = self.load_image(self.image_paths[idx], self.resize_shape[0], self.resize_shape[1])
-        dtype = img.dtype
+
+        object_img = Image.open(object_mask_dir).convert("L").resize((self.resize_shape[0], self.resize_shape[1]), Image.BICUBIC)
+        object_mask_np = np.array(object_img, np.uint8) / 255
+        object_mask_np = np.where(object_mask_np == 0, 0, 1)
+
         anomal_src = self.load_image(self.anomaly_source_paths[anomaly_source_idx], self.resize_shape[0], self.resize_shape[1])
+
+        dtype = img.dtype
 
         # [2] augment ( anomaly mask white = anomal position )
         anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1]) # [512, 512], [0, 1]
         anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
+        anomal_mask_np = anomal_mask_np * object_mask_np
         mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
+
         anomal_img = (1-mask) * img + mask * anomal_src
+
+        anomal_img_pil = Image.fromarray(anomal_img)
+        mask_pil = Image.fromarray((mask * 255).astype(np.uint8))
+        anomal_img_pil.save("anomal_img.png")
+        mask_pil.save("mask.png")
 
         # [3] final
         image = self.transform(img)
