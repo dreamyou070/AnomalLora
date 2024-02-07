@@ -95,8 +95,9 @@ class LoRAModule(torch.nn.Module):
         self.org_module.forward = self.forward
 
     def restore(self):
-        torch.nn.init.kaiming_uniform_(self.lora_down.weight, a=math.sqrt(5))
+        torch.nn.init.zeros_(self.lora_down.weight, a=math.sqrt(5))
         torch.nn.init.zeros_(self.lora_up.weight)
+        self.org_module.forward = self.original_forward
 
     def original_forward(self, x):
         return self.org_forward(x)

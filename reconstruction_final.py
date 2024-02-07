@@ -56,8 +56,6 @@ def main(args) :
 
         network.apply_to(text_encoder, unet, True, True)
         """
-        
-
         controller = AttentionStore()
         register_attention_control(unet, controller)
 
