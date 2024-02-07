@@ -353,6 +353,7 @@ if __name__ == '__main__':
     parser.add_argument('--text_encoder_lr', type=float, default=1e-5)
     parser.add_argument('--unet_lr', type=float, default=1e-5)
     parser.add_argument('--learning_rate', type=float, default=1e-5)
+    parser.add_argument('--seg_lr', type=float, default=1e-5)
     # step 4. dataset and dataloader
     parser.add_argument('--data_path', type=str,
                         default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
