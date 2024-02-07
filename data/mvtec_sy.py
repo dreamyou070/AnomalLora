@@ -149,48 +149,42 @@ class MVTecDRAEMTrainDataset(Dataset):
         object_mask_np = np.array(object_img, np.uint8) / 255
         object_mask_np = np.where(object_mask_np == 0, 0, 1)
 
+        # [2] object mask
         object_img_latent =Image.open(object_mask_dir).convert("L").resize((64,64), Image.BICUBIC)
-        object_mask_latent_np = np.array(object_img_latent, np.uint8) / 255 # [64,64]
-        object_mask_latent_np = np.where(object_mask_latent_np == 0, 0, 1)
-        object_mask = torch.tensor(object_mask_latent_np).unsqueeze(0) # [1, 64, 64]
-
+        object_mask_latent_np = np.array(object_img_latent, np.uint8) / 255 # [64,64], 0~1
+        object_mask_latent_np = np.where(object_mask_latent_np == 0, 0, 1)  #
+        object_mask = torch.tensor(object_mask_latent_np) #
 
         anomal_src = self.load_image(self.anomaly_source_paths[anomaly_source_idx], self.resize_shape[0], self.resize_shape[1])
-
         dtype = img.dtype
 
-        # [2] augment ( anomaly mask white = anomal position )
+        # [3] augment ( anomaly mask white = anomal position )
         anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1]) # [512, 512], [0, 1]
         anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
         if self.anomal_only_on_object:
             anomal_mask_np = anomal_mask_np * object_mask_np
         mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
-
         anomal_img = (1-mask) * img + mask * anomal_src
 
-        #anomal_img_pil = Image.fromarray(anomal_img)
-        #mask_pil = Image.fromarray((mask * 255).astype(np.uint8))
-        #anomal_img_pil.save("anomal_img.png")
-        #mask_pil.save("mask.png")
+        # [4] masked image
+        masked_img = (1-mask) * img
 
         # [3] final
-        image = self.transform(img)
-        anomal_image = self.transform(anomal_img)
-
-        # -----------------------------------------------------------------------------------------------
-        anomal_img_pil = Image.fromarray((mask * 255).astype(np.uint8))
-        anomal_pil = anomal_img_pil.resize((64,64)).convert('L')
-        anomal_torch = torch.tensor(np.array(anomal_pil))
-        anomal_mask = torch.where(anomal_torch > 0.5, 1, 0)  # strict anomal
+        anomal_mask_pil = Image.fromarray((mask * 255).astype(np.uint8)).resize((64,64)).convert('L')
+        anomal_mask_np = np.array(anomal_mask_pil) / 255
+        anomal_mask_torch = torch.tensor(anomal_mask_np)
+        anomal_mask = torch.where(anomal_mask_torch > 0.5, 1, 0)  # strict anomal
 
         # [4] caption
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
 
         # [5] return
-        sample = {'image': image,
-                  "anomaly_mask": anomal_mask,
-                  'augmented_image': anomal_image,
-                  "object_mask": object_mask, # [1, 64, 64]
+        sample = {'image': self.transform(img),
+                  "object_mask": object_mask.unsqueeze(0),  # [1, 64, 64]
+                  'augmented_image': self.transform(anomal_img),
+                  "anomaly_mask": anomal_mask.unsqueeze(0),  # [1, 64, 64]
+                  'masked_image': self.transform(masked_img),
+                  'masked_image_mask': anomal_mask.unsqueeze(0),
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),
                   'caption': self.caption,}

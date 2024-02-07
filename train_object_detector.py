@@ -167,20 +167,55 @@ def main(args) :
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
                 latents = latents * vae_scale_factor  # [1,4,64,64]
+
+                masked_latents = latents * batch["masked_image"].to(dtype=weight_dtype)  # [1,4,64,64]
+                masked_latents = masked_latents * batch["masked_image_mask"].to(dtype=weight_dtype)  # [1,4,64,64]
+                if args.masked_training :
+                    input_latent = torch.cat([latents, masked_latents], dim=0)  # [1,8,64,64]
+                else :
+                    input_latent = latents
+                """
+                 sample = {'image': self.transform(img),
+                  "object_mask": object_mask.unsqueeze(0),  # [1, 64, 64]
+                  'masked_image': self.transform(masked_img),
+                  'masked_image_mask': anomal_mask.unsqueeze(0), 
+                  'idx': idx,
+                  'input_ids': input_ids.squeeze(0),
+                  'caption': self.caption,}
+                """
+
             with torch.set_grad_enabled(True) :
                 input_ids = batch["input_ids"].to(accelerator.device) # batch, 77 sen len
                 enc_out = text_encoder(input_ids)       # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
-            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,latents)
+                if args.masked_training :
+                    input_cond = torch.cat([input_latent, encoder_hidden_states], dim=0)  # [1, 772, 64, 64]
+                else :
+                    input_cond = encoder_hidden_states
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args,
+                                                                                    noise_scheduler,
+                                                                                    input_latent)
             with accelerator.autocast():
-                noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states,
-                                  trg_layer_list=args.trg_layer_list, noise_type=None).sample
+                noise_pred = unet(noisy_latents,
+                                  timesteps,
+                                  input_cond,
+                                  trg_layer_list=args.trg_layer_list,
+                                  noise_type=None).sample
+                if args.masked_training :
+                    org_noise_pred, masked_noise_pred = noise_pred.chunk(2, dim=0)
+
             if args.do_task_loss:
                 target = noise
                 loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
                 loss = loss.mean([1, 2, 3])
                 task_loss = loss.mean()
                 task_loss = task_loss * args.task_loss_weight
+
+            if args.do_dist_loss:
+                masked_loss = torch.nn.functional.mse_loss(org_noise_pred.float(),
+                                                           masked_latents.float(),reduction="none")
+                masked_loss = masked_loss.mean([1, 2, 3])
+                masked_loss = masked_loss.mean()
 
             attn_dict = controller.step_store
             controller.reset()
@@ -189,6 +224,9 @@ def main(args) :
             for trg_layer in args.trg_layer_list:
 
                 attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
+                if args.masked_training :
+                    attention_score = attention_score.chunk(2, dim=0)[0] ##################################################
+
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
 
@@ -216,9 +254,13 @@ def main(args) :
             # --------------------------------------------- 4. total loss --------------------------------------------- #
             loss += task_loss
             loss_dict['task_loss'] = task_loss.item()
-            if args.do_attn_loss:
-                loss += attn_loss.mean()
-                loss_dict['attn_loss'] = attn_loss.mean().item()
+
+            loss += attn_loss.mean()
+            loss_dict['attn_loss'] = attn_loss.mean().item()
+
+            if args.masked_training :
+                loss += masked_loss
+                loss_dict['masked_loss'] = masked_loss.item()
 
             current_loss = loss.detach().item()
             if epoch == args.start_epoch :
@@ -322,7 +364,7 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
-    parser.add_argument("--anomal_only_on_object", action='store_true')
+    parser.add_argument("--masked_training", action='store_true')
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
@@ -331,8 +373,6 @@ if __name__ == '__main__':
         return v
     parser.add_argument("--do_task_loss", action='store_true')
     parser.add_argument("--task_loss_weight", type=float, default=0.5)
-    parser.add_argument("--do_dist_loss", action='store_true')
-    parser.add_argument("--dist_loss_weight", type=float, default = 1)
     parser.add_argument("--do_attn_loss", action='store_true')
     parser.add_argument("--attn_loss_weight", type=float, default=1.0)
     parser.add_argument("--do_cls_train", action='store_true')
