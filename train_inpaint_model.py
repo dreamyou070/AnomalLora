@@ -58,10 +58,210 @@ def main(args) :
     print(f'\n step 2. model')
     print(f' (2.1) stable diffusion model')
     from diffusers import StableDiffusionInpaintPipeline
-    trg_dir = '/home/dreamyou070/pretrained_stable_diffusion'
-    pipe = StableDiffusionInpaintPipeline.from_pretrained("runwayml/stable-diffusion-inpainting",
-                                                          revision="fp16",torch_dtype=torch.float16,
-                                                          cache_dir = trg_dir)
+    tokenizer = load_tokenizer(args)
+    pipe = StableDiffusionInpaintPipeline.from_pretrained(args.pretrained_inpaintmodel,
+                                                revision="fp16",torch_dtype=torch.float16,)
+    unet, text_encoder, vae = pipe.unet, pipe.text_encoder, pipe.vae
+    vae_scale_factor = 0.18215
+    noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
+                                    num_train_timesteps=1000, clip_sample=False)
+    print(f' (2.2) LoRA network')
+    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha)
+    print(f' (2.2) attn controller')
+    controller = AttentionStore()
+    register_attention_control(unet, controller)
+
+    print(f'\n step 3. optimizer')
+    print(f' (3.1) lora optimizer')
+    trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
+    optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
+    print(f' (3.2) seg optimizer')
+    # segmentation_trainable_params = [{"params": seg_model.parameters(), "lr": args.seg_lr},]
+    # optimizer_seg = torch.optim.AdamW(segmentation_trainable_params)
+    # loss_focal = BinaryFocalLoss()
+    # loss_smL1 = nn.SmoothL1Loss()
+
+    print(f'\n step 4. dataset and dataloader')
+    obj_dir = os.path.join(args.data_path, args.obj_name)
+    train_dir = os.path.join(obj_dir, "train")
+    root_dir = os.path.join(train_dir, "good/rgb")
+    args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
+    dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
+                                     anomaly_source_path=args.anomaly_source_path,
+                                     resize_shape=[512, 512],
+                                     tokenizer=tokenizer,
+                                     caption=args.trigger_word,
+                                     use_perlin=True,
+                                     num_repeat=args.num_repeat,
+                                     anomal_only_on_object=args.anomal_only_on_object)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+
+    print(f'\n step 5. lr')
+    schedule_func = TYPE_TO_SCHEDULER_FUNCTION[SchedulerType.COSINE_WITH_RESTARTS]
+    num_training_steps = len(dataloader) * args.num_epochs
+    num_cycles = args.lr_scheduler_num_cycles
+    lr_scheduler = schedule_func(optimizer, num_warmup_steps=args.num_warmup_steps,
+                                 num_training_steps=num_training_steps, num_cycles=num_cycles, )
+
+    print(f'\n step 6. accelerator and device')
+    weight_dtype, save_dtype = prepare_dtype(args)
+    accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
+                              mixed_precision=args.mixed_precision,
+                              log_with=args.log_with,
+                              project_dir=args.logging_dir, )
+    is_main_process = accelerator.is_main_process
+    vae.requires_grad_(False)
+    vae.to(dtype=weight_dtype)
+    vae.to(accelerator.device)
+    unet.requires_grad_(False)
+    text_encoder.requires_grad_(False)
+    print(f' (6.2) network with stable diffusion model')
+    network.prepare_grad_etc(text_encoder, unet)
+    network.apply_to(text_encoder, unet, True, True)
+    if args.network_weights is not None:
+        network.load_weights(args.network_weights)
+    if args.train_unet and args.train_text_encoder:
+        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+            unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
+    elif args.train_unet:
+        unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
+                                                                                       dataloader, lr_scheduler)
+        text_encoder.to(accelerator.device, dtype=weight_dtype)
+    elif args.train_text_encoder:
+        text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
+                                                                                               optimizer, dataloader,
+                                                                                               lr_scheduler)
+        unet.to(accelerator.device, dtype=weight_dtype)
+
+    print(f'\n step 7. Train!')
+    train_steps = args.num_epochs * len(dataloader)
+    progress_bar = tqdm(range(train_steps), smoothing=0,
+                        disable=not accelerator.is_local_main_process, desc="steps")
+    global_step = 0
+    loss_list = []
+    config = {'do_task_loss': args.do_task_loss,
+              'task_loss_weight': args.task_loss_weight, }
+    accelerator.init_trackers(project_name=args.wandb_project_name, config=config, )
+
+    for epoch in range(args.start_epoch, args.num_epochs):
+        epoch_loss_total = 0
+        accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
+        for step, batch in enumerate(train_dataloader):
+            loss = 0
+            loss_dict = {}
+            # --------------------------------------------- Task Loss --------------------------------------------- #
+            with torch.set_grad_enabled(True):
+                input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
+                enc_out = text_encoder(input_ids)  # batch, 77, 768
+                encoder_hidden_states = enc_out["last_hidden_state"]
+            with torch.no_grad():
+                image = batch["image"].to(dtype=weight_dtype)                         # [1, 3, 512, 512 ]
+                image_latents = vae.encode(image).latent_dist.sample()                # [1, 4, 64, 64 ]
+                masked_image = batch["masked_image"].to(dtype=weight_dtype)           # [1, 3, 512, 512]
+                masked_image_latents = vae.encode(masked_image).latent_dist.sample()  # [1, 4, 64, 64 ]
+                binary_mask = batch["masked_image_mask"].to(dtype=weight_dtype)       # [1, 1, 64,64]
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args,
+                                                                            noise_scheduler,image_latents)
+            latent_model_input = torch.cat([noisy_latents,binary_mask, masked_image_latents], dim=1)
+            with accelerator.autocast():
+                noise_pred = unet(latent_model_input,
+                                  timesteps,
+                                  encoder_hidden_states,
+                                  trg_layer_list=args.trg_layer_list, noise_type=None).sample
+                target = noise
+                task_loss = torch.nn.functional.mse_loss(noise_pred.float(),
+                                                         target.float(), reduction="none").mean([1, 2, 3])
+                task_loss = task_loss.mean()
+                task_loss = task_loss * args.task_loss_weight
+
+            # --------------------------------------------- Diffusion Loss --------------------------------------------- #
+            attn_dict = controller.step_store
+            controller.reset()
+            attn_loss = 0
+            object_mask = batch['object_mask'].squeeze()  # [64,64]
+            for trg_layer in args.trg_layer_list:
+                attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                #if args.masked_training:
+                #    attention_score = attention_score.chunk(2, dim=0)[0]
+                cls_score, trigger_score = attention_score.chunk(2, dim=-1)
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+
+                head_num = cls_score.shape[0]
+                object_mask = object_mask.flatten()
+                object_position = object_mask.unsqueeze(0).repeat(head_num, 1)  # head, pix_num
+                back_position = 1 - object_position
+
+                object_cls_score = (cls_score * object_position).mean(dim=0)  # pix_num
+                object_trigger_score = (trigger_score * object_position).mean(dim=0)
+                back_cls_score = (cls_score * back_position).mean(dim=0)
+                back_trigger_score = (trigger_score * back_position).mean(dim=0)
+                total_score = torch.ones_like(object_cls_score)
+                object_cls_loss = (object_cls_score / total_score) ** 2
+                object_trigger_loss = (1 - (object_trigger_score / total_score)) ** 2
+                back_cls_loss = (1 - (back_cls_score / total_score)) ** 2
+                back_trigger_loss = (back_trigger_score / total_score) ** 2
+                attn_loss += object_trigger_loss + back_trigger_loss
+                if args.do_cls_train:
+                    attn_loss += object_cls_loss + back_cls_loss
+            attn_loss = attn_loss.mean()
+
+            # --------------------------------------------- 4. total loss --------------------------------------------- #
+            loss += task_loss
+            loss_dict['task_loss'] = task_loss.item()
+            loss += attn_loss
+            loss_dict['attn_loss'] = attn_loss.mean().item()
+            current_loss = loss.detach().item()
+            if epoch == args.start_epoch:
+                loss_list.append(current_loss)
+            else:
+                epoch_loss_total -= loss_list[step]
+                loss_list[step] = current_loss
+            epoch_loss_total += current_loss
+            avr_loss = epoch_loss_total / len(loss_list)
+            loss_dict['avr_loss'] = avr_loss
+
+            accelerator.backward(loss)
+            optimizer.step()
+            lr_scheduler.step()
+            optimizer.zero_grad(set_to_none=True)
+
+            if accelerator.sync_gradients:
+                progress_bar.update(1)
+                global_step += 1
+                controller.reset()
+            if is_main_process:
+                progress_bar.set_postfix(**loss_dict)
+            if global_step >= args.max_train_steps:
+                break
+        # ----------------------------------------------- Epoch Final ----------------------------------------------- #
+        accelerator.wait_for_everyone()
+        ### 4.2 sampling
+        if is_main_process:
+            ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
+            unwrapped_nw = accelerator.unwrap_model(network)
+            save_model(args, ckpt_name, unwrapped_nw, save_dtype)
+            scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
+            scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
+                                      beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
+                                      beta_schedule=args.scheduler_schedule)
+            pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
+                                                               unet=unet, scheduler=scheduler, safety_checker=None,
+                                                               feature_extractor=None,
+                                                               requires_safety_checker=False,
+                                                               random_vector_generator=None, trg_layer_list=None)
+            latents = pipeline(prompt=batch['caption'],
+                               height=512, width=512, num_inference_steps=args.num_ddim_steps,
+                               guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
+            gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
+            img_save_base_dir = args.output_dir + "/sample"
+            os.makedirs(img_save_base_dir, exist_ok=True)
+            ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+            num_suffix = f"e{epoch:06d}"
+            img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
+            gen_img.save(os.path.join(img_save_base_dir, img_filename))
+            controller.reset()
+        accelerator.end_training()
+
 
 
 
@@ -73,6 +273,8 @@ if __name__ == '__main__':
     parser.add_argument('--wandb_project_name', type=str,default='bagel')
     parser.add_argument('--pretrained_model_name_or_path', type=str,
                         default='facebook/diffusion-dalle')
+    parser.add_argument('--pretrained_inpaintmodel', type=str,
+            default='/home/dreamyou070/pretrained_stable_diffusion/models--runwayml--stable-diffusion-inpainting')
     parser.add_argument('--network_dim', type=int,default=64)
     parser.add_argument('--network_alpha', type=float,default=4)
     parser.add_argument('--network_weights', type=str)
