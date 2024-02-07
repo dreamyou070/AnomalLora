@@ -261,6 +261,8 @@ def main(args) :
                                       beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
                                       beta_schedule=args.scheduler_schedule)
             from utils.inpaint_pipeline import AnomalyDetectionStableDiffusionPipeline_inpaint
+
+            print(f'unet : {unet.__class__.__name__}')
             pipeline = AnomalyDetectionStableDiffusionPipeline_inpaint(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
                                            unet=unet, scheduler=scheduler, safety_checker=None, feature_extractor=None,
                                            requires_safety_checker=False,  trg_layer_list=None)
