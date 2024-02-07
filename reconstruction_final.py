@@ -123,6 +123,7 @@ def main(args) :
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
+                        network.restore()
                         network.load_weights(object_detector_weight)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
