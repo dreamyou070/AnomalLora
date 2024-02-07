@@ -365,6 +365,8 @@ if __name__ == '__main__':
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     parser.add_argument("--masked_training", action='store_true')
+    parser.add_argument("--anomal_only_on_object", action='store_true')
+
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
