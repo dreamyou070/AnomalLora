@@ -746,7 +746,7 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
                         )
 
                     latents = (1 - init_mask) * init_latents_proper + init_mask * latents
-                
+
                 # call the callback, if provided
                 if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
                     progress_bar.update()
