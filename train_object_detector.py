@@ -203,8 +203,8 @@ def main(args) :
             if args.do_task_loss:
                 target = noise
                 loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
-                loss = loss.mean([1, 2, 3])
-                task_loss = loss.mean()
+                task_loss = loss.mean([1, 2, 3])
+                task_loss = task_loss.mean()
                 task_loss = task_loss * args.task_loss_weight
 
             if args.masked_training :
@@ -213,10 +213,12 @@ def main(args) :
                 masked_loss = masked_loss.mean([1, 2, 3])
                 masked_loss = masked_loss.mean()
 
+
             attn_dict = controller.step_store
             controller.reset()
             attn_loss = 0
             object_mask = batch['object_mask'].squeeze()  # [64,64]
+
             for trg_layer in args.trg_layer_list:
 
                 attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
@@ -246,18 +248,20 @@ def main(args) :
 
                 if args.do_cls_train :
                     attn_loss += object_cls_loss + back_cls_loss
+            attn_loss = attn_loss.mean()
+
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
             print(f"task_loss : {task_loss}, attn_loss : {attn_loss}, masked_loss : {masked_loss}")
-            
-            loss += task_loss.mean()
+
+            loss += task_loss
             loss_dict['task_loss'] = task_loss.item()
 
-            loss += attn_loss.mean()
+            loss += attn_loss
             loss_dict['attn_loss'] = attn_loss.mean().item()
 
             if args.masked_training :
-                loss += masked_loss.mean()
+                loss += masked_loss
                 loss_dict['masked_loss'] = masked_loss.item()
 
             current_loss = loss.detach().item()

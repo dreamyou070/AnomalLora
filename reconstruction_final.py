@@ -119,8 +119,7 @@ def main(args) :
                             res = int(pix_num ** 0.5)
                             binary_map = binary_map.unsqueeze(0)
                             binary_map = binary_map.view(res, res)
-                            binary_pil = Image.fromarray(
-                                binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                            binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
@@ -135,16 +134,15 @@ def main(args) :
                             attn_map = attn_map.chunk(2, dim=0)[0]
                         cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
                         trigger_map = (trigger_map.squeeze()).mean(dim=0) #
-                        binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze() # object = 1
+                        object_map = torch.where(trigger_map > 0.5, 1, 0).squeeze() # object = 1
                         pix_num = binary_map.shape[0]
                         res = int(pix_num ** 0.5)
-                        binary_map = binary_map.unsqueeze(0)
-                        object_map = binary_map.view(res, res) # object = 1, background = 0
-                        object_pil = Image.fromarray(
-                            object_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                        object_map = object_map.unsqueeze(0).view(res, res) # object = 1, background = 0
+                        object_pil = Image.fromarray(object_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                         object_pil.save(os.path.join(save_base_folder, f'{name}_object_map_{layer_name}.png'))
 
                         anormal_map = torch.where((object_map > 0) & (binary_map == 0), 1, 0) # object and anomal
+
                         recon_map = 1 - anormal_map
 
                         # [3] image generation --------------------------------------------------------------------- #
