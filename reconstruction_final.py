@@ -30,15 +30,19 @@ def main(args) :
     unet.to(accelerator.device, dtype=weight_dtype)
     text_encoder.requires_grad_(False)
     text_encoder.to(accelerator.device,dtype=weight_dtype)
-
-    print(f'\n step 3. inference check')
     scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
     scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps, beta_start=args.scheduler_linear_start,
                               beta_end=args.scheduler_linear_end, beta_schedule=args.scheduler_schedule)
+
+    print(f'\n step 3. object_detector network')
+    object_detector_weight = args.object_detector_weight
+
+    print(f'\n step 4. inference')
     models = os.listdir(args.network_folder)
     for model in models:
-        network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha)
-        model_dir = os.path.join(args.network_folder, model)
+        network = LoRANetwork(text_encoder=text_encoder, unet=unet,
+                              lora_dim=args.network_dim, alpha=args.network_alpha)
+        network_model_dir = os.path.join(args.network_folder, model)
 
         lora_name, ext = os.path.splitext(model)
         lora_epoch = int(lora_name.split('-')[-1])
@@ -51,8 +55,8 @@ def main(args) :
         os.makedirs(lora_base_folder, exist_ok=True)
 
         network.apply_to(text_encoder, unet, True, True)
-        network.load_weights(model_dir)
-        network.to(accelerator.device, dtype=weight_dtype)
+        """
+        
 
         controller = AttentionStore()
         register_attention_control(unet, controller)
@@ -67,8 +71,9 @@ def main(args) :
                            negative_prompt=args.negative_prompt,)
         base_image = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
         base_image.save(os.path.join(recon_base_folder, f'base_gen_lora_epoch_{lora_epoch}.png'))
-
+        """
         test_img_folder = args.data_path
+
         anomal_folders = os.listdir(test_img_folder)
         for anomal_folder in anomal_folders:
             save_base_folder = os.path.join(lora_base_folder, anomal_folder)
@@ -81,6 +86,8 @@ def main(args) :
                 name, ext = os.path.splitext(rgb_img)
                 rgb_img_dir = os.path.join(rgb_folder, rgb_img)
                 org_h, org_w = Image.open(rgb_img_dir).size
+                gt_img_dir = os.path.join(gt_folder, f'{name}.png')
+
                 # --------------------------------- gen cross attn map ---------------------------------------------- #
                 if accelerator.is_main_process:
                     with torch.no_grad():
@@ -88,68 +95,103 @@ def main(args) :
                         img = load_image(rgb_img_dir, 512, 512)
                         vae_latent = image2latent(img, vae, weight_dtype)
                         input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
-                        encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]  # batch, 77, 768
-                        unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
+
+                        controller = AttentionStore()
+                        register_attention_control(unet, controller)
+
+                        # [1] anomal detection  --------------------------------------------------------------------- #
+                        network.restore()
+                        network.load_weights(network_model_dir)
+                        network.to(accelerator.device, dtype=weight_dtype)
+                        encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
+                        unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
                         attn_dict = controller.step_store
                         query_dict = controller.query_dict
                         controller.reset()
                         for layer_name in args.trg_layer_list:
                             attn_map = attn_dict[layer_name][0]
-                            if attn_map.shape[0] != 8 :
+                            if attn_map.shape[0] != 8:
                                 attn_map = attn_map.chunk(2, dim=0)[0]
-                            cks_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
-                            trigger_map = (trigger_map.squeeze()).mean(dim=0) #
+                            cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
+                            trigger_map = (trigger_map.squeeze()).mean(dim=0)  #
                             binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
                             pix_num = binary_map.shape[0]
                             res = int(pix_num ** 0.5)
                             binary_map = binary_map.unsqueeze(0)
                             binary_map = binary_map.view(res, res)
-                            binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8)* 255).resize((512, 512))
+                            binary_pil = Image.fromarray(
+                                binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
-                    # --------------------------------- gen cross attn map ------------------------------------------- #
-                    latents = pipeline(prompt=args.prompt,
-                                       height=512, width=512,
-                                       num_inference_steps=args.num_ddim_steps,
-                                       guidance_scale=args.guidance_scale,
-                                       negative_prompt=args.negative_prompt,
-                                       reference_image=vae_latent,
-                                       mask=binary_map)
-                    controller.reset()
-                    recon_latent = latents[-1]
-                    recon_image = pipeline.latents_to_image(recon_latent)[0].resize((org_h, org_w))
-                    img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
-                    recon_image.save(img_dir)
 
+                        # [2] object detection --------------------------------------------------------------------- #
+                        network.load_weights(object_detector_weight)
+                        encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
+                        unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
+                        attn_dict = controller.step_store
+                        controller.reset()
+                        attn_map = attn_dict[args.trg_layer_list[0]][0]     # head, pix_num, 2
+                        object_map = attn_map.chunk(2, dim=-1)[1].squeeze() # pix_num
+                        object_map = object_map.mean(dim=0).unsqueeze(0)     # 1, pix_num
+                        res = int(object_map.shape[-1] ** 0.5)
+                        object_map = object_map.view(res, res)
+                        object_pil = Image.fromarray(
+                            object_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                        object_pil.save(os.path.join(save_base_folder, f'{name}_object_map_{layer_name}.png'))
 
-                    # -------------------------------------- [4] anomaly map -------------------------------------- #
-                    # (1) original
-                    org_image = pipeline.latents_to_image(vae_latent)[0].resize((org_h, org_w))
-                    img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
-                    org_image.save(img_dir)
-                    org_query = query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
-                    org_query = org_query / (torch.norm(org_query, dim=1, keepdim=True))
-                    controller.reset()
+                        anormal_map = torch.where((object_map > 0) & (binary_map == 0), 1, 0) # object and anomal
+                        recon_map = 1 - anormal_map
 
-                    # (2) recon : recon_latent
-                    unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
-                    recon_query_dict = controller.query_dict
-                    recon_query = recon_query_dict[args.trg_layer_list[0]][0].squeeze(0)
-                    recon_query = recon_query / (torch.norm(recon_query, dim=1, keepdim=True))
+                        # [3] image generation --------------------------------------------------------------------- #
+                        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder,
+                                    tokenizer=tokenizer,unet=unet,scheduler=scheduler,safety_checker=None,
+                                    feature_extractor=None, requires_safety_checker=False, random_vector_generator=None,
+                                                                           trg_layer_list=None)
+                        latents = pipeline(prompt=args.prompt, height=512, width=512,
+                                           num_inference_steps=args.num_ddim_steps,
+                                           guidance_scale=args.guidance_scale,negative_prompt=args.negative_prompt,
+                                           reference_image=vae_latent, mask=recon_map)
+                        controller.reset()
+                        recon_latent = latents[-1]
+                        recon_image = pipeline.latents_to_image(recon_latent)[0].resize((org_h, org_w))
+                        img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
+                        recon_image.save(img_dir)
 
-                    # (3) anomaly score
-                    anomaly_score = (org_query @ recon_query.T).cpu()
-                    pix_num = anomaly_score.shape[0]
-                    anomaly_score = (torch.eye(pix_num) * anomaly_score).sum(dim=0)
-                    anomaly_score = anomaly_score / anomaly_score.max()  # 0 ~ 1
-                    anomaly_score = anomaly_score.unsqueeze(0).reshape(64, 64)
-                    anomaly_score = anomaly_score.numpy()
+                        # [4] anomal map ----------------------------------------------------------------------------- #
+                        org_image = pipeline.latents_to_image(vae_latent)[0].resize((org_h, org_w))
+                        img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
+                        org_image.save(img_dir)
+                        org_query = query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
+                        org_query = org_query / (torch.norm(org_query, dim=1, keepdim=True))
+                        controller.reset()
 
-                    anomaly_score_pil = Image.fromarray((255 - (anomaly_score * 255)).astype(np.uint8))
-                    anomaly_score_pil = anomaly_score_pil.resize((org_h, org_w))
-                    anomaly_mask_save_dir = os.path.join(class_base_folder, f'{name}{ext}')
-                    tiff_anomaly_mask_save_dir = os.path.join(evaluate_class_dir, f'{name}.tiff')
-                    anomaly_score_pil.save(anomaly_mask_save_dir)
-                    anomaly_score_pil.save(tiff_anomaly_mask_save_dir)
+                        # (2) recon : recon_latent
+                        network.restore()
+                        network.load_weights(network_model_dir)
+                        network.to(accelerator.device, dtype=weight_dtype)
+                        unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
+                        recon_query_dict = controller.query_dict
+                        recon_query = recon_query_dict[args.trg_layer_list[0]][0].squeeze(0)
+                        recon_query = recon_query / (torch.norm(recon_query, dim=1, keepdim=True))
+
+                        # (3) anomaly score
+                        anomaly_score = (org_query @ recon_query.T).cpu()
+                        pix_num = anomaly_score.shape[0]
+                        anomaly_score = (torch.eye(pix_num) * anomaly_score).sum(dim=0)
+                        anomaly_score = anomaly_score / anomaly_score.max()  # 0 ~ 1
+                        anomaly_score = anomaly_score.unsqueeze(0).reshape(64, 64)
+                        anomaly_score = anomaly_score.numpy()
+
+                        anomaly_score_pil = Image.fromarray((255 - (anomaly_score * 255)).astype(np.uint8))
+                        anomaly_score_pil = anomaly_score_pil.resize((org_h, org_w))
+                        anomaly_mask_save_dir = os.path.join(save_base_folder, f'{name}{ext}')
+                        anomaly_score_pil.save(anomaly_mask_save_dir)
+
+                        # [5] save anomaly score --------------------------------------------------------------------- #
+                        gt_img_save_dir = os.path.join(gt_folder, f'{name}_gt.png')
+                        Image.fromarray(gt_img_dir).resize((org_h, org_w)).save(gt_img_save_dir)
+
+                        #tiff_anomaly_mask_save_dir = os.path.join(evaluate_class_dir, f'{name}.tiff')
+                        #anomaly_score_pil.save(tiff_anomaly_mask_save_dir)
             break
         del network
 

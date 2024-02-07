@@ -157,7 +157,7 @@ def main(args) :
               'attn_loss_weight' : args.attn_loss_weight,}
     #accelerator.init_trackers(name, config=config)
     accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
-    anormal_feat_list = []
+
     for epoch in range(args.start_epoch, args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
@@ -194,7 +194,7 @@ def main(args) :
             query_dict = controller.query_dict
             attn_dict = controller.step_store
             controller.reset()
-            normal_feats = []
+            normal_feat_list,anormal_feat_list = [], []
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
             anomal_mask_ = batch['anomaly_mask'].squeeze(0) # [64,64]
@@ -210,8 +210,8 @@ def main(args) :
                     if anomal_flag == 1 :
                         anormal_feat_list.append(feat.unsqueeze(0))
                     else :
-                        normal_feats.append(feat.unsqueeze(0))
-                normal_feats = torch.cat(normal_feats, dim=0)
+                        normal_feat_list.append(feat.unsqueeze(0))
+                normal_feats = torch.cat(normal_feat_list, dim=0)
                 anormal_feats = torch.cat(anormal_feat_list, dim=0)
                 normal_mu = torch.mean(normal_feats, dim=0)
                 normal_cov = torch.cov(normal_feats.transpose(0, 1))
