@@ -35,14 +35,12 @@ def main(args) :
                               beta_end=args.scheduler_linear_end, beta_schedule=args.scheduler_schedule)
 
     print(f'\n step 3. object_detector network')
-    object_detector_weight = args.object_detector_weight
+    from safetensors.torch import load_file
+    object_detecting_state_dict = load_file(args.object_detector_weight)
 
     print(f'\n step 4. inference')
-
     models = os.listdir(args.network_folder)
     for model in models:
-
-
         network_model_dir = os.path.join(args.network_folder, model)
         lora_name, ext = os.path.splitext(model)
         lora_epoch = int(lora_name.split('-')[-1])
@@ -56,9 +54,9 @@ def main(args) :
         network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha, )
         network.apply_to(text_encoder, unet, True, True)
         network_state_dict = network.state_dict()
-        from safetensors.torch import load_file
+
         anomal_detecting_state_dict = load_file(network_model_dir)
-        object_detecting_state_dict = load_file(object_detector_weight)
+
         test_img_folder = args.data_path
         anomal_folders = os.listdir(test_img_folder)
         for anomal_folder in anomal_folders:
@@ -86,8 +84,10 @@ def main(args) :
                         register_attention_control(unet, controller)
 
                         # [1] anomal detection  --------------------------------------------------------------------- #
-                        network_state_dict.update(anomal_detecting_state_dict)
+                        for k in network_state_dict:
+                            network_state_dict[k] = anomal_detecting_state_dict[k]
                         network.load_state_dict(network_state_dict)
+                        # -------------------------------------------------- #
                         network.to(accelerator.device, dtype=weight_dtype)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
@@ -109,8 +109,10 @@ def main(args) :
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
-                        network_state_dict.update(object_detecting_state_dict)
+                        for k in network_state_dict:
+                            network_state_dict[k] = object_detecting_state_dict[k]
                         network.load_state_dict(network_state_dict)
+                        # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
                         attn_dict = controller.step_store
@@ -156,7 +158,8 @@ def main(args) :
 
                         # -------------------------------------------------------------------------------------------- #
                         # (2) recon : recon_latent
-                        network_state_dict.update(anomal_detecting_state_dict)
+                        for k in network_state_dict:
+                            network_state_dict[k] = anomal_detecting_state_dict[k]
                         network.load_state_dict(network_state_dict)
                         # -------------------------------------------------------------------------------------------- #
 
