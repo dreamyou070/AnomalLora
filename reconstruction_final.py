@@ -55,11 +55,6 @@ def main(args) :
         from utils.image_utils import load_image, image2latent
         network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha,
                               module_class=LoRAInfModule)
-
-
-
-
-
         network.apply_to(text_encoder, unet, True, True)
         raw_state_dict = network.state_dict()
 

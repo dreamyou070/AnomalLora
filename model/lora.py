@@ -231,6 +231,7 @@ class LoRAInfModule(torch.nn.Module):
             scale = self.scale
 
         lx = self.lora_up(lx)
+        print(f'lora value : {lx}')
 
         return org_forwarded + lx * self.multiplier * scale
 """
