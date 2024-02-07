@@ -62,6 +62,8 @@ def main(args) :
     pipe = StableDiffusionInpaintPipeline.from_pretrained(args.pretrained_inpaintmodel,
                                                 revision="fp16",torch_dtype=torch.float16,)
     unet, text_encoder, vae = pipe.unet, pipe.text_encoder, pipe.vae
+    weight_dtype, save_dtype = prepare_dtype(args)
+    unet, text_encoder, vae = unet.to(weight_dtype), text_encoder.to(weight_dtype), vae.to(weight_dtype)
     vae_scale_factor = 0.18215
     noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
                                     num_train_timesteps=1000, clip_sample=False)
@@ -157,6 +159,7 @@ def main(args) :
             with torch.no_grad():
                 image = batch["image"].to(dtype=weight_dtype)                         # [1, 3, 512, 512 ]
                 image_latents = vae.encode(image).latent_dist.sample()                # [1, 4, 64, 64 ]
+                image_latents = image_latents * vae_scale_factor                      # [1,4,64,64]
                 masked_image = batch["masked_image"].to(dtype=weight_dtype)           # [1, 3, 512, 512]
                 masked_image_latents = vae.encode(masked_image).latent_dist.sample()  # [1, 4, 64, 64 ]
                 binary_mask = batch["masked_image_mask"].to(dtype=weight_dtype)       # [1, 1, 64,64]
