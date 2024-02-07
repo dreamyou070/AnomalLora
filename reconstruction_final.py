@@ -38,7 +38,7 @@ def main(args) :
     object_detector_weight = args.object_detector_weight
 
     print(f'\n step 4. inference')
-    from model.lora import LoRAInfModule
+
     models = os.listdir(args.network_folder)
     for model in models:
 
@@ -55,6 +55,15 @@ def main(args) :
         os.makedirs(lora_base_folder, exist_ok=True)
         network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha, )
         network.apply_to(text_encoder, unet, True, True)
+        from safetensors.torch import load_file
+        anomal_detecting_state_dict = load_file(network_model_dir)
+        object_detecting_state_dict = load_file(object_detector_weight)
+        keys = anomal_detecting_state_dict.keys()
+        for key in keys:
+            value = anomal_detecting_state_dict[key]
+            print(f'key: {key}, value: {value.shape}')
+        
+
 
         test_img_folder = args.data_path
         anomal_folders = os.listdir(test_img_folder)
@@ -83,7 +92,7 @@ def main(args) :
                         register_attention_control(unet, controller)
 
                         # [1] anomal detection  --------------------------------------------------------------------- #
-                        from safetensors.torch import load_file
+
                         network.load_state_dict(load_file(network_model_dir), False)
                         network.to(accelerator.device, dtype=weight_dtype)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]

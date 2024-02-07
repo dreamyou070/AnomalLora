@@ -72,7 +72,7 @@ def main(args) :
                                          unet.config.upcast_attention,)
     original_unet.load_state_dict(unet.state_dict())
     unet = original_unet
-    unet = unet.to(weight_dtype)
+    unet.to(weight_dtype)
 
     vae_scale_factor = 0.18215
     noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
