@@ -57,10 +57,17 @@ def main(args) :
         controller = AttentionStore()
         register_attention_control(unet, controller)
 
-        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae,
-                         text_encoder=text_encoder,tokenizer=tokenizer,unet=unet,scheduler=scheduler,
-                         safety_checker=None,feature_extractor=None,requires_safety_checker=False,
-                         random_vector_generator=None, trg_layer_list=None)
+        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder,
+                                                           tokenizer=tokenizer,unet=unet,scheduler=scheduler,
+                                                           safety_checker=None,feature_extractor=None,requires_safety_checker=False,
+                                                           random_vector_generator=None, trg_layer_list=None)
+        latents = pipeline(prompt=args.prompt,
+                           height=512, width=512, num_inference_steps=args.num_ddim_steps,
+                           guidance_scale=args.guidance_scale,
+                           negative_prompt=args.negative_prompt,)
+        base_image = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
+        base_image.save(os.path.join(recon_base_folder, f'base_gen_lora_epoch_{lora_epoch}.png'))
+
         test_img_folder = args.data_path
         anomal_folders = os.listdir(test_img_folder)
         for anomal_folder in anomal_folders:
@@ -80,36 +87,45 @@ def main(args) :
                     with torch.no_grad():
                         from utils.image_utils import load_image, image2latent
                         img = load_image(rgb_img_dir, 512, 512)
+                        vae_latent = image2latent(img, vae, weight_dtype)
                         input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
-                        encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))[
-                            "last_hidden_state"]  # batch, 77, 768
-
-                    latent = image2latent(img, vae, weight_dtype)
-                    org_image = pipeline.latents_to_image(latent)[0].resize((org_h, org_w))
-                    org_img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
-                    org_image.save(org_img_dir)
-
-                    latent = latent.detach().requires_grad_()
-                    encoder_hidden_states = encoder_hidden_states.detach().requires_grad_()
-                    for i in range(30) :
-                        unet(latent, 0, encoder_hidden_states, trg_indexs_list=args.trg_layer_list)
+                        encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]  # batch, 77, 768
+                        unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
                         attn_dict = controller.step_store
                         controller.reset()
                         for layer_name in args.trg_layer_list:
                             attn_map = attn_dict[layer_name][0]
                             if attn_map.shape[0] != 8 :
                                 attn_map = attn_map.chunk(2, dim=0)[0]
-                            cls_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
-                            loss = cls_map.mean()
-                            print(f'loss : {loss}')
-                        gradient = torch.autograd.grad(loss, latent, retain_graph = True)[0]  # only grad
-                        latent = latent - (gradient * 1000) .float()
-                    latent = latent.detach()
+                            cks_map, trigger_map = attn_map.chunk(2, dim=-1) # head, pix_num
+                            trigger_map = (trigger_map.squeeze()).mean(dim=0) #
+                            binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
+                            pix_num = binary_map.shape[0]
+                            res = int(pix_num ** 0.5)
+                            binary_map = binary_map.unsqueeze(0)
+                            binary_map = binary_map.view(res, res)
+                            binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8)* 255).resize((512, 512))
+                            binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
+                    # --------------------------------- gen cross attn map ------------------------------------------- #
+                    latents = pipeline(prompt=args.prompt,
+                                       height=512, width=512,
+                                       num_inference_steps=args.num_ddim_steps,
+                                       guidance_scale=args.guidance_scale,
+                                       negative_prompt=args.negative_prompt,
+                                       reference_image=vae_latent,
+                                       mask=binary_map)
                     controller.reset()
-                    recon_image = pipeline.latents_to_image(latent)[0].resize((org_h, org_w))
+                    recon_image = pipeline.latents_to_image(latents[-1])[0].resize((org_h, org_w))
                     img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
                     recon_image.save(img_dir)
-
+                    org_image = pipeline.latents_to_image(vae_latent)[0].resize((org_h, org_w))
+                    img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
+                    org_image.save(img_dir)
+                    #org_img_save_dir = os.path.join(save_base_folder, f'{name}_org.png')
+                    #shutil.copy(rgb_img_dir, org_img_save_dir)
+                    #gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
+                    #shutil.copy(gt_img_dir, gt_img_save_dir)
+            break
         del network
 
 
@@ -158,9 +174,12 @@ if __name__ == '__main__':
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
     parser.add_argument("--trg_layer_list", type=arg_as_list)
+    parser.add_argument("--more_generalize", action='store_true')
+
     from utils.attention_control import add_attn_argument, passing_argument
+
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
-    args = parser.parse_args()
     main(args)
+

@@ -149,6 +149,12 @@ class MVTecDRAEMTrainDataset(Dataset):
         object_mask_np = np.array(object_img, np.uint8) / 255
         object_mask_np = np.where(object_mask_np == 0, 0, 1)
 
+        object_img_latent =Image.open(object_mask_dir).convert("L").resize((64,64), Image.BICUBIC)
+        object_mask_latent_np = np.array(object_img_latent, np.uint8) / 255 # [64,64]
+        object_mask_latent_np = np.where(object_mask_latent_np == 0, 0, 1)
+        object_mask = torch.tensor(object_mask_latent_np).unsqueeze(0) # [1, 64, 64]
+
+
         anomal_src = self.load_image(self.anomaly_source_paths[anomaly_source_idx], self.resize_shape[0], self.resize_shape[1])
 
         dtype = img.dtype
@@ -184,6 +190,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         sample = {'image': image,
                   "anomaly_mask": anomal_mask,
                   'augmented_image': anomal_image,
+                  "object_mask": object_mask, # [1, 64, 64]
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),
                   'caption': self.caption,}

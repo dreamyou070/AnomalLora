@@ -81,7 +81,6 @@ def main(args) :
                 name, ext = os.path.splitext(rgb_img)
                 rgb_img_dir = os.path.join(rgb_folder, rgb_img)
                 org_h, org_w = Image.open(rgb_img_dir).size
-                gt_img_dir = os.path.join(gt_folder, rgb_img)
                 # --------------------------------- gen cross attn map ---------------------------------------------- #
                 if accelerator.is_main_process:
                     with torch.no_grad():
@@ -92,6 +91,7 @@ def main(args) :
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]  # batch, 77, 768
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
                         attn_dict = controller.step_store
+                        query_dict = controller.query_dict
                         controller.reset()
                         for layer_name in args.trg_layer_list:
                             attn_map = attn_dict[layer_name][0]
@@ -115,17 +115,41 @@ def main(args) :
                                        reference_image=vae_latent,
                                        mask=binary_map)
                     controller.reset()
-                    recon_image = pipeline.latents_to_image(latents[-1])[0].resize((org_h, org_w))
+                    recon_latent = latents[-1]
+                    recon_image = pipeline.latents_to_image(recon_latent)[0].resize((org_h, org_w))
                     img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
                     recon_image.save(img_dir)
 
+
+                    # -------------------------------------- [4] anomaly map -------------------------------------- #
+                    # (1) original
                     org_image = pipeline.latents_to_image(vae_latent)[0].resize((org_h, org_w))
                     img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
                     org_image.save(img_dir)
-                    #org_img_save_dir = os.path.join(save_base_folder, f'{name}_org.png')
-                    #shutil.copy(rgb_img_dir, org_img_save_dir)
-                    #gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
-                    #shutil.copy(gt_img_dir, gt_img_save_dir)
+                    org_query = query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
+                    org_query = org_query / (torch.norm(org_query, dim=1, keepdim=True))
+                    controller.reset()
+
+                    # (2) recon : recon_latent
+                    unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
+                    recon_query_dict = controller.query_dict
+                    recon_query = recon_query_dict[args.trg_layer_list[0]][0].squeeze(0)
+                    recon_query = recon_query / (torch.norm(recon_query, dim=1, keepdim=True))
+
+                    # (3) anomaly score
+                    anomaly_score = (org_query @ recon_query.T).cpu()
+                    pix_num = anomaly_score.shape[0]
+                    anomaly_score = (torch.eye(pix_num) * anomaly_score).sum(dim=0)
+                    anomaly_score = anomaly_score / anomaly_score.max()  # 0 ~ 1
+                    anomaly_score = anomaly_score.unsqueeze(0).reshape(64, 64)
+                    anomaly_score = anomaly_score.numpy()
+
+                    anomaly_score_pil = Image.fromarray((255 - (anomaly_score * 255)).astype(np.uint8))
+                    anomaly_score_pil = anomaly_score_pil.resize((org_h, org_w))
+                    anomaly_mask_save_dir = os.path.join(class_base_folder, f'{name}{ext}')
+                    tiff_anomaly_mask_save_dir = os.path.join(evaluate_class_dir, f'{name}.tiff')
+                    anomaly_score_pil.save(anomaly_mask_save_dir)
+                    anomaly_score_pil.save(tiff_anomaly_mask_save_dir)
             break
         del network
 
@@ -183,4 +207,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
     passing_argument(args)
     main(args)
-
