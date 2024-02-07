@@ -271,7 +271,7 @@ def main(args) :
             test_gt_pil = Image.open(test_gt_dir)
             latents = pipeline(prompt='bagel',
                                image = test_rgb_pil,
-                               mask = test_gt_pil,
+                               mask_image = test_gt_pil,
                                height=512, width=512, num_inference_steps=args.num_ddim_steps,
                                guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
             gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
