@@ -46,6 +46,7 @@ def main(args) :
 
     print(f'\n step 1. setting')
     output_dir = args.output_dir
+    print(f' ---------- output dir = {output_dir} ----------')
     args.logging_dir = os.path.join(output_dir, 'log')
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(args.logging_dir, exist_ok=True)
