@@ -129,11 +129,17 @@ def main(args) :
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
                         attn_dict = controller.step_store
                         controller.reset()
-                        attn_map = attn_dict[args.trg_layer_list[0]][0]     # head, pix_num, 2
-                        object_map = attn_map.chunk(2, dim=-1)[0].squeeze() # pix_num
-                        object_map = object_map.mean(dim=0).unsqueeze(0)    # 1, pix_num
-                        res = int(object_map.shape[-1] ** 0.5)
-                        object_map = object_map.view(res, res)
+
+                        attn_map = attn_dict[args.trg_layer_list[0]][0]
+                        if attn_map.shape[0] != 8:
+                            attn_map = attn_map.chunk(2, dim=0)[0]
+                        cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
+                        trigger_map = (trigger_map.squeeze()).mean(dim=0) #
+                        binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze() # object = 1
+                        pix_num = binary_map.shape[0]
+                        res = int(pix_num ** 0.5)
+                        binary_map = binary_map.unsqueeze(0)
+                        object_map = binary_map.view(res, res) # object = 1, background = 0
                         object_pil = Image.fromarray(
                             object_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                         object_pil.save(os.path.join(save_base_folder, f'{name}_object_map_{layer_name}.png'))

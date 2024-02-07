@@ -185,7 +185,7 @@ def main(args) :
                 enc_out = text_encoder(input_ids)       # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
                 if args.masked_training :
-                    input_cond = torch.cat([input_latent, encoder_hidden_states], dim=0)  # [1, 772, 64, 64]
+                    input_cond = torch.cat([encoder_hidden_states, encoder_hidden_states], dim=0)  # [1, 772, 64, 64]
                 else :
                     input_cond = encoder_hidden_states
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args,
