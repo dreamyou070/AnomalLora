@@ -153,7 +153,6 @@ def main(args) :
                         # -------------------------------------------------------------------------------------------- #
                         # (2) recon : recon_latent
                         network.load_state_dict(load_file(network_model_dir), False)
-                        network.apply_to(text_encoder, unet, True, True)
                         network.to(accelerator.device, dtype=weight_dtype)
                         # -------------------------------------------------------------------------------------------- #
 

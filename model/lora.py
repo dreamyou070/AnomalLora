@@ -89,7 +89,7 @@ class LoRAModule(torch.nn.Module):
         self.module_dropout = module_dropout
         self.org_weight = org_module.weight.detach().clone()
         self.org_module_ref = [org_module]  # 後から参照できるように
-        
+
 
 
     def apply_to(self):
