@@ -176,7 +176,7 @@ def main(args) :
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,input_latents)
             with accelerator.autocast():
                 noise_pred = unet(noisy_latents, timesteps, input_text_encoder_conds,
-                                                           trg_indexs_list=args.trg_layer_list, mask_imgs=None).sample
+                                                           trg_layer_list=args.trg_layer_list, noise_type=None).sample
                 normal_noise_pred, anomal_noise_pred = torch.chunk(noise_pred, 2, dim=0)
             ############################################# 1. task loss #################################################
             if args.do_task_loss:
