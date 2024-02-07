@@ -22,4 +22,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_config \
  --num_epochs 100 \
  --trigger_word "${trigger_word}" \
  --network_weights ${network_weights} \
- --start_epoch 30 --num_repeat 2
+ --start_epoch 30 --num_repeat 20

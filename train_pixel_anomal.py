@@ -64,7 +64,7 @@ def main(args) :
     print(f' (2.2) LoRA network')
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
     print(f' (2.3) segmentation model')
-    seg_model = SegmentationSubNetwork(in_channels=8, out_channels=1,)
+    #seg_model = SegmentationSubNetwork(in_channels=8, out_channels=1,)
 
     print(f' (2.2) attn controller')
     controller = AttentionStore()
@@ -75,10 +75,10 @@ def main(args) :
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
     print(f' (3.2) seg optimizer')
-    segmentation_trainable_params = [{"params": seg_model.parameters(), "lr": args.seg_lr},]
-    optimizer_seg = torch.optim.AdamW(segmentation_trainable_params)
-    loss_focal = BinaryFocalLoss()
-    loss_smL1 = nn.SmoothL1Loss()
+    #segmentation_trainable_params = [{"params": seg_model.parameters(), "lr": args.seg_lr},]
+    #optimizer_seg = torch.optim.AdamW(segmentation_trainable_params)
+    #loss_focal = BinaryFocalLoss()
+    #loss_smL1 = nn.SmoothL1Loss()
 
 
     print(f'\n step 4. dataset and dataloader')
@@ -142,7 +142,8 @@ def main(args) :
         unet.to(accelerator.device,dtype=weight_dtype)
 
     print(f'\n step 7. Train!')
-    progress_bar = tqdm(range(args.max_train_steps), smoothing=0,
+    train_steps = args.num_epocht * len(dataloader)
+    progress_bar = tqdm(range(train_steps), smoothing=0,
                         disable=not accelerator.is_local_main_process, desc="steps")
     global_step = 0
     loss_list = []
@@ -260,12 +261,12 @@ def main(args) :
                     normal_loss += normal_cls_loss
                     anomal_loss += anormal_cls_loss
             ############################################ 3. segmentation Loss ##################################################
-            seg_input = torch.cat([latents, anomal_latents], dim=1)
-            pred_mask = seg_model(seg_input)  # [batch, 1, 64, 64]
-            pred_mask_trg = anomal_mask_.unsqueeze(0).unsqueeze(0)
-            focal_loss = loss_focal(pred_mask, pred_mask_trg)
-            smL1_loss = loss_smL1(pred_mask, pred_mask_trg)
-            segmentation_loss += focal_loss + 5 * smL1_loss
+            #seg_input = torch.cat([latents, anomal_latents], dim=1)
+            #pred_mask = seg_model(seg_input)  # [batch, 1, 64, 64]
+            #pred_mask_trg = anomal_mask_.unsqueeze(0).unsqueeze(0)
+            #focal_loss = loss_focal(pred_mask, pred_mask_trg)
+            #smL1_loss = loss_smL1(pred_mask, pred_mask_trg)
+            #segmentation_loss += focal_loss + 5 * smL1_loss
 
             ############################################ 4. total Loss ##################################################
             if args.do_task_loss:
@@ -281,9 +282,9 @@ def main(args) :
                 loss_dict['attn_loss'] = attn_loss.mean().item()
                 loss_dict['normal_loss'] = normal_loss.mean().item()
                 loss_dict['anomal_loss'] = anomal_loss.mean().item()
-            if args.do_seg_loss:
-                loss += segmentation_loss
-                loss_dict['seg_loss'] = segmentation_loss.item()
+            #if args.do_seg_loss:
+            #    loss += segmentation_loss
+            #    loss_dict['seg_loss'] = segmentation_loss.item()
 
             current_loss = loss.detach().item()
             if epoch == args.start_epoch :
