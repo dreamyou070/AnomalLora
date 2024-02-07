@@ -188,7 +188,7 @@ def main(args) :
 
                         # [5] save anomaly score --------------------------------------------------------------------- #
                         gt_img_save_dir = os.path.join(gt_folder, f'{name}_gt.png')
-                        Image.fromarray(gt_img_dir).resize((org_h, org_w)).save(gt_img_save_dir)
+                        Image.open(gt_img_dir).resize((org_h, org_w)).save(gt_img_save_dir)
 
                         #tiff_anomaly_mask_save_dir = os.path.join(evaluate_class_dir, f'{name}.tiff')
                         #anomaly_score_pil.save(tiff_anomaly_mask_save_dir)
