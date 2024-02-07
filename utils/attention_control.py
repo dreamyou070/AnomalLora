@@ -32,6 +32,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             query = self.to_q(hidden_states)
             if trg_layer_list is not None and layer_name in trg_layer_list :
+                """
                 b = hidden_states.shape[0]
                 if b == 1 :
                     normal_query = query.squeeze(0)
@@ -42,7 +43,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                         normal_feats.append(normal_feat.unsqueeze(0))
                     normal_feats = torch.cat(normal_feats, dim=0)
 
-                    """ random down sampling the dim """
+                     random down sampling the dim 
                     from random import sample
                     idx = torch.tensor(sample(range(0, dim), down_dim)).to(hidden_states.device)
                     # print(idx)
@@ -94,7 +95,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                         temp_query = temp_query.float()
                     # ---------------------------------------------------------------------------------------------- #
                 else :
-                    controller.save_query(query, layer_name)
+                """
+                controller.save_query(query, layer_name)
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
@@ -110,6 +112,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if trg_layer_list is not None and layer_name in trg_layer_list :
+                """
                 if b == 1 :
                     temp_key = torch.cat([key, key], dim=0)
                     temp_attention_scores = torch.baddbmm(torch.empty(temp_query.shape[0], temp_query.shape[1],
@@ -120,7 +123,9 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                     controller.store(temp_trg_map, layer_name) # 2, res*res, 2
                 else :
                     trg_map = attention_probs[:, :, :2]
-                    controller.store(trg_map, layer_name)
+                """
+                trg_map = attention_probs[:, :, :2]
+                controller.store(trg_map, layer_name)
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)

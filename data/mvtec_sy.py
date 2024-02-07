@@ -143,7 +143,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         parent, _ = os.path.split(parent)
         object_mask_dir = os.path.join(parent, f"object_mask/{name}")
 
-        img = self.load_image(self.image_paths[idx], self.resize_shape[0], self.resize_shape[1])
+        img = self.load_image(img_path, self.resize_shape[0], self.resize_shape[1])
 
         object_img = Image.open(object_mask_dir).convert("L").resize((self.resize_shape[0], self.resize_shape[1]), Image.BICUBIC)
         object_mask_np = np.array(object_img, np.uint8) / 255
