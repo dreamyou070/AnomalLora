@@ -239,10 +239,10 @@ def main(args) :
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
                 head, pix_num = cls_score.shape
 
-                anomal_position = anomal_mask.unsqueeze(0).repeat(head, 1)
+                anomal_position = anomal_mask.unsqueeze(0).repeat(head, 1) # head, pix_num
                 normal_position = 1 - anomal_position
 
-                normal_cls_score = (cls_score * normal_position).mean(dim=0)
+                normal_cls_score = (cls_score * normal_position).mean(dim=0) # pix_num
                 normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
                 anormal_cls_score = (cls_score * anomal_position).mean(dim=0)
                 anormal_trigger_score = (trigger_score * anomal_position).mean(dim=0)

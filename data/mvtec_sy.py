@@ -121,6 +121,8 @@ class MVTecDRAEMTrainDataset(Dataset):
         mask_np = np.array(mask_pil) / 255  # height, width, [0,1]
         return mask_np, mask_pil
 
+
+
     def load_image(self, image_path, trg_h, trg_w):
         image = Image.open(image_path)
         if not image.mode == "RGB":
