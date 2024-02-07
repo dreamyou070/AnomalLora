@@ -53,7 +53,6 @@ def main(args) :
         os.makedirs(lora_base_folder, exist_ok=True)
         network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha, )
         network.apply_to(text_encoder, unet, True, True)
-        network_state_dict = network.state_dict()
 
         anomal_detecting_state_dict = load_file(network_model_dir)
 
@@ -84,12 +83,16 @@ def main(args) :
                         register_attention_control(unet, controller)
 
                         # [1] anomal detection  --------------------------------------------------------------------- #
+                        print(f'anomal detecting loading...')
+                        network.load_state_dict(anomal_detecting_state_dict, True)
+                        """
+                        
                         lora_modules = network.text_encoder_loras + network.unet_loras
                         for lora_module in lora_modules:
                             lora_name = lora_module.lora_name
                             lora_module.lora_up.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
                             lora_module.lora_down.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
-
+                        """
 
                         # -------------------------------------------------- #
                         network.to(accelerator.device, dtype=weight_dtype)
