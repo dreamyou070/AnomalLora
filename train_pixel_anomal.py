@@ -142,7 +142,7 @@ def main(args) :
         unet.to(accelerator.device,dtype=weight_dtype)
 
     print(f'\n step 7. Train!')
-    train_steps = args.num_epocht * len(dataloader)
+    train_steps = args.num_epochs * len(dataloader)
     progress_bar = tqdm(range(train_steps), smoothing=0,
                         disable=not accelerator.is_local_main_process, desc="steps")
     global_step = 0
