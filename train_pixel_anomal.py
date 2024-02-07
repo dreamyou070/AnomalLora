@@ -92,7 +92,8 @@ def main(args) :
                                      tokenizer=tokenizer,
                                      caption = args.trigger_word,
                                      use_perlin = True,
-                                     num_repeat = args.num_repeat,)
+                                     num_repeat = args.num_repeat,
+                                     anomal_only_on_object = args.anomal_only_on_object)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     print(f'\n step 5. lr')
@@ -390,6 +391,7 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
+    parser.add_argument("--anomal_only_on_object", action='store_true')
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)

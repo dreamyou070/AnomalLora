@@ -74,7 +74,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                  tokenizer=None,
                  caption: str = None,
                  use_perlin: bool = False,
-                 num_repeat: int = 1):
+                 num_repeat: int = 1,
+                 anomal_only_on_object : bool = True):
 
         self.root_dir = root_dir
         self.resize_shape=resize_shape
@@ -89,6 +90,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         image_paths = sorted(glob.glob(root_dir + "/*.png"))
         self.image_paths = [image_path for image_path in image_paths for i in range(num_repeat)]
         random.shuffle(self.image_paths)
+        self.anomal_only_on_object = anomal_only_on_object
 
 
     def __len__(self):
@@ -152,15 +154,16 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [2] augment ( anomaly mask white = anomal position )
         anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1]) # [512, 512], [0, 1]
         anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
-        anomal_mask_np = anomal_mask_np * object_mask_np
+        if self.anomal_only_on_object:
+            anomal_mask_np = anomal_mask_np * object_mask_np
         mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
 
         anomal_img = (1-mask) * img + mask * anomal_src
 
-        anomal_img_pil = Image.fromarray(anomal_img)
-        mask_pil = Image.fromarray((mask * 255).astype(np.uint8))
-        anomal_img_pil.save("anomal_img.png")
-        mask_pil.save("mask.png")
+        #anomal_img_pil = Image.fromarray(anomal_img)
+        #mask_pil = Image.fromarray((mask * 255).astype(np.uint8))
+        #anomal_img_pil.save("anomal_img.png")
+        #mask_pil.save("mask.png")
 
         # [3] final
         image = self.transform(img)
