@@ -51,20 +51,14 @@ def main(args) :
         os.makedirs(recon_base_folder, exist_ok=True)
         lora_base_folder = os.path.join(recon_base_folder, f'lora_epoch_{lora_epoch}')
         os.makedirs(lora_base_folder, exist_ok=True)
-        network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha, )
+        from model.lora import LoRAInfModule
+        from utils.image_utils import load_image, image2latent
+        network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha,
+                              module_class=LoRAInfModule)
         network.apply_to(text_encoder, unet, True, True)
         raw_state_dict = network.state_dict()
-        for k in raw_state_dict.keys():
-            print(f'{k} : {raw_state_dict[k].shape}')
-            if 'alpph' in k :
-                print(f'{k} : {raw_state_dict[k]}')
+
         anomal_detecting_state_dict = load_file(network_model_dir)
-        for k in anomal_detecting_state_dict.keys():
-            raw_state_dict[k] = anomal_detecting_state_dict[k]
-
-        """
-
-        
 
         test_img_folder = args.data_path
         anomal_folders = os.listdir(test_img_folder)
@@ -84,7 +78,7 @@ def main(args) :
                 # --------------------------------- gen cross attn map ---------------------------------------------- #
                 if accelerator.is_main_process:
                     with torch.no_grad():
-                        from utils.image_utils import load_image, image2latent
+
                         img = load_image(rgb_img_dir, 512, 512)
                         vae_latent = image2latent(img, vae, weight_dtype)
                         input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
@@ -93,17 +87,11 @@ def main(args) :
                         register_attention_control(unet, controller)
 
                         # [1] anomal detection  --------------------------------------------------------------------- #
-                        print(f'anomal detecting loading...')
-                        network.load_state_dict(anomal_detecting_state_dict, True)
-                        
-                        
-                        lora_modules = network.text_encoder_loras + network.unet_loras
-                        for lora_module in lora_modules:
-                            lora_name = lora_module.lora_name
-                            lora_module.lora_up.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
-                            lora_module.lora_down.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
-                        
-
+                        print(f' anomal detecting loading...')
+                        for k in anomal_detecting_state_dict.keys():
+                            raw_state_dict[k] = anomal_detecting_state_dict[k]
+                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k:
+                                print(f'[ANOMAL] {k} : {raw_state_dict[k]}')
                         # -------------------------------------------------- #
                         network.to(accelerator.device, dtype=weight_dtype)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
@@ -126,12 +114,12 @@ def main(args) :
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
-                        lora_modules = network.text_encoder_loras + network.unet_loras
-                        for lora_module in lora_modules:
-                            lora_name = lora_module.lora_name
-                            lora_module.lora_up.weight.data = object_detecting_state_dict[lora_name + '.lora_up.weight']
-                            lora_module.lora_down.weight.data = object_detecting_state_dict[lora_name + '.lora_up.weight']
-                        network.to(accelerator.device, dtype=weight_dtype)
+                        print(f' object detecting loading...')
+                        for k in object_detecting_state_dict.keys():
+                            raw_state_dict[k] = object_detecting_state_dict[k]
+                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k:
+                                print(f'[OBJECT] {k} : {raw_state_dict[k]}')
+
                         # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
@@ -178,14 +166,12 @@ def main(args) :
 
                         # -------------------------------------------------------------------------------------------- #
                         # (2) recon : recon_latent
-                        lora_modules = network.text_encoder_loras + network.unet_loras
-                        for lora_module in lora_modules:
-                            lora_name = lora_module.lora_name
-                            lora_module.lora_up.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
-                            lora_module.lora_down.weight.data = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
-                        network.to(accelerator.device, dtype=weight_dtype)
+                        print(f' anomal detecting loading...')
+                        for k in anomal_detecting_state_dict.keys():
+                            raw_state_dict[k] = anomal_detecting_state_dict[k]
+                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k:
+                                print(f'[ANOMAL] {k} : {raw_state_dict[k]}')
                         # -------------------------------------------------------------------------------------------- #
-
                         unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
                         recon_query_dict = controller.query_dict
                         recon_query = recon_query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
