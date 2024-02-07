@@ -84,9 +84,13 @@ def main(args) :
                         register_attention_control(unet, controller)
 
                         # [1] anomal detection  --------------------------------------------------------------------- #
-                        for k in network_state_dict:
-                            network_state_dict[k] = anomal_detecting_state_dict[k]
-                        network.load_state_dict(network_state_dict)
+                        lora_modules = network.text_encoder_loras + network.unet_loras
+                        for lora_module in lora_modules:
+                            lora_name = lora_module.lora_name
+                            lora_module.lora_up.weight = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
+                            lora_module.lora_down.weight = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
+
+
                         # -------------------------------------------------- #
                         network.to(accelerator.device, dtype=weight_dtype)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
@@ -109,9 +113,13 @@ def main(args) :
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
-                        for k in network_state_dict:
-                            network_state_dict[k] = object_detecting_state_dict[k]
-                        network.load_state_dict(network_state_dict)
+                        lora_modules = network.text_encoder_loras + network.unet_loras
+                        for lora_module in lora_modules:
+                            lora_name = lora_module.lora_name
+                            print(f'orginal weight : {lora_module.lora_up.weight}')
+                            lora_module.lora_up.weight = object_detecting_state_dict[lora_name + '.lora_up.weight']
+                            lora_module.lora_down.weight = object_detecting_state_dict[lora_name + '.lora_up.weight']
+
                         # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
@@ -158,9 +166,12 @@ def main(args) :
 
                         # -------------------------------------------------------------------------------------------- #
                         # (2) recon : recon_latent
-                        for k in network_state_dict:
-                            network_state_dict[k] = anomal_detecting_state_dict[k]
-                        network.load_state_dict(network_state_dict)
+                        lora_modules = network.text_encoder_loras + network.unet_loras
+                        for lora_module in lora_modules:
+                            lora_name = lora_module.lora_name
+                            lora_module.lora_up.weight = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
+                            lora_module.lora_down.weight = anomal_detecting_state_dict[lora_name + '.lora_up.weight']
+
                         # -------------------------------------------------------------------------------------------- #
 
                         unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
