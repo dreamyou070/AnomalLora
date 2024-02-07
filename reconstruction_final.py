@@ -170,19 +170,16 @@ def main(args) :
                         network.to(accelerator.device, dtype=weight_dtype)
                         unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
                         recon_query_dict = controller.query_dict
-                        recon_query = recon_query_dict[args.trg_layer_list[0]][0].squeeze(0)
+                        recon_query = recon_query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
                         recon_query = recon_query / (torch.norm(recon_query, dim=1, keepdim=True))
 
                         # (3) anomaly score
-                        anomaly_score = (org_query @ recon_query.T).cpu()
-                        pix_num = anomaly_score.shape[0]
-                        anomaly_score = (torch.eye(pix_num) * anomaly_score).sum(dim=0)
-                        anomaly_score = anomaly_score / anomaly_score.max()  # 0 ~ 1
-                        anomaly_score = anomaly_score.unsqueeze(0).reshape(64, 64)
+                        nomaly_score = (org_query @ recon_query.T).cpu() # pix_num, pix_num
+                        anomaly_score = (1-torch.diag(nomaly_score))
+                        anomaly_score = anomaly_score.unsqueeze(0) # [1, pix_num]
+                        anomaly_score = anomaly_score.view(res, res)
                         anomaly_score = anomaly_score.numpy()
-
-                        anomaly_score_pil = Image.fromarray((255 - (anomaly_score * 255)).astype(np.uint8))
-                        anomaly_score_pil = anomaly_score_pil.resize((org_h, org_w))
+                        anomaly_score_pil = Image.fromarray((anomaly_score * 255).astype(np.uint8)).resize((org_h, org_w))
                         anomaly_mask_save_dir = os.path.join(save_base_folder, f'{name}{ext}')
                         anomaly_score_pil.save(anomaly_mask_save_dir)
 
