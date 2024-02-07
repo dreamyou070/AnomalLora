@@ -135,7 +135,7 @@ def main(args) :
                         cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
                         trigger_map = (trigger_map.squeeze()).mean(dim=0) #
                         object_map = torch.where(trigger_map > 0.5, 1, 0).squeeze() # object = 1
-                        pix_num = binary_map.shape[0]
+                        pix_num = object_map.shape[0]
                         res = int(pix_num ** 0.5)
                         object_map = object_map.unsqueeze(0).view(res, res) # object = 1, background = 0
                         object_pil = Image.fromarray(object_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
