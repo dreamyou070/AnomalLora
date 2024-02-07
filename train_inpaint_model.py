@@ -205,7 +205,8 @@ def main(args) :
                     attn_loss += object_cls_loss + back_cls_loss
             attn_loss = attn_loss.mean()
 
-            # --------------------------------------------- 4. total loss --------------------------------------------- #
+            # --------------------------------------------- 4. total loss -------------------------------------------- #
+
             loss += task_loss
             loss_dict['task_loss'] = task_loss.item()
             loss += attn_loss
