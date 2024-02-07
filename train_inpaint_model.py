@@ -262,14 +262,13 @@ def main(args) :
                                       beta_schedule=args.scheduler_schedule)
             from utils.inpaint_pipeline import AnomalyDetectionStableDiffusionPipeline_inpaint
 
-            print(f'unet : {unet.__class__.__name__}')
+            print(f'unet before pipeline : {unet.__class__.__name__}')
             pipeline = AnomalyDetectionStableDiffusionPipeline_inpaint(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
                                            unet=unet, scheduler=scheduler, safety_checker=None, feature_extractor=None,
                                            requires_safety_checker=False,  trg_layer_list=None)
             unet = pipeline.unet
+            print(f'unet after pipeline : {unet.__class__.__name__}')
 
-            print(f'unet of pipeline : {unet.__class__.__name__}')
-            
             from PIL import Image
             test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/000.png')
             test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/000.png')
