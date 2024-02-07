@@ -88,6 +88,7 @@ class LoRAModule(torch.nn.Module):
         self.rank_dropout = rank_dropout
         self.module_dropout = module_dropout
         self.org_weight = org_module.weight.detach().clone()
+        self.with_lora = True
 
 
     def apply_to(self):
@@ -95,19 +96,12 @@ class LoRAModule(torch.nn.Module):
         self.org_module.forward = self.forward
 
     def restore(self):
-        #torch.nn.init.zeros_(self.lora_down.weight)
-        #torch.nn.init.zeros_(self.lora_up.weight)
-        self.org_module.forward = self.original_forward
+        self.with_lora = False
 
-    def original_forward(self, x):
-        return self.org_forward(x)
+    #def original_forward(self, x):
+    #    return self.org_forward(x)
 
-    def forward(self, x):
-        org_forwarded = self.org_forward(x)
-        # module dropout
-        if self.module_dropout is not None and self.training:
-            if torch.rand(1) < self.module_dropout:
-                return org_forwarded
+    def lora_net(self, x):
         lx = self.lora_down(x)
         # normal dropout
         if self.dropout is not None and self.training:
@@ -127,7 +121,18 @@ class LoRAModule(torch.nn.Module):
             scale = self.scale
         lx = self.lora_up(lx)
         lora_value = lx * self.multiplier * scale
-        return org_forwarded + lx * self.multiplier * scale
+        return lora_value
+
+    def forward(self, x):
+        org_forwarded = self.org_forward(x)
+        # module dropout
+        #if self.module_dropout is not None and self.training:
+        #    if torch.rand(1) < self.module_dropout:
+        #        return org_forwarded
+        if self.with_lora :
+            return org_forwarded + self.lora_net(x)
+        else :
+            return org_forwarded
 
 
 class LoRAInfModule(LoRAModule):
