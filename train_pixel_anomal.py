@@ -167,14 +167,15 @@ def main(args) :
         for step, batch in enumerate(train_dataloader):
 
             # --------------------------------------------- Task Loss --------------------------------------------- #
+            with torch.set_grad_enabled(True):
+                input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
+                enc_out = text_encoder(input_ids)  # batch, 77, 768
+                encoder_hidden_states = enc_out["last_hidden_state"]
+
             if args.do_task_loss:
                 with torch.no_grad():
                     latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
                     latents = latents * vae_scale_factor  # [1,4,64,64]
-                with torch.set_grad_enabled(True) :
-                    input_ids = batch["input_ids"].to(accelerator.device) # batch, 77 sen len
-                    enc_out = text_encoder(input_ids)       # batch, 77, 768
-                    encoder_hidden_states = enc_out["last_hidden_state"]
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,latents)
                 with accelerator.autocast():
                     noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states,
@@ -184,7 +185,6 @@ def main(args) :
                 loss = loss.mean([1, 2, 3])
                 task_loss = loss.mean()
                 task_loss = task_loss * args.task_loss_weight
-
 
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
