@@ -18,6 +18,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --do_task_loss --task_loss_weight 1.0 \
  --do_attn_loss --attn_loss_weight 1.0 --do_cls_train --normal_weight 1 \
  --num_epochs 100 --start_epoch 0 --num_repeat 30 --masked_training \
-  --unet_inchannels 9
-
-
+ --unet_inchannels 9
