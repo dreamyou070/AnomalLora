@@ -61,6 +61,10 @@ def main(args) :
     print(f'\n step 2. model')
     print(f' (2.1) stable diffusion model')
     tokenizer = load_tokenizer(args)
+
+    args.pretrained_model_name_or_path = args.pretrained_inpaintmodel
+    text_model, vae, unet = load_SD_model(args)
+    """
     pipe = StableDiffusionInpaintPipeline.from_pretrained(args.pretrained_inpaintmodel, revision="fp16",torch_dtype=torch.float16,)
     unet, text_encoder, vae = pipe.unet, pipe.text_encoder, pipe.vae
     weight_dtype, save_dtype = prepare_dtype(args)
@@ -156,9 +160,9 @@ def main(args) :
     config = {'do_task_loss': args.do_task_loss,
               'task_loss_weight': args.task_loss_weight, }
     accelerator.init_trackers(project_name=args.wandb_project_name, config=config, )
-
-    for epoch in range(args.start_epoch, args.num_epochs):
-        """
+    
+    #for epoch in range(args.start_epoch, args.num_epochs):
+        
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
         for step, batch in enumerate(train_dataloader):
@@ -250,11 +254,13 @@ def main(args) :
                 progress_bar.set_postfix(**loss_dict)
             if global_step >= args.max_train_steps:
                 break
-        """
+        
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
-        accelerator.wait_for_everyone()
+        
+        #accelerator.wait_for_everyone()
         ### 4.2 sampling
-        if is_main_process:
+        #if is_main_process:
+            
             ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
             unwrapped_nw = accelerator.unwrap_model(network)
             save_model(args, ckpt_name, unwrapped_nw, save_dtype)
@@ -271,7 +277,7 @@ def main(args) :
                                                                        safety_checker=None,
                                                                        feature_extractor=None,
                                                                        requires_safety_checker=False,)
-            """
+            
             pipeline = AnomalyDetectionStableDiffusionPipeline_inpaint(vae=vae,
                                                                        text_encoder=text_encoder,
                                                                        tokenizer=tokenizer,
@@ -281,7 +287,7 @@ def main(args) :
                                                                        feature_extractor=None,
                                                                        requires_safety_checker=False,
                                                                        trg_layer_list=None)
-            """
+            
             from PIL import Image
             test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/000.png')
             test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/000.png')
@@ -301,7 +307,9 @@ def main(args) :
             img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
             gen_img.save(os.path.join(img_save_base_dir, img_filename))
             controller.reset()
-        accelerator.end_training()
+            
+        #accelerator.end_training()
+    """
 
 
 
