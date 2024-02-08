@@ -79,11 +79,8 @@ def main(args) :
                     with torch.no_grad():
                         img = load_image(rgb_img_dir, 512, 512)
                         vae_latent = image2latent(img, vae, weight_dtype)
-
-
                         controller = AttentionStore()
                         register_attention_control(unet, controller)
-
                         # [1] anomal detection  --------------------------------------------------------------------- #
                         for k in anomal_detecting_state_dict.keys():
                             raw_state_dict[k] = anomal_detecting_state_dict[k]
@@ -112,6 +109,7 @@ def main(args) :
                                         attn_map = attn_map.chunk(2, dim=0)[0]
                                     cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
                                     loss = cks_map
+                                    print(f'loss : {loss.mean()}')
                                     gradient = torch.autograd.grad(loss, vae_latent, retain_graph=True)[0]  # only grad
                                     latent = vae_latent - gradient
                             recon_latent = latent.detach()
