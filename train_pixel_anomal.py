@@ -469,6 +469,8 @@ if __name__ == '__main__':
     parser.add_argument("--back_token_separating", action='store_true')
     args = parser.parse_args()
     from model.unet import unet_passing_argument
+    from utils.attention_control import passing_argument
     unet_passing_argument(args)
+    passing_argument(args)
     args = parser.parse_args()
     main(args)
