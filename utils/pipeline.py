@@ -750,6 +750,7 @@ class AnomalyDetectionStableDiffusionPipeline(StableDiffusionPipeline):
             # expand the latents if we are doing classifier free guidance
             latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
             latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+
             unet_additional_args = {}
             # predict the noise residual
             noise_pred = self.unet(latent_model_input, t,
