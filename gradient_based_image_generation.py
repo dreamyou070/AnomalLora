@@ -119,6 +119,7 @@ def main(args) :
                             recon_image = pipeline.latents_to_image(recon_latent)[0].resize((org_h, org_w))
                             img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
                             recon_image.save(img_dir)
+                        print(f'---------------------------------------------------------------------------')
 
 
 
