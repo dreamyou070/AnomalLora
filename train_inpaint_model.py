@@ -75,7 +75,8 @@ def main(args) :
     unet.to(weight_dtype)
 
     vae_scale_factor = 0.18215
-    noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
+    noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012,
+                                    beta_schedule="scaled_linear",
                                     num_train_timesteps=1000, clip_sample=False)
     print(f' (2.2) LoRA network')
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha)
