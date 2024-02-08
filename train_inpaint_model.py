@@ -4,6 +4,8 @@ from model.unet import UNet2DConditionModel
 from model.diffusion_model import load_SD_model
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
+from diffusers import StableDiffusionInpaintPipeline
+from utils.inpaint_pipeline import AnomalyDetectionStableDiffusionPipeline_inpaint
 from model.segmentation_model import SegmentationSubNetwork
 from data.mvtec_sy import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
@@ -58,7 +60,6 @@ def main(args) :
 
     print(f'\n step 2. model')
     print(f' (2.1) stable diffusion model')
-    from diffusers import StableDiffusionInpaintPipeline
     tokenizer = load_tokenizer(args)
     pipe = StableDiffusionInpaintPipeline.from_pretrained(args.pretrained_inpaintmodel, revision="fp16",torch_dtype=torch.float16,)
     unet, text_encoder, vae = pipe.unet, pipe.text_encoder, pipe.vae
@@ -259,17 +260,28 @@ def main(args) :
             save_model(args, ckpt_name, unwrapped_nw, save_dtype)
             scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
             scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
-                                      beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
+                                      beta_start=args.scheduler_linear_start,
+                                      beta_end=args.scheduler_linear_end,
                                       beta_schedule=args.scheduler_schedule)
-            from utils.inpaint_pipeline import AnomalyDetectionStableDiffusionPipeline_inpaint
-
-            print(f'unet before pipeline : {unet.__class__.__name__}')
-            pipeline = AnomalyDetectionStableDiffusionPipeline_inpaint(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
-                                           unet=unet, scheduler=scheduler, safety_checker=None, feature_extractor=None,
-                                           requires_safety_checker=False,  trg_layer_list=None)
-            unet = pipeline.unet
-            print(f'unet after pipeline : {unet.__class__.__name__}')
-
+            pipeline = StableDiffusionInpaintPipeline(vae=vae,
+                                                                       text_encoder=text_encoder,
+                                                                       tokenizer=tokenizer,
+                                                                       unet=unet,
+                                                                       scheduler=scheduler,
+                                                                       safety_checker=None,
+                                                                       feature_extractor=None,
+                                                                       requires_safety_checker=False,)
+            """
+            pipeline = AnomalyDetectionStableDiffusionPipeline_inpaint(vae=vae,
+                                                                       text_encoder=text_encoder,
+                                                                       tokenizer=tokenizer,
+                                                                       unet=unet,
+                                                                       scheduler=scheduler,
+                                                                       safety_checker=None,
+                                                                       feature_extractor=None,
+                                                                       requires_safety_checker=False,
+                                                                       trg_layer_list=None)
+            """
             from PIL import Image
             test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/000.png')
             test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/000.png')
@@ -279,7 +291,8 @@ def main(args) :
                                image = test_rgb_pil,
                                mask_image = test_gt_pil,
                                height=512, width=512, num_inference_steps=args.num_ddim_steps,
-                               guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
+                               guidance_scale=args.guidance_scale,
+                               negative_prompt=args.negative_prompt, )
             gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
             img_save_base_dir = args.output_dir + "/sample"
             os.makedirs(img_save_base_dir, exist_ok=True)
