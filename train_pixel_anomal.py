@@ -243,15 +243,14 @@ def main(args) :
                 else :
                     anormal_dist_mean = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
                 total_dist = normal_dist_mean + anormal_dist_mean
-                normal_dist_loss = (normal_dist_mean / total_dist) ** 2
-                #anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
+                if args.normal_dist_loss_squere :
+                    normal_dist_loss = (normal_dist_mean / total_dist) ** 2
+                else :
+                    normal_dist_loss = normal_dist_mean / total_dist
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
-                #anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
 
                 """ Change Dist Loss """
                 dist_loss += normal_dist_loss.requires_grad_()
-
-
                 # --------------------------------------------- 3. attn loss --------------------------------------------- #
                 attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
@@ -406,6 +405,8 @@ if __name__ == '__main__':
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--change_dist_loss", action='store_true')
+    parser.add_argument("--normal_dist_loss_squere", action='store_true')
+
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
