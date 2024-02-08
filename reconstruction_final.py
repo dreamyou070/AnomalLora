@@ -262,6 +262,7 @@ if __name__ == '__main__':
     from utils.attention_control import add_attn_argument, passing_argument
     from model.unet import unet_passing_argument
     parser.add_argument("--unet_inchannels", type=int, default=4)
+    parser.add_argument("--back_token_separating", action = 'store_true')
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
