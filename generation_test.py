@@ -76,15 +76,17 @@ def main(args) :
                                                                    unet=unet,scheduler=scheduler,safety_checker=None,
                                                                    feature_extractor=None, requires_safety_checker=False, random_vector_generator=None,
                                                                    trg_layer_list=None)
-                latent = pipeline(prompt=args.prompt,
-                                  height=512,
-                                  width=512,
-                                  num_inference_steps=args.num_ddim_steps,
-                                  guidance_scale=args.guidance_scale,
-                                  negative_prompt=args.negative_prompt,
-                                  reference_image=None)[-1]
-                gen_image = pipeline.latents_to_image(latent)[0].resize((512,512))
-                gen_image.save(os.path.join(recon_base_folder, f'lora_{lora_epoch}.png'))
+                guidances = [1,7.5]
+                for guidance in guidances:
+                    latent = pipeline(prompt=args.prompt,
+                                      height=512,
+                                      width=512,
+                                      num_inference_steps=args.num_ddim_steps,
+                                      guidance_scale=args.guidance_scale,
+                                      negative_prompt=args.negative_prompt,
+                                      reference_image=None)[-1]
+                    gen_image = pipeline.latents_to_image(latent)[0].resize((512,512))
+                    gen_image.save(os.path.join(recon_base_folder, f'lora_{lora_epoch}_guidance_{guidance}.png'))
 
 
 if __name__ == '__main__':
