@@ -486,7 +486,8 @@ class AnomalyDetectionStableDiffusionPipeline(StableDiffusionPipeline):
         trg_layer_list: Optional,
         requires_safety_checker: bool = True, ):
 
-        super().__init__(vae=vae,text_encoder=text_encoder,tokenizer=tokenizer,unet=unet,scheduler=scheduler, safety_checker=safety_checker,feature_extractor=feature_extractor,requires_safety_checker=requires_safety_checker,)
+        super().__init__(vae=vae,text_encoder=text_encoder,tokenizer=tokenizer,unet=unet,scheduler=scheduler,
+                         safety_checker=safety_checker,feature_extractor=feature_extractor,requires_safety_checker=requires_safety_checker,)
         #self.clip_skip = clip_skip
 
         self.__init__additional__()

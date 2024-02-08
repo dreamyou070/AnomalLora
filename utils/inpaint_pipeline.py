@@ -125,7 +125,9 @@ class AnomalyDetectionStableDiffusionPipeline_inpaint(DiffusionPipeline, Textual
         requires_safety_checker: bool = True,
         trg_layer_list: List[str] = None,
     ):
-        super().__init__()
+        super().__init__(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer, unet=unet, scheduler=scheduler,
+                         safety_checker=safety_checker, feature_extractor=feature_extractor,
+                         requires_safety_checker=requires_safety_checker, )
 
         self.trg_layer_list = trg_layer_list
 

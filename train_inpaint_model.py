@@ -64,6 +64,10 @@ def main(args) :
     args.pretrained_model_name_or_path = args.pretrained_inpaintmodel
     text_encoder, vae, unet = load_SD_model(args)
 
+    print(f'unet config : {unet.config}')
+    print(f'unet config in_channels : {unet.config.in_channels}')
+
+
     vae_scale_factor = 0.18215
     noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
                                     num_train_timesteps=1000, clip_sample=False)
@@ -75,7 +79,7 @@ def main(args) :
                               beta_start=args.scheduler_linear_start,
                               beta_end=args.scheduler_linear_end,
                               beta_schedule=args.scheduler_schedule)
-    pipeline = StableDiffusionInpaintPipeline(vae=vae,
+    pipeline = AnomalyDetectionStableDiffusionPipeline_inpaint(vae=vae,
                                               text_encoder=text_encoder,
                                               tokenizer=tokenizer,
                                               unet=unet,
@@ -96,7 +100,7 @@ def main(args) :
                        negative_prompt=args.negative_prompt, )
     gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
     gen_img.save('test.png')
-    
+
 
 
     print(f' (2.3) segmentation model')
