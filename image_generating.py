@@ -22,6 +22,8 @@ def main(args) :
     print(f'\n step 2. model')
     tokenizer = load_tokenizer(args)
     text_encoder, vae, unet = load_SD_model(args)
+
+
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
 
     print(f'\n step 3. optimizer')
@@ -178,4 +180,8 @@ if __name__ == '__main__':
         return v
     parser.add_argument("--prompt_list", type=arg_as_list,)
     args = parser.parse_args()
+    from model.unet import unet_passing_argument
+    from utils.attention_control import passing_argument
+    unet_passing_argument(args)
+    passing_argument(args)
     main(args)
