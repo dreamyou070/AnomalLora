@@ -119,18 +119,16 @@ def main(args) :
                         for k in raw_state_dict_orig.keys():
                             raw_state_dict[k] = raw_state_dict_orig[k]
                         network.load_state_dict(raw_state_dict)
-                        #network.apply_to(text_encoder, unet, True, True)
                         for k in object_detecting_state_dict.keys():
                             raw_state_dict[k] = object_detecting_state_dict[k]
-                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
-                                print(f'[OBJECT] {k} : {raw_state_dict[k]}')
                         network.load_state_dict(raw_state_dict)
                         # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
-                        unet(vae_latent,0,encoder_hidden_states,trg_layer_list=args.trg_layer_list)
+                        object_detect_trg_layer = ['up_blocks_3_attentions_2_transformer_blocks_0_attn2']
+                        unet(vae_latent,0,encoder_hidden_states,trg_layer_list=object_detect_trg_layer)
                         attn_dict = controller.step_store
                         controller.reset()
-                        attn_map = attn_dict[args.trg_layer_list[0]][0]
+                        attn_map = attn_dict[object_detect_trg_layer[0]][0]
                         if attn_map.shape[0] != 8:
                             attn_map = attn_map.chunk(2, dim=0)[0]
                         cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
