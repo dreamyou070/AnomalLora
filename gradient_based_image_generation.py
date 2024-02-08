@@ -114,7 +114,7 @@ def main(args) :
                                     loss = cks_map.sum()
                                     print(f'loss : {loss.mean()}')
                                     gradient = torch.autograd.grad(loss, latent, retain_graph=True)[0]  # only grad
-                                    latent = latent - gradient
+                                    latent = latent - latent * gradient
                             recon_latent = latent.detach()
                             recon_image = pipeline.latents_to_image(recon_latent)[0].resize((org_h, org_w))
                             img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
