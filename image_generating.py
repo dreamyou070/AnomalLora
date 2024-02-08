@@ -166,6 +166,10 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
+    parser.add_argument("--unet_inchannels", type=int, default=4)
+    parser.add_argument("--back_token_separating", action='store_true')
+    parser.add_argument("--more_generalize", action='store_true')
+    parser.add_argument("--down_dim", type=int)
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
