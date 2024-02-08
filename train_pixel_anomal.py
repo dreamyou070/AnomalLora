@@ -165,7 +165,7 @@ def main(args) :
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
 
         for step, batch in enumerate(train_dataloader):
-            loss = 0
+            loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
             # --------------------------------------------- Task Loss --------------------------------------------- #
             with torch.set_grad_enabled(True):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
