@@ -224,7 +224,8 @@ def main(args) :
                     elif normal_flag == 1 :
                         normal_feat_list.append(feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feat_list, dim=0)
-                anormal_feats = torch.cat(anormal_feat_list, dim=0)
+                if len(anormal_feat_list) > 0:
+                    anormal_feats = torch.cat(anormal_feat_list, dim=0)
 
                 normal_mu = torch.mean(normal_feats, dim=0)
                 normal_cov = torch.cov(normal_feats.transpose(0, 1))
@@ -237,18 +238,18 @@ def main(args) :
                 normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
                 anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
                 normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
-                anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+                if len(anormal_mahalanobis_dists) > 0:
+                    anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+                else :
+                    anormal_dist_mean = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
                 total_dist = normal_dist_mean + anormal_dist_mean
                 normal_dist_loss = (normal_dist_mean / total_dist) ** 2
-                anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
+                #anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
-                anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
+                #anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
 
                 """ Change Dist Loss """
-                if args.change_dist_loss:
-                    dist_loss += normal_dist_loss.requires_grad_()
-                else :
-                    dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
+                dist_loss += normal_dist_loss.requires_grad_()
 
 
                 # --------------------------------------------- 3. attn loss --------------------------------------------- #
