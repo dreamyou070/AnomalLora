@@ -260,26 +260,39 @@ def main(args) :
                 head_num = cls_score.shape[0]
                 normal_position = normal_position.unsqueeze(0).repeat(head_num, 1) # head, pix_num
                 anormal_position = anormal_position.unsqueeze(0).repeat(head_num, 1)
+                background_position = background_position.unsqueeze(0).repeat(head_num, 1)
 
                 normal_cls_score = (cls_score * normal_position).mean(dim=0) # pix_num
                 normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
                 anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
                 anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
+                background_cls_score = (cls_score * background_position).mean(dim=0)
+                background_trigger_score = (trigger_score * background_position).mean(dim=0)
                 total_score = torch.ones_like(normal_cls_score)
 
                 normal_cls_loss = (normal_cls_score / total_score) ** 2
                 normal_trigger_loss = (1- (normal_trigger_score / total_score)) ** 2
                 anormal_cls_loss = (1-(anormal_cls_score / total_score)) ** 2
                 anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
+                background_cls_loss = (background_cls_score / total_score) ** 2
+                background_trigger_loss = (1-(background_trigger_score / total_score)) ** 2
 
-                attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
                 normal_loss += normal_trigger_loss
                 anomal_loss += anormal_trigger_loss
+
+                attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
+                if args.background_with_normal :
+                    attn_loss += args.background_weight * background_trigger_loss
+                    normal_loss += background_trigger_loss
+
 
                 if args.do_cls_train :
                     attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
                     normal_loss += normal_cls_loss
                     anomal_loss += anormal_cls_loss
+                    if args.background_with_normal:
+                        attn_loss += args.background_weight * background_cls_loss
+                        normal_loss += background_cls_loss
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
             if args.do_task_loss:
@@ -406,7 +419,8 @@ if __name__ == '__main__':
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--change_dist_loss", action='store_true')
     parser.add_argument("--normal_dist_loss_squere", action='store_true')
-
+    parser.add_argument("--background_with_normal", action='store_true')
+    parser.add_argument("--background_cls_loss", type=float, default=1)
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
