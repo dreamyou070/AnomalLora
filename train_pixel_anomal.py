@@ -165,7 +165,7 @@ def main(args) :
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
 
         for step, batch in enumerate(train_dataloader):
-
+            loss = 0
             # --------------------------------------------- Task Loss --------------------------------------------- #
             with torch.set_grad_enabled(True):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
@@ -181,9 +181,9 @@ def main(args) :
                     noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states,
                                       trg_layer_list=args.trg_layer_list, noise_type=None).sample
                 target = noise
-                loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
-                loss = loss.mean([1, 2, 3])
-                task_loss = loss.mean()
+                task_loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
+                task_loss = task_loss.mean([1, 2, 3])
+                task_loss = task_loss.mean()
                 task_loss = task_loss * args.task_loss_weight
 
             with torch.no_grad():
