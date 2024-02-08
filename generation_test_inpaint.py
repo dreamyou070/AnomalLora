@@ -67,20 +67,28 @@ def main(args) :
                 for k in anomal_detecting_state_dict.keys():
                     raw_state_dict[k] = anomal_detecting_state_dict[k]
                 network.load_state_dict(raw_state_dict)
+                network.to(accelerator.device, dtype=weight_dtype)
                 # -------------------------------------------------- #
-                pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae,
+                from diffusers import StableDiffusionInpaintPipeline
+                from utils.inpaint_pipeline import AnomalyDetectionStableDiffusionPipeline_inpaint
+
+                pipeline = StableDiffusionInpaintPipeline(vae=vae,
                                                                    text_encoder=text_encoder,
                                                                    tokenizer=tokenizer,
                                                                    unet=unet,scheduler=scheduler,safety_checker=None,
                                                                    feature_extractor=None, requires_safety_checker=False, random_vector_generator=None,
                                                                    trg_layer_list=None)
-                latent = pipeline(prompt=args.prompt,
-                                  height=512,
-                                  width=512,
-                                  num_inference_steps=args.num_ddim_steps,
-                                  guidance_scale=args.guidance_scale,
-                                  negative_prompt=args.negative_prompt,
-                                  reference_image=None)[-1]
+                from PIL import Image
+                test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/000.png')
+                test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/000.png')
+                test_rgb_pil = Image.open(test_rgb_dir)
+                test_gt_pil = Image.open(test_gt_dir)
+                latent = pipeline(prompt='bagel',
+                                   image=test_rgb_pil,
+                                   mask_image=test_gt_pil,
+                                   height=512, width=512, num_inference_steps=args.num_ddim_steps,
+                                   guidance_scale=args.guidance_scale,
+                                   negative_prompt=args.negative_prompt, )[-1]
                 gen_image = pipeline.latents_to_image(latent)[0].resize((512,512))
                 gen_image.save(os.path.join(recon_base_folder, f'{lora_name}.png'))
 

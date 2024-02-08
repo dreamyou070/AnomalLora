@@ -56,6 +56,7 @@ def main(args) :
         # [1] recon base folder
         parent, _ = os.path.split(args.network_folder)
         recon_base_folder = os.path.join(parent, 'generation')
+        os.makedirs(recon_base_folder, exist_ok=True)
 
         anomal_detecting_state_dict = load_file(network_model_dir)
 
@@ -83,8 +84,7 @@ def main(args) :
                                   negative_prompt=args.negative_prompt,
                                   reference_image=None)[-1]
                 gen_image = pipeline.latents_to_image(latent)[0].resize((512,512))
-                gen_image.save(os.path.join(recon_base_folder, f'{lora_name}.png'))
-
+                gen_image.save(os.path.join(recon_base_folder, f'lora_{lora_epoch}.png'))
 
 
 if __name__ == '__main__':
