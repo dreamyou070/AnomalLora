@@ -61,6 +61,7 @@ def main(args) :
     unet.requires_grad_(False)
     text_encoder.requires_grad_(False)
     print(f' (6.2) network with stable diffusion model')
+    """
     network.prepare_grad_etc(text_encoder, unet)
     network.apply_to(text_encoder, unet, True, True)
     if args.network_weights is not None:
@@ -70,7 +71,7 @@ def main(args) :
         parent_dir, _ = os.path.split(network_base_dir)
         sampling_dir = os.path.join(parent_dir, 'sampling_test')
         os.makedirs(sampling_dir, exist_ok=True)
-
+    """
     if args.train_unet and args.train_text_encoder:
         unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
                                                     unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
@@ -106,14 +107,20 @@ def main(args) :
                                                        trg_layer_list=None)
 
 
-    latents = pipeline(prompt=args.prompt,
-                       height=512, width=512,
-                       num_inference_steps=args.num_ddim_steps,
-                       guidance_scale=args.guidance_scale,
-                       negative_prompt=args.negative_prompt,)
-    recon_image = pipeline.latents_to_image(latents[-1])[0].resize((512,512))
-    recon_image.save(os.path.join(sampling_dir, f'{args.prompt}.png'))
 
+    if len(args.prompt_list) > 0 :
+        for prompt in args.prompt_list:
+            a = prompt.replace(' ', '_')
+            save_folder = os.path.join(args.output_dir, a)
+            os.makedirs(save_folder, exist_ok=True)
+            for i in range(100) :
+                latents = pipeline(prompt=prompt,
+                                   height=512, width=512,
+                                   num_inference_steps=args.num_ddim_steps,
+                                   guidance_scale=args.guidance_scale,
+                                   negative_prompt=args.negative_prompt,)
+                recon_image = pipeline.latents_to_image(latents[-1])[0].resize((512,512))
+                recon_image.save(os.path.join(save_folder, f'{a}_{i}.png'))
 
 
 if __name__ == '__main__':
@@ -159,5 +166,12 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
+    import ast
+    def arg_as_list(arg):
+        v = ast.literal_eval(arg)
+        if type(v) is not list:
+            raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
+        return v
+    parser.add_argument("--prompt_list", type=arg_as_list,)
     args = parser.parse_args()
     main(args)
