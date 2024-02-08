@@ -420,7 +420,7 @@ if __name__ == '__main__':
     parser.add_argument("--change_dist_loss", action='store_true')
     parser.add_argument("--normal_dist_loss_squere", action='store_true')
     parser.add_argument("--background_with_normal", action='store_true')
-    parser.add_argument("--background_cls_loss", type=float, default=1)
+    parser.add_argument("--background_weight", type=float, default=1)
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
