@@ -163,23 +163,24 @@ def main(args) :
                         recon_image.save(img_dir)
 
                         # [4] anomal map ----------------------------------------------------------------------------- #
+                        for k in raw_state_dict_orig.keys():
+                            raw_state_dict[k] = raw_state_dict_orig[k]
+                        network.load_state_dict(raw_state_dict)
+                        for k in anomal_detecting_state_dict.keys():
+                            raw_state_dict[k] = anomal_detecting_state_dict[k]
+                        network.load_state_dict(raw_state_dict)
+
                         org_image = pipeline.latents_to_image(vae_latent)[0].resize((org_h, org_w))
                         img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
                         org_image.save(img_dir)
-                        org_query = query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
+                        # -------------------------------------------------------------------------------------------- #
+                        unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
+                        org_query_dict = controller.query_dict
+                        org_query = org_query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
                         org_query = org_query / (torch.norm(org_query, dim=1, keepdim=True))
                         controller.reset()
                         # -------------------------------------------------------------------------------------------- #
                         # (3) recon : recon_latent
-                        #network.restore()
-                        for k in raw_state_dict_orig.keys():
-                            raw_state_dict[k] = raw_state_dict_orig[k]
-                        network.load_state_dict(raw_state_dict)
-                        #network.apply_to(text_encoder, unet, True, True)
-                        for k in anomal_detecting_state_dict.keys():
-                            raw_state_dict[k] = anomal_detecting_state_dict[k]
-                        network.load_state_dict(raw_state_dict)
-                        # -------------------------------------------------------------------------------------------- #
                         unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
                         recon_query_dict = controller.query_dict
                         recon_query = recon_query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
