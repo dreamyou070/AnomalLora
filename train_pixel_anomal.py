@@ -289,8 +289,8 @@ def main(args) :
             if args.do_dist_loss:
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
-                loss_dict['normal_dist_loss'] = normal_dist_loss.item()
-                loss_dict['anormal_dist_loss'] = anormal_dist_loss.item()
+                #loss_dict['normal_dist_loss'] = normal_dist_loss.item()
+                #loss_dict['anormal_dist_loss'] = anormal_dist_loss.item()
             if args.do_attn_loss:
                 loss += attn_loss.mean()
                 loss_dict['attn_loss'] = attn_loss.mean().item()
