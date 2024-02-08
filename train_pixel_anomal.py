@@ -149,6 +149,7 @@ def main(args) :
                         disable=not accelerator.is_local_main_process, desc="steps")
     global_step = 0
     loss_list = []
+    """
     config = {'do_task_loss' : args.do_task_loss,
               'task_loss_weight' : args.task_loss_weight,
               'do_dist_loss' : args.do_dist_loss,
@@ -157,6 +158,7 @@ def main(args) :
               'attn_loss_weight' : args.attn_loss_weight,}
     #accelerator.init_trackers(name, config=config)
     accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
+    """
 
     for epoch in range(args.start_epoch, args.num_epochs):
         epoch_loss_total = 0
