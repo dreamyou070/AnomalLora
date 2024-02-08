@@ -86,8 +86,6 @@ def main(args) :
                                                                                     optimizer, dataloader, lr_scheduler)
         unet.to(accelerator.device,dtype=weight_dtype)
 
-    print(f'text encode deivce : {text_encoder.device} , unet device : {unet.device} network device : {network.device}')
-
     print(f'\n step 7. inference check')
     scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
     scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
