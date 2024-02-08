@@ -67,7 +67,6 @@ def main(args) :
                 for k in anomal_detecting_state_dict.keys():
                     raw_state_dict[k] = anomal_detecting_state_dict[k]
                 network.load_state_dict(raw_state_dict)
-                network.to(accelerator.device, dtype=weight_dtype)
                 # -------------------------------------------------- #
                 pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae,
                                                                    text_encoder=text_encoder,
