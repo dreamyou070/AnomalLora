@@ -81,7 +81,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.resize_shape=resize_shape
         self.anomaly_source_paths = []
         for ext in ["png", "jpg"]:
-            self.anomaly_source_paths.extend(sorted(glob.glob(anomaly_source_path + f"/*/*.{ext}")))
+            self.anomaly_source_paths.extend(sorted(glob.glob(anomaly_source_path + f"/*/*/*.{ext}")))
 
         self.caption = caption
         self.tokenizer = tokenizer
