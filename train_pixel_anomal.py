@@ -467,6 +467,7 @@ if __name__ == '__main__':
     parser.add_argument("--trigger_word", type = str, default = "good")
     parser.add_argument("--unet_inchannels", type=int, default=9)
     parser.add_argument("--back_token_separating", action='store_true')
+    parser.add_argument("--more_generalize", action='store_true')
     parser.add_argument("--down_dim", type=int)
     args = parser.parse_args()
     from model.unet import unet_passing_argument
