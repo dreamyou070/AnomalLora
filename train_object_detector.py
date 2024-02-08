@@ -149,114 +149,133 @@ def main(args) :
                         disable=not accelerator.is_local_main_process, desc="steps")
     global_step = 0
     loss_list = []
-    config = {'do_task_loss' : args.do_task_loss,
-              'task_loss_weight' : args.task_loss_weight,}
-    accelerator.init_trackers(project_name=args.wandb_project_name, config=config,)
-
     for epoch in range(args.start_epoch, args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
 
         for step, batch in enumerate(train_dataloader):
-            loss_dict = {}
-            loss = 0
+            loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
             # --------------------------------------------- Task Loss --------------------------------------------- #
-            with torch.no_grad():
-                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
-                latents = latents * vae_scale_factor  # [1,4,64,64]
-
-                masked_latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
-                masked_latents = masked_latents * vae_scale_factor  # [1,4,64,64]
-                if args.masked_training :
-                    input_latent = torch.cat([latents, masked_latents], dim=0)  # [1,8,64,64]
-                else :
-                    input_latent = latents
-                """
-                 sample = {'image': self.transform(img),
-                  "object_mask": object_mask.unsqueeze(0),  # [1, 64, 64]
-                  'masked_image': self.transform(masked_img),
-                  'masked_image_mask': anomal_mask.unsqueeze(0), 
-                  'idx': idx,
-                  'input_ids': input_ids.squeeze(0),
-                  'caption': self.caption,}
-                """
-
-            with torch.set_grad_enabled(True) :
-                input_ids = batch["input_ids"].to(accelerator.device) # batch, 77 sen len
-                enc_out = text_encoder(input_ids)       # batch, 77, 768
+            with torch.set_grad_enabled(True):
+                input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
+                enc_out = text_encoder(input_ids)  # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
-                if args.masked_training :
-                    input_cond = torch.cat([encoder_hidden_states, encoder_hidden_states], dim=0)  # [1, 772, 64, 64]
-                else :
-                    input_cond = encoder_hidden_states
-            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args,
-                                                                                    noise_scheduler,
-                                                                                    input_latent)
-            with accelerator.autocast():
-                noise_pred = unet(noisy_latents,
-                                  timesteps,
-                                  input_cond,
-                                  trg_layer_list=args.trg_layer_list,
-                                  noise_type=None).sample
-                if args.masked_training :
-                    org_noise_pred, masked_noise_pred = noise_pred.chunk(2, dim=0)
 
             if args.do_task_loss:
+                with torch.no_grad():
+                    latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
+                    latents = latents * vae_scale_factor  # [1,4,64,64]
+                noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,latents)
+                with accelerator.autocast():
+                    noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states,
+                                      trg_layer_list=args.trg_layer_list, noise_type=None).sample
                 target = noise
-                task_loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none").mean([1, 2, 3])
+                task_loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
+                task_loss = task_loss.mean([1, 2, 3])
                 task_loss = task_loss.mean()
                 task_loss = task_loss * args.task_loss_weight
 
-            if args.masked_training :
-                masked_loss = torch.nn.functional.mse_loss(org_noise_pred.float(), masked_latents.float(),reduction="none")
-                masked_loss = masked_loss.mean([1, 2, 3])
-                masked_loss = masked_loss.mean()
-
-
+            query_dict = controller.query_dict
             attn_dict = controller.step_store
             controller.reset()
-            attn_loss = 0
-            object_mask = batch['object_mask'].squeeze()  # [64,64]
+            normal_feat_list,anormal_feat_list = [], []
+            dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
+            attn_loss, normal_loss, anomal_loss = 0, 0, 0
+            object_mask_ = batch['object_mask'].squeeze() # [64,64]
+            object_mask = object_mask_.flatten().squeeze() # [64*64]
 
+            loss_dict = {}
             for trg_layer in args.trg_layer_list:
+                # -------------------------------------------------------------------------------------------------- #
+                object_position = torch.where(object_mask == 1, 1, 0) # [64*64]
+                background_position = 1 - object_position
 
+                # --------------------------------------------- 2. dist loss --------------------------------------------- #
+                query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
+                pix_num = query.shape[0]
+
+                for pix_idx in range(pix_num):
+                    feat = query[pix_idx].squeeze(0)
+                    nomal_flag = object_position[pix_idx].item()
+                    if nomal_flag == 1 :
+                        normal_feat_list.append(feat.unsqueeze(0))
+                    else :
+                        anormal_feat_list.append(feat.unsqueeze(0))
+                normal_feats = torch.cat(normal_feat_list, dim=0)
+                if len(anormal_feat_list) > 0:
+                    anormal_feats = torch.cat(anormal_feat_list, dim=0)
+
+                normal_mu = torch.mean(normal_feats, dim=0)
+                normal_cov = torch.cov(normal_feats.transpose(0, 1))
+
+                def mahal(u, v, cov):
+                    delta = u - v
+                    m = torch.dot(delta, torch.matmul(cov, delta))
+                    return torch.sqrt(m)
+
+                normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
+                anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
+                normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
+                if len(anormal_mahalanobis_dists) > 0:
+                    anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+                else :
+                    anormal_dist_mean = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
+                total_dist = normal_dist_mean + anormal_dist_mean
+                if args.normal_dist_loss_squere :
+                    normal_dist_loss = (normal_dist_mean / total_dist) ** 2
+                else :
+                    normal_dist_loss = normal_dist_mean / total_dist
+                normal_dist_loss = normal_dist_loss * args.dist_loss_weight
+                dist_loss += normal_dist_loss.requires_grad_()
+
+                # --------------------------------------------- 3. attn loss --------------------------------------------- #
                 attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
-                if args.masked_training :
-                    attention_score = attention_score.chunk(2, dim=0)[0] ##################################################
-
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
 
+                # (1) get position
                 head_num = cls_score.shape[0]
-                object_mask = object_mask.flatten()
-                object_position = object_mask.unsqueeze(0).repeat(head_num, 1) # head, pix_num
-                back_position = 1 - object_position
+                normal_position = object_position.unsqueeze(0).repeat(head_num, 1) # head, pix_num
+                anormal_position = background_position.unsqueeze(0).repeat(head_num, 1)
 
-                object_cls_score = (cls_score * object_position).mean(dim=0) # pix_num
-                object_trigger_score = (trigger_score * object_position).mean(dim=0)
-                back_cls_score = (cls_score * back_position).mean(dim=0)
-                back_trigger_score = (trigger_score * back_position).mean(dim=0)
-                total_score = torch.ones_like(object_cls_score)
+                normal_cls_score = (cls_score * normal_position).mean(dim=0) # pix_num
+                normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
+                anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
+                anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
+                total_score = torch.ones_like(normal_cls_score)
 
-                object_cls_loss = (object_cls_score / total_score) ** 2
-                object_trigger_loss = (1- (object_trigger_score / total_score)) ** 2
-                back_cls_loss = (1-(back_cls_score / total_score)) ** 2
-                back_trigger_loss = (back_trigger_score / total_score) ** 2
+                normal_cls_loss = (normal_cls_score / total_score) ** 2
+                normal_trigger_loss = (1- (normal_trigger_score / total_score)) ** 2
+                anormal_cls_loss = (1-(anormal_cls_score / total_score)) ** 2
+                anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
 
-                attn_loss += object_trigger_loss + back_trigger_loss
+                attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
+                normal_loss += normal_trigger_loss
+                anomal_loss += anormal_trigger_loss
 
                 if args.do_cls_train :
-                    attn_loss += object_cls_loss + back_cls_loss
-            attn_loss = attn_loss.mean()
+                    attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
+                    normal_loss += normal_cls_loss
+                    anomal_loss += anormal_cls_loss
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
-            loss += task_loss
-            loss_dict['task_loss'] = task_loss.item()
-            loss += attn_loss
-            loss_dict['attn_loss'] = attn_loss.mean().item()
-            if args.masked_training :
-                loss += masked_loss
-                loss_dict['masked_loss'] = masked_loss.item()
+            if args.do_task_loss:
+                loss += task_loss
+                loss_dict['task_loss'] = task_loss.item()
+            if args.do_dist_loss:
+                loss += dist_loss
+                loss_dict['dist_loss'] = dist_loss.item()
+                #loss_dict['normal_dist_loss'] = normal_dist_loss.item()
+                #loss_dict['anormal_dist_loss'] = anormal_dist_loss.item()
+            if args.do_attn_loss:
+                loss += attn_loss.mean()
+                loss_dict['attn_loss'] = attn_loss.mean().item()
+                loss_dict['normal_loss'] = normal_loss.mean().item()
+                loss_dict['anomal_loss'] = anomal_loss.mean().item()
+            #if args.do_seg_loss:
+            #    loss += segmentation_loss
+            #    loss_dict['seg_loss'] = segmentation_loss.item()
+
             current_loss = loss.detach().item()
             if epoch == args.start_epoch :
                 loss_list.append(current_loss)
@@ -271,7 +290,8 @@ def main(args) :
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad(set_to_none=True)
-
+            ### 4.1 logging
+            #accelerator.log(loss_dict, step=global_step)
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
@@ -281,6 +301,7 @@ def main(args) :
             if global_step >= args.max_train_steps:
                 break
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
+
         accelerator.wait_for_everyone()
         ### 4.2 sampling
         if is_main_process :
@@ -359,8 +380,9 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
-    parser.add_argument("--masked_training", action='store_true')
     parser.add_argument("--anomal_only_on_object", action='store_true')
+    parser.add_argument("--change_dist_loss", action='store_true')
+    parser.add_argument("--normal_dist_loss_squere", action='store_true')
 
     import ast
     def arg_as_list(arg):
@@ -370,6 +392,8 @@ if __name__ == '__main__':
         return v
     parser.add_argument("--do_task_loss", action='store_true')
     parser.add_argument("--task_loss_weight", type=float, default=0.5)
+    parser.add_argument("--do_dist_loss", action='store_true')
+    parser.add_argument("--dist_loss_weight", type=float, default = 1)
     parser.add_argument("--do_attn_loss", action='store_true')
     parser.add_argument("--attn_loss_weight", type=float, default=1.0)
     parser.add_argument("--do_cls_train", action='store_true')
@@ -382,5 +406,9 @@ if __name__ == '__main__':
                         help="base name of trained model file / 学習後のモデルの拡張子を除くファイル名")
     parser.add_argument("--general_training", action='store_true')
     parser.add_argument("--trigger_word", type = str, default = "good")
+    parser.add_argument("--unet_inchannels", type=int, default=9)
+    args = parser.parse_args()
+    from model.unet import unet_passing_argument
+    unet_passing_argument(args)
     args = parser.parse_args()
     main(args)
