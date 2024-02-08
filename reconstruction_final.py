@@ -104,7 +104,11 @@ def main(args) :
                             attn_map = attn_dict[layer_name][0]
                             if attn_map.shape[0] != 8:
                                 attn_map = attn_map.chunk(2, dim=0)[0]
-                            cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
+
+                            if args.back_token_separating:
+                                attn_map, trigger_map, back_map = attn_map.chunk(3, dim=-1)
+                            else:
+                                cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
                             trigger_map = (trigger_map.squeeze()).mean(dim=0)  #
                             binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
                             pix_num = binary_map.shape[0]
@@ -114,15 +118,22 @@ def main(args) :
                             binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
+                            if args.back_token_separating:
+                                back_map = (back_map.squeeze()).mean(dim=0)
+                                back_binary_map = torch.where(back_map > 0.5, 1, 0).squeeze()
+                                pix_num = back_binary_map.shape[0]
+                                res = int(pix_num ** 0.5)
+                                back_binary_map = back_binary_map.unsqueeze(0)
+                                back_binary_map = back_binary_map.view(res, res)
+                                back_binary_pil = Image.fromarray(back_binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                                back_binary_pil.save(os.path.join(save_base_folder, f'{name}_back_map_{layer_name}.png'))
                         # [2] object detection --------------------------------------------------------------------- #
-                        #network.restore()
                         for k in raw_state_dict_orig.keys():
                             raw_state_dict[k] = raw_state_dict_orig[k]
                         network.load_state_dict(raw_state_dict)
                         for k in object_detecting_state_dict.keys():
                             raw_state_dict[k] = object_detecting_state_dict[k]
                         network.load_state_dict(raw_state_dict)
-                        # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         object_detect_trg_layer = ['up_blocks_3_attentions_2_transformer_blocks_0_attn2']
                         unet(vae_latent,0,encoder_hidden_states,trg_layer_list=object_detect_trg_layer)
@@ -141,6 +152,11 @@ def main(args) :
                         object_pil.save(os.path.join(save_base_folder, f'{name}_object_map_{layer_name}.png'))
 
                         anormal_map = torch.where((object_map > 0) & (binary_map == 0), 1, 0) # object and anomal
+                        if args.back_token_separating:
+                            normal_map = 1- anormal_map
+                            background_map = back_binary_map
+                            normal_map = normal_map + background_map
+                            anormal_map = torch.where(normal_map == 0, 1, 0)
 
                         recon_map = 1 - anormal_map
                         recon_pil = Image.fromarray(recon_map.cpu().detach().numpy().astype(np.uint8) * 255).resize(
