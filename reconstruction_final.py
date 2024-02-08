@@ -208,7 +208,7 @@ def main(args) :
 
             break
             
-        del network
+        #del network
 
 
 if __name__ == '__main__':
