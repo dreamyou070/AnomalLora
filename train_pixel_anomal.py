@@ -197,22 +197,32 @@ def main(args) :
             normal_feat_list,anormal_feat_list = [], []
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
-            anomal_mask_ = batch['anomaly_mask'].squeeze(0) # [64,64]
+            anomal_mask_ = batch['anomaly_mask'].squeeze() # [64,64]
             anomal_mask = anomal_mask_.flatten().squeeze(0)
+            object_mask_ = batch['object_mask'].squeeze() # [64,64]
+            object_mask = object_mask_.flatten().squeeze() # [64*64]
+
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
+                # -------------------------------------------------------------------------------------------------- #
+                normal_position = torch.where((object_mask == 1) & (anomal_mask == 0), 1, 0) # [64*64]
+                anormal_position = 1 - normal_position
+                # -------------------------------------------------------------------------------------------------- #
+
+
                 # --------------------------------------------- 2. dist loss --------------------------------------------- #
                 query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
                 pix_num = query.shape[0]
                 for pix_idx in range(pix_num):
                     feat = query[pix_idx].squeeze(0)
-                    anomal_flag = anomal_mask[pix_idx]
+                    anomal_flag = anormal_position[pix_idx].item()
                     if anomal_flag == 1 :
                         anormal_feat_list.append(feat.unsqueeze(0))
                     else :
                         normal_feat_list.append(feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feat_list, dim=0)
                 anormal_feats = torch.cat(anormal_feat_list, dim=0)
+
                 normal_mu = torch.mean(normal_feats, dim=0)
                 normal_cov = torch.cov(normal_feats.transpose(0, 1))
 
@@ -232,19 +242,22 @@ def main(args) :
                 anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
                 dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
 
+
                 # --------------------------------------------- 3. attn loss --------------------------------------------- #
                 attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
 
+                # (1) get position
                 head_num = cls_score.shape[0]
-                anomal_position = anomal_mask.unsqueeze(0).repeat(head_num, 1) # head, pix_num
-                normal_position = 1 - anomal_position
+                normal_position = torch.where((object_mask == 1) & (anomal_mask == 0), 1, 0)
+                normal_position = normal_position.unsqueeze(0).repeat(head_num, 1) # head, pix_num
+
 
                 normal_cls_score = (cls_score * normal_position).mean(dim=0) # pix_num
                 normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
-                anormal_cls_score = (cls_score * anomal_position).mean(dim=0)
-                anormal_trigger_score = (trigger_score * anomal_position).mean(dim=0)
+                anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
+                anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
                 total_score = torch.ones_like(normal_cls_score)
 
                 normal_cls_loss = (normal_cls_score / total_score) ** 2
