@@ -64,46 +64,25 @@ def main(args) :
     args.pretrained_model_name_or_path = args.pretrained_inpaintmodel
     text_encoder, vae, unet = load_SD_model(args)
 
-    """
-    pipe = StableDiffusionInpaintPipeline.from_pretrained(args.pretrained_inpaintmodel, revision="fp16",torch_dtype=torch.float16,)
-    unet, text_encoder, vae = pipe.unet, pipe.text_encoder, pipe.vae
-    weight_dtype, save_dtype = prepare_dtype(args)
-    text_encoder, vae = text_encoder.to(weight_dtype), vae.to(weight_dtype)
-    print(f'inpaint unet config : {unet.config}')
-    original_unet = UNet2DConditionModel(unet.config.sample_size,
-                                         unet.config.attention_head_dim,
-                                         unet.config.cross_attention_dim,
-                                         unet.config.use_linear_projection,
-                                         unet.config.upcast_attention,)
-    original_unet.load_state_dict(unet.state_dict())
-    unet = original_unet
-    unet.to(weight_dtype)
-    """
+    vae_scale_factor = 0.18215
+    noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
+                                    num_train_timesteps=1000, clip_sample=False)
+    print(f' (2.2) LoRA network')
+    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha)
+
     scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
     scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
                               beta_start=args.scheduler_linear_start,
                               beta_end=args.scheduler_linear_end,
                               beta_schedule=args.scheduler_schedule)
-    vae_scale_factor = 0.18215
-    noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012,
-                                    beta_schedule="scaled_linear",
-                                    num_train_timesteps=1000, clip_sample=False)
-    print(f' (2.2) LoRA network')
-    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha)
-    print(f' (2.2) attn controller')
-    controller = AttentionStore()
-    register_attention_control(unet, controller)
-
-    pipeline = AnomalyDetectionStableDiffusionPipeline_inpaint(vae=vae,
-                                                               text_encoder=text_encoder,
-                                                               tokenizer=tokenizer,
-                                                               unet=unet,
-                                                               scheduler=scheduler,
-                                                               safety_checker=None,
-                                                               feature_extractor=None,
-                                                               requires_safety_checker=False,
-                                                               trg_layer_list=None)
-
+    pipeline = StableDiffusionInpaintPipeline(vae=vae,
+                                              text_encoder=text_encoder,
+                                              tokenizer=tokenizer,
+                                              unet=unet,
+                                              scheduler=scheduler,
+                                              safety_checker=None,
+                                              feature_extractor=None,
+                                              requires_safety_checker=False, )
     from PIL import Image
     test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/000.png')
     test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/000.png')
@@ -116,10 +95,16 @@ def main(args) :
                        guidance_scale=args.guidance_scale,
                        negative_prompt=args.negative_prompt, )
     gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
-    img_save_base_dir = args.output_dir + "/sample"
-    os.makedirs(img_save_base_dir, exist_ok=True)
+    gen_img.save('test.png')
+    
 
 
+    print(f' (2.3) segmentation model')
+    # seg_model = SegmentationSubNetwork(in_channels=8, out_channels=1,)
+
+    print(f' (2.2) attn controller')
+    controller = AttentionStore()
+    register_attention_control(unet, controller)
 
     print(f'\n step 3. optimizer')
     print(f' (3.1) lora optimizer')
@@ -155,6 +140,17 @@ def main(args) :
 
     print(f'\n step 6. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
+    """
+    if args.log_with in ["wandb", "all"]:
+        try:
+            import wandb
+        except ImportError:
+            raise ImportError("No wandb / wandb がインストールされていないようです")
+        os.environ["WANDB_DIR"] = args.logging_dir
+        if args.wandb_api_key is not None:
+            wandb.login(key=args.wandb_api_key)
+    """
+    """
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
                               mixed_precision=args.mixed_precision,
                               log_with=args.log_with,
@@ -193,8 +189,9 @@ def main(args) :
               'task_loss_weight': args.task_loss_weight, }
     accelerator.init_trackers(project_name=args.wandb_project_name, config=config, )
     """
-    #for epoch in range(args.start_epoch, args.num_epochs):
-        
+    """
+    for epoch in range(args.start_epoch, args.num_epochs):
+
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
         for step, batch in enumerate(train_dataloader):
@@ -288,10 +285,9 @@ def main(args) :
                 break
         
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
-        
-        #accelerator.wait_for_everyone()
+        accelerator.wait_for_everyone()
         ### 4.2 sampling
-        #if is_main_process:
+        if is_main_process:
             
             ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
             unwrapped_nw = accelerator.unwrap_model(network)
