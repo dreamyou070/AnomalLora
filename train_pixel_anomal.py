@@ -438,7 +438,6 @@ if __name__ == '__main__':
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     parser.add_argument("--anomal_only_on_object", action='store_true')
-    parser.add_argument("--change_dist_loss", action='store_true')
     parser.add_argument("--normal_dist_loss_squere", action='store_true')
     parser.add_argument("--background_with_normal", action='store_true')
     parser.add_argument("--background_weight", type=float, default=1)
