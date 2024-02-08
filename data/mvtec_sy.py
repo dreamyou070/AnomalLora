@@ -79,8 +79,10 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         self.root_dir = root_dir
         self.resize_shape=resize_shape
+        self.anomaly_source_paths = []
+        for ext in ["png", "jpg"]:
+            self.anomaly_source_paths.extend(sorted(glob.glob(anomaly_source_path + f"/*/*.{ext}")))
 
-        self.anomaly_source_paths = sorted(glob.glob(anomaly_source_path+"/*/*.png"))
         self.caption = caption
         self.tokenizer = tokenizer
         self.transform = transforms.Compose([transforms.ToTensor(),transforms.Normalize([0.5], [0.5]),])
@@ -93,8 +95,26 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.anomal_only_on_object = anomal_only_on_object
 
 
+        """
+        sources = [1,2,3,4,5,6,7,8]
+        org = [4,5]
+        
+        s1 = len(sources)
+        s2 = len(org)
+        final_len = max(s1, s2)
+        
+        random_index = random.choice(range(final_len))
+        print(f'random_index: {random_index}')
+        random_source_index = random_index % s1
+        random_org_index = random_index % s2
+        print(f'random_source_index: {random_source_index}')
+        print(f'random_org_index: {random_org_index}')
+
+        """
+
     def __len__(self):
-        return len(self.image_paths)
+        return max(len(self.image_paths), len(self.anomaly_source_paths))
+        #return len(self.image_paths)
     def get_input_ids(self, caption):
         tokenizer_output = self.tokenizer(caption, padding="max_length", truncation=True,return_tensors="pt")
         input_ids = tokenizer_output.input_ids
@@ -134,11 +154,14 @@ class MVTecDRAEMTrainDataset(Dataset):
 
     def __getitem__(self, idx):
 
-        idx = torch.randint(0, len(self.image_paths), (1,)).item()
+        # idx = torch.randint(0, len(self.image_paths), (1,)).item()
+        # anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
         anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
+        img_idx = idx % len(self.image_paths)
 
         # [1] base
-        img_path = self.image_paths[idx]
+        img_path = self.image_paths[img_idx]
+        # img_path = self.image_paths[idx]
         parent, name = os.path.split(img_path)
         parent, _ = os.path.split(parent)
         object_mask_dir = os.path.join(parent, f"object_mask/{name}")
