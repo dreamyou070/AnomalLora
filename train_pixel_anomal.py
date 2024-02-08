@@ -208,9 +208,9 @@ def main(args) :
             for trg_layer in args.trg_layer_list:
                 # -------------------------------------------------------------------------------------------------- #
                 normal_position = torch.where((object_mask == 1) & (anomal_mask == 0), 1, 0) # [64*64]
-                anormal_position = 1 - normal_position
-                # -------------------------------------------------------------------------------------------------- #
-
+                anormal_position = torch.where((object_mask == 1) & (anomal_mask == 1), 1, 0)  # [64*64]
+                object_position = normal_position + anormal_position
+                background_position = 1 - object_position
 
                 # --------------------------------------------- 2. dist loss --------------------------------------------- #
                 query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
@@ -218,9 +218,10 @@ def main(args) :
                 for pix_idx in range(pix_num):
                     feat = query[pix_idx].squeeze(0)
                     anomal_flag = anormal_position[pix_idx].item()
+                    normal_flag = normal_position[pix_idx].item()
                     if anomal_flag == 1 :
                         anormal_feat_list.append(feat.unsqueeze(0))
-                    else :
+                    elif normal_flag == 1 :
                         normal_feat_list.append(feat.unsqueeze(0))
                 normal_feats = torch.cat(normal_feat_list, dim=0)
                 anormal_feats = torch.cat(anormal_feat_list, dim=0)
@@ -244,7 +245,6 @@ def main(args) :
                 anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
                 dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
 
-
                 # --------------------------------------------- 3. attn loss --------------------------------------------- #
                 attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
@@ -252,8 +252,8 @@ def main(args) :
 
                 # (1) get position
                 head_num = cls_score.shape[0]
-                normal_position = torch.where((object_mask == 1) & (anomal_mask == 0), 1, 0)
                 normal_position = normal_position.unsqueeze(0).repeat(head_num, 1) # head, pix_num
+                anormal_position = anormal_position.unsqueeze(0).repeat(head_num, 1)
 
 
                 normal_cls_score = (cls_score * normal_position).mean(dim=0) # pix_num
