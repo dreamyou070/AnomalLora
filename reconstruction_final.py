@@ -94,7 +94,6 @@ def main(args) :
                             raw_state_dict[k] = anomal_detecting_state_dict[k]
                         network.load_state_dict(raw_state_dict)
                         network.to(accelerator.device, dtype=weight_dtype)
-                        # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
                         attn_dict = controller.step_store
@@ -127,6 +126,7 @@ def main(args) :
                                 back_binary_map = back_binary_map.view(res, res)
                                 back_binary_pil = Image.fromarray(back_binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                                 back_binary_pil.save(os.path.join(save_base_folder, f'{name}_back_map_{layer_name}.png'))
+
                         # [2] object detection --------------------------------------------------------------------- #
                         for k in raw_state_dict_orig.keys():
                             raw_state_dict[k] = raw_state_dict_orig[k]
@@ -142,7 +142,10 @@ def main(args) :
                         attn_map = attn_dict[object_detect_trg_layer[0]][0]
                         if attn_map.shape[0] != 8:
                             attn_map = attn_map.chunk(2, dim=0)[0]
-                        cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
+                        if args.back_token_separating:
+                            cks_map, trigger_map, _ = attn_map.chunk(3, dim=-1)  # head, pix_num
+                        else :
+                            cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
                         trigger_map = (trigger_map.squeeze()).mean(dim=0) #
                         object_map = torch.where(trigger_map > 0.5, 1, 0).squeeze() # object = 1
                         pix_num = object_map.shape[0]
