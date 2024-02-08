@@ -93,6 +93,9 @@ def main(args) :
                                                                            requires_safety_checker=False,
                                                                            random_vector_generator=None,
                                                                            trg_layer_list=None)
+                        org_img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
+                        org_img = pipeline.latents_to_image(vae_latent)[0].resize((org_h, org_w))
+                        org_img.save(org_img_dir)
                         # -------------------------------------------------- #
                         input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
@@ -108,7 +111,7 @@ def main(args) :
                                     if attn_map.shape[0] != 8:
                                         attn_map = attn_map.chunk(2, dim=0)[0]
                                     cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
-                                    loss = cks_map.mean()
+                                    loss = cks_map.sum()
                                     print(f'loss : {loss.mean()}')
                                     gradient = torch.autograd.grad(loss, latent, retain_graph=True)[0]  # only grad
                                     latent = latent - gradient
@@ -116,6 +119,8 @@ def main(args) :
                             recon_image = pipeline.latents_to_image(recon_latent)[0].resize((org_h, org_w))
                             img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
                             recon_image.save(img_dir)
+
+
 
 
 
