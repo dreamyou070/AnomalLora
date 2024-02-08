@@ -61,7 +61,6 @@ def main(args) :
     print(f'\n step 2. model')
     print(f' (2.1) stable diffusion model')
     tokenizer = load_tokenizer(args)
-
     args.pretrained_model_name_or_path = args.pretrained_inpaintmodel
     text_model, vae, unet = load_SD_model(args)
     """
@@ -334,7 +333,7 @@ if __name__ == '__main__':
     parser.add_argument('--seg_lr', type=float, default=1e-5)
     # step 4. dataset and dataloader
     parser.add_argument('--data_path', type=str,
-                        default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
+                        default=r'../../../MyData/anomaly_detection/MVTec3D-AD')f
     parser.add_argument('--obj_name', type=str, default='bottle')
     parser.add_argument('--anomaly_source_path', type=str)
     parser.add_argument('--batch_size', type=int, default=1)
