@@ -22,8 +22,10 @@ def make_perlin_noise(shape_row, shape_column):
 def passing_argument(args):
     global down_dim
     global more_generalize
+    global back_token_separating
     down_dim = args.down_dim
     more_generalize = args.more_generalize
+    back_token_separating = args.back_token_separating
 
 def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
@@ -124,7 +126,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 else :
                     trg_map = attention_probs[:, :, :2]
                 """
-                trg_map = attention_probs[:, :, :2]
+                if back_token_separating :
+                    trg_map = attention_probs[:, :, :3]
+                else :
+                    trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
