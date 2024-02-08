@@ -1,5 +1,6 @@
 import os
 import argparse, torch
+from model.unet import UNet2DConditionModel
 from model.diffusion_model import load_SD_model
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
@@ -59,12 +60,11 @@ def main(args) :
     print(f' (2.1) stable diffusion model')
     from diffusers import StableDiffusionInpaintPipeline
     tokenizer = load_tokenizer(args)
-    pipe = StableDiffusionInpaintPipeline.from_pretrained(args.pretrained_inpaintmodel,
-                                                revision="fp16",torch_dtype=torch.float16,)
+    pipe = StableDiffusionInpaintPipeline.from_pretrained(args.pretrained_inpaintmodel, revision="fp16",torch_dtype=torch.float16,)
     unet, text_encoder, vae = pipe.unet, pipe.text_encoder, pipe.vae
     weight_dtype, save_dtype = prepare_dtype(args)
     text_encoder, vae = text_encoder.to(weight_dtype), vae.to(weight_dtype)
-    from model.unet import UNet2DConditionModel
+    print(f'inpaint unet config : {unet.config}')
     original_unet = UNet2DConditionModel(unet.config.sample_size,
                                          unet.config.attention_head_dim,
                                          unet.config.cross_attention_dim,

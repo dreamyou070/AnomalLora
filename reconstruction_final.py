@@ -206,9 +206,6 @@ def main(args) :
                         network.load_state_dict(raw_state_dict)
                         #network.apply_to(text_encoder, unet, True, True)
 
-            break
-            
-        #del network
 
 
 if __name__ == '__main__':
