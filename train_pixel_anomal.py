@@ -243,7 +243,13 @@ def main(args) :
                 anormal_dist_loss = (1 - (anormal_dist_mean / total_dist)) ** 2
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
                 anormal_dist_loss = anormal_dist_loss * args.dist_loss_weight
-                dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
+
+                """ Change Dist Loss """
+                if args.change_dist_loss:
+                    dist_loss += normal_dist_loss.requires_grad_()
+                else :
+                    dist_loss += normal_dist_loss.requires_grad_() + anormal_dist_loss.requires_grad_()
+
 
                 # --------------------------------------------- 3. attn loss --------------------------------------------- #
                 attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
@@ -254,7 +260,6 @@ def main(args) :
                 head_num = cls_score.shape[0]
                 normal_position = normal_position.unsqueeze(0).repeat(head_num, 1) # head, pix_num
                 anormal_position = anormal_position.unsqueeze(0).repeat(head_num, 1)
-
 
                 normal_cls_score = (cls_score * normal_position).mean(dim=0) # pix_num
                 normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
@@ -399,6 +404,7 @@ if __name__ == '__main__':
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     parser.add_argument("--anomal_only_on_object", action='store_true')
+    parser.add_argument("--change_dist_loss", action='store_true')
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
