@@ -88,14 +88,11 @@ def main(args) :
                         register_attention_control(unet, controller)
 
                         # [1] anomal detection  --------------------------------------------------------------------- #
-                        print(f' anomal detecting loading...')
                         for k in anomal_detecting_state_dict.keys():
                             raw_state_dict[k] = anomal_detecting_state_dict[k]
-                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
-                                print(f'[ANOMAL] {k} : {raw_state_dict[k]}')
                         network.load_state_dict(raw_state_dict)
-                        # -------------------------------------------------- #
                         network.to(accelerator.device, dtype=weight_dtype)
+                        # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                         unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
                         attn_dict = controller.step_store
@@ -116,7 +113,6 @@ def main(args) :
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
-                        print(f' object detecting loading...')
                         for k in raw_state_dict_orig.keys():
                             raw_state_dict[k] = raw_state_dict_orig[k]
                         network.load_state_dict(raw_state_dict)
@@ -124,7 +120,6 @@ def main(args) :
                             raw_state_dict[k] = object_detecting_state_dict[k]
                             if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
                                 print(f'[OBJECT] {k} : {raw_state_dict[k]}')
-                        network.restore()
                         network.load_state_dict(raw_state_dict)
                         # -------------------------------------------------- #
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
@@ -177,9 +172,6 @@ def main(args) :
                         network.load_state_dict(raw_state_dict)
                         for k in anomal_detecting_state_dict.keys():
                             raw_state_dict[k] = anomal_detecting_state_dict[k]
-                            if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
-                                print(f'[ANOMAL] {k} : {raw_state_dict[k]}')
-                        network.restore()
                         network.load_state_dict(raw_state_dict)
                         # -------------------------------------------------------------------------------------------- #
                         unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
