@@ -129,19 +129,17 @@ if __name__ == '__main__':
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     # step 8. test
-    import ast
-    def arg_as_list(arg):
-        v = ast.literal_eval(arg)
-        if type(v) is not list:
-            raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
-        return v
-    parser.add_argument("--trg_layer_list", type=arg_as_list)
-    parser.add_argument("--more_generalize", action='store_true')
-    from utils.attention_control import add_attn_argument, passing_argument
-    from model.unet import unet_passing_argument
+    parser.add_argument("--general_training", action='store_true')
+    parser.add_argument("--trigger_word", type=str, default="good")
     parser.add_argument("--unet_inchannels", type=int, default=4)
-    add_attn_argument(parser)
+    parser.add_argument("--back_token_separating", action='store_true')
+    parser.add_argument("--more_generalize", action='store_true')
+    parser.add_argument("--down_dim", type=int)
     args = parser.parse_args()
-    passing_argument(args)
+    from model.unet import unet_passing_argument
+    from utils.attention_control import passing_argument
+
     unet_passing_argument(args)
+    passing_argument(args)
+    args = parser.parse_args()
     main(args)
