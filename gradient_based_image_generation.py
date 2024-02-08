@@ -102,6 +102,7 @@ def main(args) :
                         with torch.enable_grad():
                             latent = vae_latent.detach().requires_grad_()
                             encoder_hidden_states = encoder_hidden_states.detach().requires_grad_()
+                            loss_prev = 0
                             for i in range(30) :
                                 unet(latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
                                 attn_dict = controller.step_store
@@ -112,6 +113,7 @@ def main(args) :
                                         attn_map = attn_map.chunk(2, dim=0)[0]
                                     cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
                                     loss = cks_map.sum()
+                                    loss_prev = loss
                                     print(f'loss : {loss.mean()}')
                                     gradient = torch.autograd.grad(loss, latent, retain_graph=True)[0]  # only grad
                                     latent = latent - latent * gradient
