@@ -57,6 +57,7 @@ def main(args) :
                               module_class=LoRAInfModule)
         network.apply_to(text_encoder, unet, True, True)
         raw_state_dict = network.state_dict()
+        raw_state_dict_orig = raw_state_dict.copy()
 
         anomal_detecting_state_dict = load_file(network_model_dir)
 
@@ -92,7 +93,6 @@ def main(args) :
                             raw_state_dict[k] = anomal_detecting_state_dict[k]
                             if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
                                 print(f'[ANOMAL] {k} : {raw_state_dict[k]}')
-                        network.restore()
                         network.load_state_dict(raw_state_dict)
                         # -------------------------------------------------- #
                         network.to(accelerator.device, dtype=weight_dtype)
@@ -117,6 +117,9 @@ def main(args) :
 
                         # [2] object detection --------------------------------------------------------------------- #
                         print(f' object detecting loading...')
+                        for k in raw_state_dict_orig.keys():
+                            raw_state_dict[k] = raw_state_dict_orig[k]
+                        network.load_state_dict(raw_state_dict)
                         for k in object_detecting_state_dict.keys():
                             raw_state_dict[k] = object_detecting_state_dict[k]
                             if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
@@ -169,7 +172,9 @@ def main(args) :
 
                         # -------------------------------------------------------------------------------------------- #
                         # (2) recon : recon_latent
-                        print(f' anomal detecting loading...')
+                        for k in raw_state_dict_orig.keys():
+                            raw_state_dict[k] = raw_state_dict_orig[k]
+                        network.load_state_dict(raw_state_dict)
                         for k in anomal_detecting_state_dict.keys():
                             raw_state_dict[k] = anomal_detecting_state_dict[k]
                             if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
@@ -198,6 +203,9 @@ def main(args) :
 
                         #tiff_anomaly_mask_save_dir = os.path.join(evaluate_class_dir, f'{name}.tiff')
                         #anomaly_score_pil.save(tiff_anomaly_mask_save_dir)
+                        for k in raw_state_dict_orig.keys():
+                            raw_state_dict[k] = raw_state_dict_orig[k]
+                        network.load_state_dict(raw_state_dict)
             break
             
         del network

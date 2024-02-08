@@ -1132,7 +1132,7 @@ class LoRANetwork(torch.nn.Module):
         info = self.load_state_dict(weights_sd, False)
         return info
 
-    def restore(self, file, text_encoder, unet, apply_text_encoder=True, apply_unet=True):
+    def restore(self):
         loras = self.text_encoder_loras + self.unet_loras
         for lora in loras:
             lora.restore()
