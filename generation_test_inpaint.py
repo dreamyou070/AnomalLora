@@ -72,12 +72,9 @@ def main(args) :
                 from diffusers import StableDiffusionInpaintPipeline
                 from utils.inpaint_pipeline import AnomalyDetectionStableDiffusionPipeline_inpaint
 
-                pipeline = StableDiffusionInpaintPipeline(vae=vae,
-                                                                   text_encoder=text_encoder,
-                                                                   tokenizer=tokenizer,
-                                                                   unet=unet,scheduler=scheduler,safety_checker=None,
-                                                                   feature_extractor=None, requires_safety_checker=False, random_vector_generator=None,
-                                                                   trg_layer_list=None)
+                pipeline = StableDiffusionInpaintPipeline(vae=vae,text_encoder=text_encoder,tokenizer=tokenizer,
+                                                          unet=unet,scheduler=scheduler,safety_checker=None,
+                                                          feature_extractor=None, requires_safety_checker=False)
                 from PIL import Image
                 test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/000.png')
                 test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/000.png')
