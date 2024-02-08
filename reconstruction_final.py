@@ -143,6 +143,9 @@ def main(args) :
                         anormal_map = torch.where((object_map > 0) & (binary_map == 0), 1, 0) # object and anomal
 
                         recon_map = 1 - anormal_map
+                        recon_pil = Image.fromarray(recon_map.cpu().detach().numpy().astype(np.uint8) * 255).resize(
+                            (org_h, org_w))
+                        recon_pil.save(os.path.join(save_base_folder, f'{name}_recon_map_{layer_name}.png'))
 
                         # [3] image generation --------------------------------------------------------------------- #
                         pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder,
@@ -185,6 +188,7 @@ def main(args) :
                         # (3) anomaly score
                         nomaly_score = (org_query @ recon_query.T).cpu() # pix_num, pix_num
                         anomaly_score = (1-torch.diag(nomaly_score))
+                        anomaly_score = anomaly_score / anomaly_score.max()
                         anomaly_score = anomaly_score.unsqueeze(0) # [1, pix_num]
                         anomaly_score = anomaly_score.view(res, res)
                         anomaly_score = anomaly_score.numpy()
@@ -193,7 +197,7 @@ def main(args) :
                         anomaly_score_pil.save(anomaly_mask_save_dir)
 
                         # [5] save anomaly score --------------------------------------------------------------------- #
-                        gt_img_save_dir = os.path.join(gt_folder, f'{name}_gt.png')
+                        gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
                         Image.open(gt_img_dir).resize((org_h, org_w)).save(gt_img_save_dir)
 
                         #tiff_anomaly_mask_save_dir = os.path.join(evaluate_class_dir, f'{name}.tiff')

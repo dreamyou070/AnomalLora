@@ -323,7 +323,7 @@ if __name__ == '__main__':
     parser.add_argument('--pretrained_model_name_or_path', type=str,
                         default='facebook/diffusion-dalle')
     parser.add_argument('--pretrained_inpaintmodel', type=str,
-            default='/home/dreamyou070/pretrained_stable_diffusion/models--runwayml--stable-diffusion-inpainting')
+            default='/home/dreamyou070/pretrained_stable_diffusion/models--runwayml--stable-diffusion-inpainting/sd-v1-5-inpainting.safetensors')
     parser.add_argument('--network_dim', type=int,default=64)
     parser.add_argument('--network_alpha', type=float,default=4)
     parser.add_argument('--network_weights', type=str)
