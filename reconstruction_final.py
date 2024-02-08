@@ -164,7 +164,6 @@ def main(args) :
                         org_query = query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
                         org_query = org_query / (torch.norm(org_query, dim=1, keepdim=True))
                         controller.reset()
-
                         # -------------------------------------------------------------------------------------------- #
                         # (2) recon : recon_latent
                         for k in raw_state_dict_orig.keys():
