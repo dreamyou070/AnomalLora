@@ -85,7 +85,8 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         self.caption = caption
         self.tokenizer = tokenizer
-        self.transform = transforms.Compose([transforms.ToTensor(),transforms.Normalize([0.5], [0.5]),])
+        self.transform = transforms.Compose([transforms.ToTensor(),
+                                             transforms.Normalize([0.5], [0.5]),])
         self.use_perlin = use_perlin
         self.num_repeat = 1
 
@@ -94,27 +95,8 @@ class MVTecDRAEMTrainDataset(Dataset):
         random.shuffle(self.image_paths)
         self.anomal_only_on_object = anomal_only_on_object
 
-
-        """
-        sources = [1,2,3,4,5,6,7,8]
-        org = [4,5]
-        
-        s1 = len(sources)
-        s2 = len(org)
-        final_len = max(s1, s2)
-        
-        random_index = random.choice(range(final_len))
-        print(f'random_index: {random_index}')
-        random_source_index = random_index % s1
-        random_org_index = random_index % s2
-        print(f'random_source_index: {random_source_index}')
-        print(f'random_org_index: {random_org_index}')
-
-        """
-
     def __len__(self):
         return max(len(self.image_paths), len(self.anomaly_source_paths))
-        #return len(self.image_paths)
     def get_input_ids(self, caption):
         tokenizer_output = self.tokenizer(caption, padding="max_length", truncation=True,return_tensors="pt")
         input_ids = tokenizer_output.input_ids
@@ -140,8 +122,6 @@ class MVTecDRAEMTrainDataset(Dataset):
         mask_pil = Image.fromarray(mask).convert('L')
         mask_np = np.array(mask_pil) / 255  # height, width, [0,1]
         return mask_np, mask_pil
-
-
 
     def load_image(self, image_path, trg_h, trg_w):
         image = Image.open(image_path)
@@ -190,7 +170,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         anomal_img = (1-mask) * img + mask * anomal_src
 
         # [4] masked image
-        masked_img = (1-mask) * img ##########################################################
+        masked_img = (1-mask) * img
 
         # [3] final
         anomal_mask_pil = Image.fromarray((mask * 255).astype(np.uint8)).resize((64,64)).convert('L')
@@ -202,11 +182,11 @@ class MVTecDRAEMTrainDataset(Dataset):
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
 
         # [5] return
-        sample = {'image': self.transform(img),
+        sample = {'image': self.transform(img).float(),
                   "object_mask": object_mask.unsqueeze(0),  # [1, 64, 64]
                   'augmented_image': self.transform(anomal_img),
                   "anomaly_mask": anomal_mask.unsqueeze(0),  # [1, 64, 64]
-                  'masked_image': self.transform(masked_img), ###########################
+                  'masked_image': self.transform(masked_img),
                   'masked_image_mask': anomal_mask.unsqueeze(0),
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),

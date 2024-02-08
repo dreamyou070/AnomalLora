@@ -64,23 +64,11 @@ def main(args) :
                                     num_train_timesteps=1000, clip_sample=False)
     print(f' (2.2) LoRA network')
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
-    print(f' (2.3) segmentation model')
-    #seg_model = SegmentationSubNetwork(in_channels=8, out_channels=1,)
-
-    print(f' (2.2) attn controller')
-    controller = AttentionStore()
-    register_attention_control(unet, controller)
 
     print(f'\n step 3. optimizer')
     print(f' (3.1) lora optimizer')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
-    print(f' (3.2) seg optimizer')
-    #segmentation_trainable_params = [{"params": seg_model.parameters(), "lr": args.seg_lr},]
-    #optimizer_seg = torch.optim.AdamW(segmentation_trainable_params)
-    #loss_focal = BinaryFocalLoss()
-    #loss_smL1 = nn.SmoothL1Loss()
-
 
     print(f'\n step 4. dataset and dataloader')
     obj_dir = os.path.join(args.data_path, args.obj_name)
@@ -138,9 +126,7 @@ def main(args) :
     progress_bar = tqdm(range(train_steps), smoothing=0,
                         disable=not accelerator.is_local_main_process, desc="steps")
     global_step = 0
-    loss_list = []
     for epoch in range(args.start_epoch, args.num_epochs):
-        epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
 
         for step, batch in enumerate(train_dataloader):
@@ -166,133 +152,18 @@ def main(args) :
                 task_loss = task_loss.mean()
                 task_loss = task_loss * args.task_loss_weight
 
-            query_dict = controller.query_dict
-            attn_dict = controller.step_store
-            controller.reset()
-            normal_feat_list,anormal_feat_list = [], []
-            dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
-            attn_loss, normal_loss, anomal_loss = 0, 0, 0
-            object_mask_ = batch['object_mask'].squeeze() # [64,64]
-            object_mask = object_mask_.flatten().squeeze() # [64*64]
 
-            loss_dict = {}
-            for trg_layer in args.trg_layer_list:
-                # -------------------------------------------------------------------------------------------------- #
-                object_position = torch.where(object_mask == 1, 1, 0) # [64*64]
-                background_position = 1 - object_position
-
-                # --------------------------------------------- 2. dist loss --------------------------------------------- #
-                query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
-                pix_num = query.shape[0]
-
-                for pix_idx in range(pix_num):
-                    feat = query[pix_idx].squeeze(0)
-                    nomal_flag = object_position[pix_idx].item()
-                    if nomal_flag == 1 :
-                        normal_feat_list.append(feat.unsqueeze(0))
-                    else :
-                        anormal_feat_list.append(feat.unsqueeze(0))
-                normal_feats = torch.cat(normal_feat_list, dim=0)
-                if len(anormal_feat_list) > 0:
-                    anormal_feats = torch.cat(anormal_feat_list, dim=0)
-
-                normal_mu = torch.mean(normal_feats, dim=0)
-                normal_cov = torch.cov(normal_feats.transpose(0, 1))
-
-                def mahal(u, v, cov):
-                    delta = u - v
-                    m = torch.dot(delta, torch.matmul(cov, delta))
-                    return torch.sqrt(m)
-
-                normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
-                anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
-                normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
-                if len(anormal_mahalanobis_dists) > 0:
-                    anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
-                else :
-                    anormal_dist_mean = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
-                total_dist = normal_dist_mean + anormal_dist_mean
-                if args.normal_dist_loss_squere :
-                    normal_dist_loss = (normal_dist_mean / total_dist) ** 2
-                else :
-                    normal_dist_loss = normal_dist_mean / total_dist
-                normal_dist_loss = normal_dist_loss * args.dist_loss_weight
-                dist_loss += normal_dist_loss.requires_grad_()
-
-                # --------------------------------------------- 3. attn loss --------------------------------------------- #
-                attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
-                cls_score, trigger_score = attention_score.chunk(2, dim=-1)
-                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-
-                # (1) get position
-                head_num = cls_score.shape[0]
-                normal_position = object_position.unsqueeze(0).repeat(head_num, 1) # head, pix_num
-                anormal_position = background_position.unsqueeze(0).repeat(head_num, 1)
-
-                normal_cls_score = (cls_score * normal_position).mean(dim=0) # pix_num
-                normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
-                anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
-                anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
-                total_score = torch.ones_like(normal_cls_score)
-
-                normal_cls_loss = (normal_cls_score / total_score) ** 2
-                normal_trigger_loss = (1- (normal_trigger_score / total_score)) ** 2
-                anormal_cls_loss = (1-(anormal_cls_score / total_score)) ** 2
-                anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
-
-                attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
-                normal_loss += normal_trigger_loss
-                anomal_loss += anormal_trigger_loss
-
-                if args.do_cls_train :
-                    attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
-                    normal_loss += normal_cls_loss
-                    anomal_loss += anormal_cls_loss
-
-            # --------------------------------------------- 4. total loss --------------------------------------------- #
-            if args.do_task_loss:
-                loss += task_loss
-                loss_dict['task_loss'] = task_loss.item()
-            if args.do_dist_loss:
-                loss += dist_loss
-                loss_dict['dist_loss'] = dist_loss.item()
-                #loss_dict['normal_dist_loss'] = normal_dist_loss.item()
-                #loss_dict['anormal_dist_loss'] = anormal_dist_loss.item()
-            if args.do_attn_loss:
-                loss += attn_loss.mean()
-                loss_dict['attn_loss'] = attn_loss.mean().item()
-                loss_dict['normal_loss'] = normal_loss.mean().item()
-                loss_dict['anomal_loss'] = anomal_loss.mean().item()
-            #if args.do_seg_loss:
-            #    loss += segmentation_loss
-            #    loss_dict['seg_loss'] = segmentation_loss.item()
-
-            current_loss = loss.detach().item()
-            if epoch == args.start_epoch :
-                loss_list.append(current_loss)
-            else:
-                epoch_loss_total -= loss_list[step]
-                loss_list[step] = current_loss
-            epoch_loss_total += current_loss
-            avr_loss = epoch_loss_total / len(loss_list)
-            loss_dict['avr_loss'] = avr_loss
-
+            loss += task_loss
             accelerator.backward(loss)
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad(set_to_none=True)
-            ### 4.1 logging
-            #accelerator.log(loss_dict, step=global_step)
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
-                controller.reset()
-            if is_main_process:
-                progress_bar.set_postfix(**loss_dict)
             if global_step >= args.max_train_steps:
                 break
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
-
         accelerator.wait_for_everyone()
         ### 4.2 sampling
         if is_main_process :
@@ -316,7 +187,6 @@ def main(args) :
             num_suffix = f"e{epoch:06d}"
             img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
             gen_img.save(os.path.join(img_save_base_dir,img_filename))
-            controller.reset()
         accelerator.end_training()
 
 
