@@ -419,5 +419,9 @@ if __name__ == '__main__':
                         help="base name of trained model file / 学習後のモデルの拡張子を除くファイル名")
     parser.add_argument("--general_training", action='store_true')
     parser.add_argument("--trigger_word", type = str, default = "good")
+    parser.add_argument("--unet_inchannels", type=int, default=9)
+    args = parser.parse_args()
+    from model.unet import unet_passing_argument
+    unet_passing_argument(args)
     args = parser.parse_args()
     main(args)
