@@ -108,10 +108,10 @@ def main(args) :
                                     if attn_map.shape[0] != 8:
                                         attn_map = attn_map.chunk(2, dim=0)[0]
                                     cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
-                                    loss = cks_map
+                                    loss = cks_map.mean()
                                     print(f'loss : {loss.mean()}')
-                                    gradient = torch.autograd.grad(loss, vae_latent, retain_graph=True)[0]  # only grad
-                                    latent = vae_latent - gradient
+                                    gradient = torch.autograd.grad(loss, latent, retain_graph=True)[0]  # only grad
+                                    latent = latent - gradient
                             recon_latent = latent.detach()
                             recon_image = pipeline.latents_to_image(recon_latent)[0].resize((org_h, org_w))
                             img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
