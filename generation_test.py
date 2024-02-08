@@ -78,7 +78,7 @@ def main(args) :
                                                                    trg_layer_list=None)
                 guidances = [1,7.5]
                 for guidance in guidances:
-                    latent = pipeline(prompt=args.prompt,
+                    latent = pipeline(prompt='good',
                                       height=512,
                                       width=512,
                                       num_inference_steps=args.num_ddim_steps,
