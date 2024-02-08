@@ -40,6 +40,15 @@ def main(args) :
 
     print(f'\n step 4. inference')
     models = os.listdir(args.network_folder)
+
+    from model.lora import LoRAInfModule
+    from utils.image_utils import load_image, image2latent
+    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha,
+                          module_class=LoRAInfModule)
+    network.apply_to(text_encoder, unet, True, True)
+    raw_state_dict = network.state_dict()
+    raw_state_dict_orig = raw_state_dict.copy()
+
     for model in models:
         network_model_dir = os.path.join(args.network_folder, model)
         lora_name, ext = os.path.splitext(model)
@@ -51,13 +60,6 @@ def main(args) :
         os.makedirs(recon_base_folder, exist_ok=True)
         lora_base_folder = os.path.join(recon_base_folder, f'lora_epoch_{lora_epoch}')
         os.makedirs(lora_base_folder, exist_ok=True)
-        from model.lora import LoRAInfModule
-        from utils.image_utils import load_image, image2latent
-        network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha,
-                              module_class=LoRAInfModule)
-        network.apply_to(text_encoder, unet, True, True)
-        raw_state_dict = network.state_dict()
-        raw_state_dict_orig = raw_state_dict.copy()
 
         anomal_detecting_state_dict = load_file(network_model_dir)
 
@@ -113,9 +115,11 @@ def main(args) :
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
+                        #network.restore()
                         for k in raw_state_dict_orig.keys():
                             raw_state_dict[k] = raw_state_dict_orig[k]
                         network.load_state_dict(raw_state_dict)
+                        #network.apply_to(text_encoder, unet, True, True)
                         for k in object_detecting_state_dict.keys():
                             raw_state_dict[k] = object_detecting_state_dict[k]
                             if 'lora_unet_mid_block_attentions_0_proj_out.' in k and 'down' in k :
@@ -165,10 +169,12 @@ def main(args) :
                         org_query = org_query / (torch.norm(org_query, dim=1, keepdim=True))
                         controller.reset()
                         # -------------------------------------------------------------------------------------------- #
-                        # (2) recon : recon_latent
+                        # (3) recon : recon_latent
+                        #network.restore()
                         for k in raw_state_dict_orig.keys():
                             raw_state_dict[k] = raw_state_dict_orig[k]
                         network.load_state_dict(raw_state_dict)
+                        #network.apply_to(text_encoder, unet, True, True)
                         for k in anomal_detecting_state_dict.keys():
                             raw_state_dict[k] = anomal_detecting_state_dict[k]
                         network.load_state_dict(raw_state_dict)
@@ -194,9 +200,12 @@ def main(args) :
 
                         #tiff_anomaly_mask_save_dir = os.path.join(evaluate_class_dir, f'{name}.tiff')
                         #anomaly_score_pil.save(tiff_anomaly_mask_save_dir)
+                        #network.restore()
                         for k in raw_state_dict_orig.keys():
                             raw_state_dict[k] = raw_state_dict_orig[k]
                         network.load_state_dict(raw_state_dict)
+                        #network.apply_to(text_encoder, unet, True, True)
+
             break
             
         del network
