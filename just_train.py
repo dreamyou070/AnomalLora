@@ -59,6 +59,8 @@ def main(args) :
     print(f' (2.1) stable diffusion model')
     tokenizer = load_tokenizer(args)
     text_encoder, vae, unet = load_SD_model(args)
+
+
     vae_scale_factor = 0.18215
     noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
                                     num_train_timesteps=1000, clip_sample=False)
@@ -99,13 +101,18 @@ def main(args) :
                               log_with=args.log_with,
                               project_dir=args.logging_dir,)
     is_main_process = accelerator.is_main_process
+
     vae.requires_grad_(False)
-    vae.to(dtype=weight_dtype)
-    vae.to(accelerator.device)
+    vae.eval()
+    vae.to(accelerator.device, dtype=weight_dtype)
+
     unet.requires_grad_(False)
+    unet.to(dtype=weight_dtype)
+
     text_encoder.requires_grad_(False)
+    text_encoder.to(dtype=weight_dtype)
+
     print(f' (6.2) network with stable diffusion model')
-    network.prepare_grad_etc(text_encoder, unet)
     network.apply_to(text_encoder, unet, True, True)
     if args.network_weights is not None:
         network.load_weights(args.network_weights)
@@ -120,6 +127,17 @@ def main(args) :
         text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
                                                                                  optimizer, dataloader, lr_scheduler)
         unet.to(accelerator.device,dtype=weight_dtype)
+    from model.diffusion_model import transform_models_if_DDP
+    text_encoders = transform_models_if_DDP([text_encoder])
+    unet, network = transform_models_if_DDP([unet, network])
+    unet.eval()
+    for text_encoder in text_encoders:
+        text_encoder.eval()
+    del text_encoders
+    network.prepare_grad_etc(text_encoder, unet)
+    vae.requires_grad_(False)
+    vae.eval()
+    vae.to(accelerator.device, dtype=weight_dtype)
 
     print(f'\n step 7. Train!')
     train_steps = args.num_epochs * len(dataloader)
@@ -151,6 +169,8 @@ def main(args) :
                 task_loss = task_loss.mean([1, 2, 3])
                 task_loss = task_loss.mean()
                 task_loss = task_loss * args.task_loss_weight
+
+
 
 
             loss += task_loss
@@ -221,8 +241,10 @@ if __name__ == '__main__':
     # step 6
     parser.add_argument('--train_unet', action='store_true')
     parser.add_argument('--train_text_encoder', action='store_true')
-    parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"],)
-    parser.add_argument("--save_precision",type=str,default=None,choices=[None, "float", "fp16", "bf16"],)
+    parser.add_argument("--mixed_precision", type=str, default="no",
+                        choices=["no", "fp16", "bf16"],)
+    parser.add_argument("--save_precision",  type=str,  default=None,
+                         choices=[None, "float", "fp16", "bf16"],)
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1,)
     parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
 

@@ -17,7 +17,7 @@ def load_SD_model(args):
     converted_unet_checkpoint = convert_ldm_unet_checkpoint(state_dict, unet_config)
     unet = UNet2DConditionModel(**unet_config)
     info = unet.load_state_dict(converted_unet_checkpoint)
-
+    print("loading u-net:", info)
     # [2] vae
     vae_config = create_vae_diffusers_config()
     converted_vae_checkpoint = convert_ldm_vae_checkpoint(state_dict, vae_config)
@@ -37,3 +37,7 @@ def load_SD_model(args):
     info = text_model.load_state_dict(converted_text_encoder_checkpoint)
 
     return text_model, vae, unet
+
+def transform_models_if_DDP(models):
+    from torch.nn.parallel import DistributedDataParallel as DDP
+    return [model.module if type(model) == DDP else model for model in models if model is not None]
