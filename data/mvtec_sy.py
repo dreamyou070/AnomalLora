@@ -181,8 +181,6 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [4] caption
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
 
-        #images = []
-        #images = torch.stack(images).to(memory_format=torch.contiguous_format).float()
         # [5] return
         sample = {'image': self.transform(img),
                   "object_mask": object_mask.unsqueeze(0),  # [1, 64, 64]
