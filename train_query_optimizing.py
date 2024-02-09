@@ -383,7 +383,7 @@ def main(args):
 
             loss_dict['query_loss'] = loss.item()
             loss_dict['dist_loss'] = dist_loss.item()
-            loss_dict['attn_loss'] = attn_loss.item()
+            loss_dict['attn_loss'] = attn_loss.mean().item()
 
             if epoch == args.start_epoch :
                 loss_list.append(current_loss)
