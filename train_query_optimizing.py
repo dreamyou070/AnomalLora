@@ -91,8 +91,7 @@ def main(args):
 
     print(f' step 6. dataloader')
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
-    print(f'len(train_dataloader): {len(train_dataloader)}')
-    
+
     print(f'\n step 7. lr')
     lr_scheduler = get_scheduler_fix(args, optimizer, accelerator.num_processes)
 
@@ -170,13 +169,12 @@ def main(args):
             noise, noisy_latents, timesteps = get_noise_noisy_latents_one_time(args, noise_scheduler, latents)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=None).sample
             query_dict = controller.query_dict
-            print(f'key of query_dict: {query_dict.keys()}')
             controller.reset()
             query = query_dict[args.trg_layer_list[0]][0].squeeze() # pix_num, dim
             query_list.append(query)
     optimal_query = torch.stack(query_list, dim=0).mean(dim=0)
 
-    """
+
     print(f'\n step 9. training')
     args.save_every_n_epochs = 1
 
@@ -211,21 +209,18 @@ def main(args):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
                 enc_out = text_encoder(input_ids)  # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
-
-            if args.do_task_loss:
-                with torch.no_grad():
-                    latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
-                    latents = latents * vae_scale_factor  # [1,4,64,64]
-                noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,latents)
-                with accelerator.autocast():
-                    noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states,
-                                      trg_layer_list=args.trg_layer_list, noise_type=None).sample
-                target = noise
-                task_loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
-                task_loss = task_loss.mean([1, 2, 3])
-                task_loss = task_loss.mean()
-                task_loss = task_loss * args.task_loss_weight
-
+            with torch.no_grad():
+                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
+                latents = latents * vae_scale_factor  # [1,4,64,64]
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_one_time(args, noise_scheduler,latents)
+            with accelerator.autocast():
+                unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=None).sample
+                query = controller.query_dict[args.trg_layer_list[0]][0].squeeze()  # pix_num, dim
+                controller.reset()
+                query_loss = torch.nn.functional.mse_loss(query.float(), optimal_query.float(), reduction="none")
+                query_loss = query_loss.mean()
+                loss = query_loss
+            """ 
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = anomal_latents * vae_scale_factor
@@ -368,21 +363,10 @@ def main(args):
                     if args.background_with_normal:
                         attn_loss += args.background_weight * background_cls_loss
                         normal_loss += background_cls_loss
-
+            """
             # --------------------------------------------- 4. total loss --------------------------------------------- #
-            if args.do_task_loss:
-                loss += task_loss
-                loss_dict['task_loss'] = task_loss.item()
-            if args.do_dist_loss:
-                loss += dist_loss
-                loss_dict['dist_loss'] = dist_loss.item()
-            if args.do_attn_loss:
-                loss += attn_loss.mean()
-                loss_dict['attn_loss'] = attn_loss.mean().item()
-                loss_dict['normal_loss'] = normal_loss.mean().item()
-                loss_dict['anomal_loss'] = anomal_loss.mean().item()
-
             current_loss = loss.detach().item()
+            loss_dict['query_loss'] = loss.item()
             if epoch == args.start_epoch :
                 loss_list.append(current_loss)
             else:
@@ -391,7 +375,6 @@ def main(args):
             epoch_loss_total += current_loss
             avr_loss = epoch_loss_total / len(loss_list)
             loss_dict['avr_loss'] = avr_loss
-
             accelerator.backward(loss)
             optimizer.step()
             lr_scheduler.step()
@@ -409,13 +392,12 @@ def main(args):
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
         accelerator.wait_for_everyone()
         if args.save_every_n_epochs is not None:
-            saving = (epoch + 1) % args.save_every_n_epochs == 0 and (
-                        epoch + 1) < args.start_epoch + args.max_train_epochs
+            saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < args.start_epoch + args.max_train_epochs
             if is_main_process and saving:
                 ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
                 save_model(args, ckpt_name, accelerator.unwrap_model(network), save_dtype)
     accelerator.end_training()
-    """
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
