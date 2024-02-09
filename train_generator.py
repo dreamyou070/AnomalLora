@@ -395,11 +395,10 @@ if __name__ == "__main__":
     parser.add_argument("--trigger_word", type=str, default='teddy bear, wearing like a super hero')
     parser.add_argument("--full_fp16", action="store_true",
                         help="fp16 training including gradients / 勾配も含めてfp16で学習する")
-    parser.add_argument(
-        "--full_bf16", action="store_true", help="bf16 training including gradients / 勾配も含めてbf16で学習する"
-    )
+    parser.add_argument("--full_bf16", action="store_true", help="bf16 training including gradients")
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
+    parser.add_argument("--gradient_checkpointing", action="store_true",help="enable gradient checkpointing")
     parser.add_argument("--gen_images", action="store_true", )
     parser.add_argument("--unet_inchannels", type=int, default=9)
     parser.add_argument("--back_token_separating", action='store_true')
