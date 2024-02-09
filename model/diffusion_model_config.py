@@ -29,7 +29,7 @@ V2_UNET_PARAMS_CONTEXT_DIM = 1024
 DIFFUSERS_REF_MODEL_ID_V1 = "runwayml/stable-diffusion-v1-5"
 DIFFUSERS_REF_MODEL_ID_V2 = "stabilityai/stable-diffusion-2-1"
 
-def create_unet_diffusers_config():
+def create_unet_diffusers_config(use_linear_projection_in_v2=False):
     """
     Creates a config for the diffusers based on the config of the LDM model.
     """
