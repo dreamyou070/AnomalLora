@@ -81,7 +81,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.root_dir = root_dir
         self.resize_shape=resize_shape
 
-        if anomaly_source_path is None:
+        if anomaly_source_path is not None:
             self.anomaly_source_paths = []
             for ext in ["png", "jpg"]:
                 self.anomaly_source_paths.extend(sorted(glob.glob(anomaly_source_path + f"/*/*/*.{ext}")))
