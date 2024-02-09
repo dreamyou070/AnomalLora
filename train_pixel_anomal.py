@@ -255,19 +255,29 @@ def main(args):
 
                 normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
                 normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
+                normal_dist_max = torch.tensor(normal_mahalanobis_dists).max()
                 if len(anormal_feats) > 0:
                     anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
                     anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+                    anormal_dist_min = torch.tensor(anormal_mahalanobis_dists).min()
                 else :
                     anormal_dist_mean = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
+                    anormal_dist_min = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
 
                 if args.normal_dist_loss_squere :
                     total_dist = (normal_dist_mean)**2 + (anormal_dist_mean)**2
                 else :
                     total_dist = normal_dist_mean + anormal_dist_mean
 
+                if args.marginal_dist_loss :
+                    total_dist = (normal_dist_max + anormal_dist_min)
+
                 if args.normal_dist_loss_squere :
                     normal_dist_loss = (normal_dist_mean**2 / total_dist)
+
+                elif args.marginal_dist_loss :
+                    normal_dist_loss = normal_dist_max / total_dist
+
                 else :
                     normal_dist_loss = normal_dist_mean / total_dist
 
@@ -289,6 +299,7 @@ def main(args):
                 anormal_position = anormal_position.unsqueeze(0).repeat(head_num, 1)
                 background_position = background_position.unsqueeze(0).repeat(head_num, 1)
 
+
                 normal_cls_score = (cls_score * normal_position).mean(dim=0)  # pix_num
                 normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
                 anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
@@ -296,10 +307,12 @@ def main(args):
                 background_cls_score = (cls_score * background_position).mean(dim=0)
                 background_trigger_score = (trigger_score * background_position).mean(dim=0)
 
-                if args.back_token_separating :
-                    normal_back_score = (back_score * normal_position).mean(dim=0)
-                    anormal_back_score = (back_score * anormal_position).mean(dim=0)
-                    background_back_score = (back_score * background_position).mean(dim=0)
+                normal_cls_max_score = normal_cls_score.max()
+                normal_trigger_max_score = normal_trigger_score.max()
+                anormal_cls_max_score = anormal_cls_score.max()
+                anormal_trigger_max_score = anormal_trigger_score.max()
+                background_cls_max_score = background_cls_score.max()
+                background_trigger_max_score = background_trigger_score.max()
 
                 total_score = torch.ones_like(normal_cls_score)
 
@@ -307,16 +320,17 @@ def main(args):
                 normal_trigger_loss = (1- (normal_trigger_score / total_score)) ** 2
                 anormal_cls_loss = (1-(anormal_cls_score / total_score)) ** 2
                 anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
+                background_cls_loss = (background_cls_score / total_score) ** 2
+                background_trigger_loss = (1 - (background_trigger_score / total_score)) ** 2
 
-                if args.back_token_separating :
-                    normal_back_loss = (normal_back_score / total_score) ** 2
-                    anormal_back_loss = (anormal_back_score / total_score) ** 2
-                    background_cls_loss = (background_cls_score / total_score) ** 2
-                    background_trigger_loss = (background_trigger_score / total_score) ** 2
-                    background_back_loss = (1-(background_back_score / total_score)) ** 2
-                else :
-                    background_cls_loss = (background_cls_score / total_score) ** 2
-                    background_trigger_loss = (1 - (background_trigger_score / total_score)) ** 2
+                if args.margin_attn_loss :
+                    normal_cls_loss = normal_cls_max_score
+                    normal_trigger_loss = (1- normal_trigger_max_score)
+                    anormal_cls_loss = (1-anormal_cls_max_score)
+                    anormal_trigger_loss = anormal_trigger_max_score
+                    background_cls_loss = background_cls_max_score
+                    background_trigger_loss = (1-background_trigger_max_score)
+
 
                 normal_loss += normal_trigger_loss
                 anomal_loss += anormal_trigger_loss
@@ -325,8 +339,6 @@ def main(args):
                 if args.background_with_normal :
                     attn_loss += args.background_weight * background_trigger_loss
                     normal_loss += background_trigger_loss
-                if args.back_token_separating :
-                    attn_loss += args.background_weight * background_trigger_loss + args.background_weight * background_back_loss
 
                 if args.do_cls_train :
                     attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
@@ -335,8 +347,6 @@ def main(args):
                     if args.background_with_normal:
                         attn_loss += args.background_weight * background_cls_loss
                         normal_loss += background_cls_loss
-                    if args.back_token_separating :
-                        attn_loss += args.background_weight * background_back_loss
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
             if args.do_task_loss:
