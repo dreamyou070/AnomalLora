@@ -224,12 +224,10 @@ def main(args):
 
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
-                # -------------------------------------------------------------------------------------------------- #
-                normal_position = torch.where((object_mask == 1) & (anomal_mask == 0), 1, 0) # [64*64]
+                normal_position = torch.where((object_mask == 1) & (anomal_mask == 0), 1, 0)   # [64*64]
                 anormal_position = torch.where((object_mask == 1) & (anomal_mask == 1), 1, 0)  # [64*64]
                 object_position = normal_position + anormal_position
                 background_position = 1 - object_position
-
                 # --------------------------------------------- 2. dist loss ---------------------------------------- #
                 query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
                 pix_num = query.shape[0]
@@ -264,23 +262,15 @@ def main(args):
                     anormal_dist_mean = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
                     anormal_dist_min = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
 
-                if args.normal_dist_loss_squere :
-                    total_dist = (normal_dist_mean)**2 + (anormal_dist_mean)**2
-                else :
-                    total_dist = normal_dist_mean + anormal_dist_mean
-
                 if args.marginal_dist_loss :
-                    total_dist = (normal_dist_max + anormal_dist_min)
-
-                if args.normal_dist_loss_squere :
-                    normal_dist_loss = (normal_dist_mean**2 / total_dist)
-
-                elif args.marginal_dist_loss :
-                    normal_dist_loss = normal_dist_max / total_dist
-
+                    n_dist = normal_dist_max
                 else :
-                    normal_dist_loss = normal_dist_mean / total_dist
+                    n_dist = normal_dist_mean
 
+                a_dist = anormal_dist_mean
+                total_dist = n_dist + a_dist
+                normal_dist_loss = n_dist / total_dist
+                a_dist_loss = a_dist / total_dist
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
                 dist_loss += normal_dist_loss.requires_grad_()
 

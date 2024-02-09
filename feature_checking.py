@@ -47,7 +47,7 @@ def main(args) :
                           module_class=LoRAInfModule)
     network.apply_to(text_encoder, unet, True, True)
     from safetensors.torch import load_file
-    pretrained_lora_dir = r'/home/dreamyou070/AnomalLora/result/bagel/3_caption_bagel_1_without_taskloss_dist_loss_background_with_normal_more_anomal_srcs_anomal_detail/models/epoch-000001.safetensors'
+    pretrained_lora_dir = r'/home/dreamyou070/AnomalLora/result/bagel/train_query_optimizing/models/epoch-000013.safetensors'
     anomal_detecting_state_dict = load_file(pretrained_lora_dir)
     network.load_state_dict(anomal_detecting_state_dict, strict=False)
     network.to(accelerator.device, dtype=weight_dtype)
