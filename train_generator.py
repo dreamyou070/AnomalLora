@@ -86,7 +86,7 @@ def main(args):
     weight_dtype, save_dtype = prepare_dtype(args)
     vae_dtype = weight_dtype
     print(f' (4.1) base model')
-    model_version, text_encoder, vae, unet = load_target_model(args, weight_dtype, accelerator)
+    text_encoder, vae, unet, _ = load_target_model(args, weight_dtype, accelerator)
     text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
     print(' (4.2) lora model')
     net_kwargs = {}
