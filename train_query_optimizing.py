@@ -91,7 +91,8 @@ def main(args):
 
     print(f' step 6. dataloader')
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
-
+    print(f'len(train_dataloader): {len(train_dataloader)}')
+    
     print(f'\n step 7. lr')
     lr_scheduler = get_scheduler_fix(args, optimizer, accelerator.num_processes)
 
@@ -158,6 +159,7 @@ def main(args):
     register_attention_control(unet, controller)
 
     query_list = []
+
     for step, batch, in enumerate(train_dataloader):
         with torch.no_grad():
             input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
