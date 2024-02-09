@@ -109,34 +109,51 @@ def main(args) :
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
                               mixed_precision=args.mixed_precision,
                               log_with=args.log_with,
-                              project_dir=args.logging_dir,)
+                              project_dir=args.logging_dir, )
     is_main_process = accelerator.is_main_process
+
     vae.requires_grad_(False)
-    vae.to(dtype=weight_dtype)
-    vae.to(accelerator.device)
+    vae.eval()
+    vae.to(accelerator.device, dtype=weight_dtype)
+
     unet.requires_grad_(False)
+    unet.to(dtype=weight_dtype)
+
     text_encoder.requires_grad_(False)
+    text_encoder.to(dtype=weight_dtype)
+
     print(f' (6.2) network with stable diffusion model')
-    network.prepare_grad_etc(text_encoder, unet)
     network.apply_to(text_encoder, unet, True, True)
     if args.network_weights is not None:
         network.load_weights(args.network_weights)
     if args.train_unet and args.train_text_encoder:
         unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                                                 unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
+            unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
     elif args.train_unet:
         unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
                                                                                        dataloader, lr_scheduler)
-        text_encoder.to(accelerator.device,dtype=weight_dtype)
+        text_encoder.to(accelerator.device, dtype=weight_dtype)
     elif args.train_text_encoder:
         text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
-                                                                                 optimizer, dataloader, lr_scheduler)
-        unet.to(accelerator.device,dtype=weight_dtype)
+                                                                                               optimizer, dataloader,
+                                                                                               lr_scheduler)
+        unet.to(accelerator.device, dtype=weight_dtype)
+    from model.diffusion_model import transform_models_if_DDP
+    text_encoders = transform_models_if_DDP([text_encoder])
+    unet, network = transform_models_if_DDP([unet, network])
+    unet.eval()
+    for text_encoder in text_encoders:
+        text_encoder.eval()
+    del text_encoders
+    network.prepare_grad_etc(text_encoder, unet)
+    vae.requires_grad_(False)
+    vae.eval()
+    vae.to(accelerator.device, dtype=weight_dtype)
 
     print(f'\n step 7. Train!')
     train_steps = args.num_epochs * len(dataloader)
-    progress_bar = tqdm(range(train_steps), smoothing=0,
-                        disable=not accelerator.is_local_main_process, desc="steps")
+    progress_bar = tqdm(range(train_steps), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
+
     global_step = 0
     loss_list = []
     for epoch in range(args.start_epoch, args.num_epochs):
