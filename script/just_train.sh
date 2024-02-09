@@ -14,4 +14,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --trigger_word "${trigger_word}" \
  --obj_name "${obj_name}" \
  --train_unet --train_text_encoder \
- --do_task_loss --num_epochs 300 --start_epoch 0 --num_repeat 5 --unet_inchannels 4
+ --do_task_loss --num_epochs 300 --start_epoch 0 --num_repeat 1 --unet_inchannels 4
