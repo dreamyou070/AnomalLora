@@ -460,8 +460,7 @@ if __name__ == "__main__":
     parser.add_argument("--back_training", action="store_true", )
     parser.add_argument("--back_weight", type=float, default=1)
     parser.add_argument("--start_epoch", type=int, default=0)
-    parser.add_argument("--valid_data_dir", type=str)
-    parser.add_argument("--task_loss_weight", type=float, default=0.5)
+    
     parser.add_argument("--truncate_pad", action='store_true')
     parser.add_argument("--truncate_length", type=int, default=3)
     parser.add_argument("--anormal_sample_normal_loss", action='store_true')
