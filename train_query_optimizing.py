@@ -378,14 +378,7 @@ def main(args):
                         normal_loss += background_cls_loss
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
-            print(f'dist_loss : {dist_loss}')
-            print(f'attn_loss : {attn_loss}')
-            print(f'query_loss : {query_loss}')
-            loss = query_loss + dist_loss.mean() + attn_loss
-
-
-
-
+            loss = query_loss + dist_loss + attn_loss.mean()
             current_loss = loss.detach().item()
 
             loss_dict['query_loss'] = loss.item()
