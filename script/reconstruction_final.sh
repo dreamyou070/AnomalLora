@@ -13,4 +13,5 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --obj_name "${obj_name}" \
  --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']" \
  --down_dim 320 \
+  --unet_inchannels 4 \
  --prompt "${caption}"
