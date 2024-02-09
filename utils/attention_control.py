@@ -36,29 +36,38 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, trg_layer_list=None, noise_type=None):
 
+            is_cross_attention = False
+            if context is not None:
+                is_cross_attention = True
+
             query = self.to_q(hidden_states)
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 controller.save_query(query, layer_name)
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
+
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
+
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
+
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
-                                                dtype=query.dtype, device=query.device), query,key.transpose(-1, -2),
-                                                beta=0, alpha=self.scale, )
+                                                         dtype=query.dtype, device=query.device), query,
+                                             key.transpose(-1, -2), beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
+
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 if back_token_separating :
                     trg_map = attention_probs[:, :, :3]
                 else :
                     trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
+
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
