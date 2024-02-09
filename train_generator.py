@@ -174,9 +174,9 @@ def main(args):
 
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.max_train_epochs}")
         network.on_epoch_start(text_encoder, unet)
-        
-        #for step, batch in enumerate(train_dataloader):
-            #on_step_start(text_encoder, unet)
+
+        for step, batch in enumerate(train_dataloader):
+            on_step_start(text_encoder, unet)
             
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=vae_dtype)).latent_dist.sample()
@@ -260,7 +260,7 @@ def main(args):
                 img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
                 gen_img.save(os.path.join(img_save_base_dir, img_filename))
                 attention_storer.reset()
-    #accelerator.end_training()
+    accelerator.end_training()
 
 
 if __name__ == "__main__":
