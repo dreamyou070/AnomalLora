@@ -304,58 +304,23 @@ if __name__ == "__main__":
                   help="Drops neurons out of training every step (0 or None is default behavior (no dropout), 1 would drop all neurons)", )
     parser.add_argument("--network_args", type=str, default=None, nargs="*",
                         help="additional argmuments for network (key=value)")
-    parser.add_argument(
-        "--lowram",
-        action="store_true",
-        help="enable low RAM optimization. e.g. load models to VRAM instead of RAM (for machines which have bigger VRAM than RAM such as Colab and Kaggle) / メインメモリが少ない環境向け最適化を有効にする。たとえばVRAMにモデルを読み込むなど（ColabやKaggleなどRAMに比べてVRAMが多い環境向け）",
-    )
-    parser.add_argument(
-        "--sample_every_n_steps", type=int, default=None,
-        help="generate sample images every N steps / 学習中のモデルで指定ステップごとにサンプル出力する"
-    )
-    parser.add_argument(
-        "--sample_every_n_epochs",
-        type=int,
-        default=None,
-        help="generate sample images every N epochs (overwrites n_steps) / 学習中のモデルで指定エポックごとにサンプル出力する（ステップ数指定を上書きします）",
-    )
+    parser.add_argument("--lowram",action="store_true",)
+    parser.add_argument("--sample_every_n_steps", type=int, default=None,
+        help="generate sample images every N steps / 学習中のモデルで指定ステップごとにサンプル出力する")
+    parser.add_argument("--sample_every_n_epochs",type=int,default=None,
+        help="generate sample images every N epochs (overwrites n_steps) / 学習中のモデルで指定エポックごとにサンプル出力する（ステップ数指定を上書きします）",)
     # step 5. optimizer
     parser.add_argument("--optimizer_type",type=str,default="AdamW",
       help="AdamW , AdamW8bit, PagedAdamW8bit, PagedAdamW32bit, Lion8bit, PagedLion8bit, Lion, SGDNesterov, SGDNesterov8bit, DAdaptation(DAdaptAdamPreprint), DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptAdanIP, DAdaptLion, DAdaptSGD, AdaFactor",)
-    parser.add_argument(
-        "--use_8bit_adam",
-        action="store_true",
-        help="use 8bit AdamW optimizer (requires bitsandbytes) / 8bit Adamオプティマイザを使う（bitsandbytesのインストールが必要）",
-    )
-    parser.add_argument(
-        "--use_lion_optimizer",
-        action="store_true",
-        help="use Lion optimizer (requires lion-pytorch) / Lionオプティマイザを使う（ lion-pytorch のインストールが必要）",
-    )
-
-    parser.add_argument("--learning_rate", type=float, default=2.0e-6, help="learning rate / 学習率")
-    parser.add_argument(
-        "--max_grad_norm", default=1.0, type=float,
-        help="Max gradient norm, 0 for no clipping / 勾配正規化の最大norm、0でclippingを行わない"
-    )
-
-    parser.add_argument(
-        "--optimizer_args",
-        type=str,
-        default=None,
-        nargs="*",
-        help='additional arguments for optimizer (like "weight_decay=0.01 betas=0.9,0.999 ...") / オプティマイザの追加引数（例： "weight_decay=0.01 betas=0.9,0.999 ..."）',
-    )
-
+    parser.add_argument("--use_8bit_adam",action="store_true",
+        help="use 8bit AdamW optimizer (requires bitsandbytes) / 8bit Adamオプティマイザを使う（bitsandbytesのインストールが必要）",)
+    parser.add_argument("--use_lion_optimizer",action="store_true",help="use Lion optimizer (requires lion-pytorch)",)
+    parser.add_argument("--max_grad_norm", default=1.0, type=float,help="Max gradient norm, 0 for no clipping")
+    parser.add_argument("--optimizer_args",type=str,default=None,nargs="*",
+        help='additional arguments for optimizer (like "weight_decay=0.01 betas=0.9,0.999 ...") / オプティマイザの追加引数（例： "weight_decay=0.01 betas=0.9,0.999 ..."）',)
     parser.add_argument("--lr_scheduler_type", type=str, default="", help="custom scheduler module / 使用するスケジューラ")
-    parser.add_argument(
-        "--lr_scheduler_args",
-        type=str,
-        default=None,
-        nargs="*",
-        help='additional arguments for scheduler (like "T_max=100") / スケジューラの追加引数（例： "T_max100"）',
-    )
-
+    parser.add_argument("--lr_scheduler_args",type=str,default=None,nargs="*",
+        help='additional arguments for scheduler (like "T_max=100") / スケジューラの追加引数（例： "T_max100"）',)
     parser.add_argument("--lr_scheduler",type=str,default="cosine_with_restarts",help="scheduler to use for learning rate")
     parser.add_argument(
         "--lr_warmup_steps",
