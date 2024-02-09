@@ -44,6 +44,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             query = self.to_q(hidden_states)
             if trg_layer_list is not None and layer_name in trg_layer_list :
+                print(f'saving query for layer {layer_name}')
                 controller.save_query(query, layer_name)
             context = context if context is not None else hidden_states
             key = self.to_k(context)
