@@ -32,6 +32,7 @@ def call_unet(args, accelerator, unet, noisy_latents, timesteps,
 
 
 def main(args):
+
     print(f'\n step 1. setting')
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
@@ -152,8 +153,6 @@ def main(args):
 
     print(f'\n step 8. training')
     args.save_every_n_epochs = 1
-    attention_storer = AttentionStore()
-    register_attention_control(unet, attention_storer)
     max_train_steps = len(train_dataloader) * args.max_train_epochs
     progress_bar = tqdm(range(max_train_steps),
                         smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
@@ -173,36 +172,33 @@ def main(args):
     loss_dict = {}
     controller = AttentionStore()
     register_attention_control(unet, controller)
-
     for epoch in range(args.start_epoch, args.start_epoch + args.max_train_epochs):
+
+        loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
         epoch_loss_total = 0.0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.max_train_epochs}")
         network.on_epoch_start(text_encoder, unet)
 
         for step, batch in enumerate(train_dataloader):
+            on_step_start(text_encoder, unet)
 
-            loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
-            # --------------------------------------------- Task Loss --------------------------------------------- #
-            with torch.set_grad_enabled(True):
-                input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
-                enc_out = text_encoder(input_ids)  # batch, 77, 768
-                encoder_hidden_states = enc_out["last_hidden_state"]
-
+            with torch.set_grad_enabled(train_text_encoder):
+                input_ids = batch["input_ids"].to(accelerator.device)  # batch, torch_num, sen_len
+                encoder_hidden_states = get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
             if args.do_task_loss:
                 with torch.no_grad():
                     latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
                     latents = latents * vae_scale_factor  # [1,4,64,64]
-
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,latents)
                 with accelerator.autocast():
-                    noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states,
-                                      trg_layer_list=args.trg_layer_list, noise_type=None).sample
-                target = noise
-                task_loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
+                    noise_pred = call_unet(args, accelerator, unet, noisy_latents, timesteps, encoder_hidden_states,
+                                           batch, weight_dtype, args.trg_layer_list, None)
+                task_loss = torch.nn.functional.mse_loss(noise_pred.float(), noise.float(), reduction="none")
                 task_loss = task_loss.mean([1, 2, 3])
                 task_loss = task_loss.mean()
                 task_loss = task_loss * args.task_loss_weight
 
+            # -------------------------------------------------------------------------------------------------- #
             query_dict = controller.query_dict
             attn_dict = controller.step_store
             controller.reset()
@@ -211,7 +207,6 @@ def main(args):
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
             object_mask_ = batch['object_mask'].squeeze() # [64,64]
             object_mask = object_mask_.flatten().squeeze() # [64*64]
-
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
                 # -------------------------------------------------------------------------------------------------- #
@@ -324,18 +319,23 @@ def main(args):
         # --------------------------------------------- 5. save model --------------------------------------------- #
         accelerator.wait_for_everyone()
         if args.save_every_n_epochs is not None:
-            saving = (epoch + 1) % args.save_every_n_epochs == 0 and (
-                        epoch + 1) < args.start_epoch + args.max_train_epochs
+            saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < args.start_epoch + args.max_train_epochs
             if is_main_process and saving:
                 ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
                 save_model(args, ckpt_name, accelerator.unwrap_model(network), save_dtype)
 
                 scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
-                scheduler = scheduler_cls(num_train_timesteps=1000, beta_start=args.scheduler_linear_start,
-                                          beta_end=args.scheduler_linear_end, beta_schedule=args.scheduler_schedule)
+                ddim_scheduler = scheduler_cls(num_train_timesteps=1000,
+                                          beta_start=args.scheduler_linear_start,
+                                          beta_end=args.scheduler_linear_end,
+                                          beta_schedule="scaled_linear",
+                                          clip_sample = False,
+                                          steps_offset = 1,)
+                ddim_scheduler.config.clip_sample = False
                 pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder,
                                                                    tokenizer=tokenizer,
-                                                                   unet=unet, scheduler=scheduler, safety_checker=None,
+                                                                   unet=unet, scheduler=ddim_scheduler,
+                                                                   safety_checker=None,
                                                                    feature_extractor=None,
                                                                    requires_safety_checker=False,
                                                                    random_vector_generator=None,
@@ -343,8 +343,11 @@ def main(args):
                 guidance_scales = [1, 3, 7.5]
                 for guidance_scale in guidance_scales:
                     latents = pipeline(prompt=args.trigger_word,
-                                       height=512, width=512, num_inference_steps=args.num_ddim_steps,
-                                       guidance_scale=guidance_scale, negative_prompt=args.negative_prompt, )
+                                       height=512,
+                                       width=512,
+                                       num_inference_steps=args.num_ddim_steps,
+                                       guidance_scale=guidance_scale,
+                                       negative_prompt=args.negative_prompt, )
                     gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
                     img_save_base_dir = args.output_dir + "/sample"
                     os.makedirs(img_save_base_dir, exist_ok=True)
@@ -352,8 +355,9 @@ def main(args):
                     num_suffix = f"e{epoch:06d}"
                     img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}_guidance_{guidance_scale}.png")
                     gen_img.save(os.path.join(img_save_base_dir, img_filename))
-                    attention_storer.reset()
+                    controller.reset()
     accelerator.end_training()
+    del controller
 
 
 if __name__ == "__main__":

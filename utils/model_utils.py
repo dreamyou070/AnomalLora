@@ -1,7 +1,8 @@
 import torch
 import argparse
 
-def get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents, noise = None):
+def get_noise_noisy_latents_and_timesteps(args, noise_scheduler,
+                                          latents, noise = None):
     # Sample noise that we'll add to the latents
     if noise is None:
         noise = torch.randn_like(latents, device=latents.device)
