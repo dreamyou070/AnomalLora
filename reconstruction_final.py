@@ -14,6 +14,7 @@ from PIL import Image
 from model.lora import LoRAInfModule
 from utils.image_utils import load_image, image2latent
 import numpy as np
+from model.diffusion_model import load_target_model, transform_models_if_DDP
 
 def main(args) :
 
@@ -23,13 +24,10 @@ def main(args) :
                               mixed_precision=args.mixed_precision, log_with=args.log_with, project_dir='log')
 
     print(f'\n step 2. model')
-    tokenizer = load_tokenizer(args)
-    text_encoder, vae, unet = load_SD_model(args)
+    weight_dtype, save_dtype = prepare_dtype(args)
+    vae_dtype = weight_dtype
+    text_encoder, vae, unet, _ = load_target_model(args, weight_dtype, accelerator)
     text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
-    unet.requires_grad_(False)
-    unet.to(dtype=weight_dtype)
-    for text_encoder in text_encoders:
-        text_encoder.requires_grad_(False)
 
     print(f'\n step 2. accelerator and device')
     vae.requires_grad_(False)
