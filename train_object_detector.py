@@ -460,7 +460,7 @@ if __name__ == "__main__":
     parser.add_argument("--back_training", action="store_true", )
     parser.add_argument("--back_weight", type=float, default=1)
     parser.add_argument("--start_epoch", type=int, default=0)
-    
+
     parser.add_argument("--truncate_pad", action='store_true')
     parser.add_argument("--truncate_length", type=int, default=3)
     parser.add_argument("--anormal_sample_normal_loss", action='store_true')
@@ -473,6 +473,9 @@ if __name__ == "__main__":
 
     parser.add_argument("--do_attn_loss", action='store_true')
     parser.add_argument("--attn_loss_weight", type=float, default=1.0)
+    parser.add_argument("--anormal_weight", type=float, default=1.0)
+    parser.add_argument("--normal_weight", type=float, default=1.0)
+
     parser.add_argument("--do_cls_train", action='store_true')
 
     parser.add_argument('--normal_weight', type=float, default=1.0)

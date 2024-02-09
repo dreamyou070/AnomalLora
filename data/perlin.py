@@ -51,7 +51,6 @@ def rand_perlin_2d_np(shape, res, fade=lambda t: 6 * t ** 5 - 15 * t ** 4 + 10 *
     angles = 2 * math.pi * np.random.rand(res[0] + 1, res[1] + 1)
     gradients = np.stack((np.cos(angles), np.sin(angles)), axis=-1)
     tt = np.repeat(np.repeat(gradients,d[0],axis=0),d[1],axis=1)
-
     tile_grads = lambda slice1, slice2: np.repeat(np.repeat(gradients[slice1[0]:slice1[1], slice2[0]:slice2[1]],d[0],axis=0),d[1],axis=1)
     dot = lambda grad, shift: (
                 np.stack((grid[:shape[0], :shape[1], 0] + shift[0], grid[:shape[0], :shape[1], 1] + shift[1]),
