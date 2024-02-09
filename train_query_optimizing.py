@@ -168,8 +168,9 @@ def main(args):
             noise, noisy_latents, timesteps = get_noise_noisy_latents_one_time(args, noise_scheduler, latents)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=None).sample
             query_dict = controller.query_dict
+            print(f'key of query_dict: {query_dict.keys()}')
             controller.reset()
-            query = query_dict[args.trg_layer_list[0]][0].squeeze # pix_num, dim
+            query = query_dict[args.trg_layer_list[0]][0].squeeze() # pix_num, dim
             query_list.append(query)
     optimal_query = torch.stack(query_list, dim=0).mean(dim=0)
 
