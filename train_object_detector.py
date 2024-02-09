@@ -335,8 +335,13 @@ if __name__ == '__main__':
     # step 6
     parser.add_argument('--train_unet', action='store_true')
     parser.add_argument('--train_text_encoder', action='store_true')
-    parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"],)
-    parser.add_argument("--save_precision",type=str,default=None,choices=[None, "float", "fp16", "bf16"],)
+    parser.add_argument("--mixed_precision", type=str, default="no",
+                        choices=["no", "fp16", "bf16"],)
+    parser.add_argument("--save_precision",  type=str,  default=None,
+                         choices=[None, "float", "fp16", "bf16"],)
+    parser.add_argument("--full_fp16", action="store_true", help="fp16 training including gradients")
+    parser.add_argument("--full_bf16", action="store_true", help="bf16 training including gradients")
+    parser.add_argument("--gradient_checkpointing", action="store_true",help="enable gradient checkpointing")
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1,)
     parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
 
@@ -377,16 +382,13 @@ if __name__ == '__main__':
     parser.add_argument("--trg_layer_list", type=arg_as_list, )
     parser.add_argument("--save_model_as",type=str,default="safetensors",
                         choices=[None, "ckpt", "safetensors", "diffusers", "diffusers_safetensors"],)
+    parser.add_argument("--output_name", type=str, default=None,
+                        help="base name of trained model file / 学習後のモデルの拡張子を除くファイル名")
     parser.add_argument("--general_training", action='store_true')
-    parser.add_argument("--trigger_word", type=str, default="good")
-    parser.add_argument("--unet_inchannels", type=int, default=9)
-    parser.add_argument("--back_token_separating", action='store_true')
-    parser.add_argument("--more_generalize", action='store_true')
-    parser.add_argument("--down_dim", type=int)
+    parser.add_argument("--trigger_word", type = str, default = "good")
+    parser.add_argument("--unet_inchannels", type=int, default=4)
     args = parser.parse_args()
     from model.unet import unet_passing_argument
-    from utils.attention_control import passing_argument
     unet_passing_argument(args)
-    passing_argument(args)
     args = parser.parse_args()
     main(args)
