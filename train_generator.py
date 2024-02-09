@@ -102,7 +102,7 @@ def main(args):
                              unet,
                              neuron_dropout=args.network_dropout,
                              **net_kwargs, )
-    train_unet, train_text_encpder = args.train_unet, args.train_text_encpder
+    train_unet, train_text_encoder = args.train_unet, args.train_text_encpder
     network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
     if args.network_weights is not None:
         info = network.load_weights(args.network_weights)
@@ -176,9 +176,8 @@ def main(args):
 
     print(f'\n step 8. training')
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
-    num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
     if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
-        args.save_every_n_epochs = math.floor(num_train_epochs / args.save_n_epoch_ratio) or 1
+        args.save_every_n_epochs = math.floor(args.num_epochs / args.save_n_epoch_ratio) or 1
     attention_storer = AttentionStore()
     register_attention_control(unet, attention_storer)
 
@@ -201,9 +200,9 @@ def main(args):
 
     loss_dict = {}
 
-    for epoch in range(args.start_epoch, args.start_epoch + num_train_epochs):
+    for epoch in range(args.start_epoch, args.start_epoch + args.num_epochs):
 
-        accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + num_train_epochs}")
+        accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
         network.on_epoch_start(text_encoder, unet)
 
         for step, batch in enumerate(train_dataloader):
@@ -266,7 +265,7 @@ def main(args):
         accelerator.wait_for_everyone()
         if args.save_every_n_epochs is not None:
             saving = (epoch + 1) % args.save_every_n_epochs == 0 and (
-                    epoch + 1) < args.start_epoch + num_train_epochs
+                    epoch + 1) < args.start_epoch + args.num_epochs
             if is_main_process and saving:
                 ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
                 save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
@@ -280,8 +279,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # step 1. setting
-    parser.add_argument("--output_dir", type=str, default='')
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--output_dir', type=str, default='output')
+    parser.add_argument('--wandb_api_key', type=str, default='output')
+    parser.add_argument('--wandb_project_name', type=str, default='bagel')
     # step 2. dataset
     parser.add_argument('--data_path', type=str, default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
     parser.add_argument('--obj_name', type=str, default='bottle')
@@ -315,8 +316,6 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate', type=float, default=1e-5)
     parser.add_argument('--train_unet', action='store_true')
     parser.add_argument('--train_text_encoder', action='store_true')
-
-
     parser.add_argument("--scheduler_linear_start", type=float, default=0.00085)
     parser.add_argument("--scheduler_linear_end", type=float, default=0.012)
     parser.add_argument("--scheduler_timesteps", type=int, default=1000)
@@ -356,8 +355,7 @@ if __name__ == "__main__":
     parser.add_argument("--do_attn_loss", action='store_true')
     parser.add_argument("--attn_loss_weight", type=float, default=1.0)
     parser.add_argument('--normal_weight', type=float, default=1.0)
-    parser.add_argument("--act_deact", action='store_true')
-    parser.add_argument("--act_deact_weight", type=float, default=1.0)
+    parser.add_argument('--num_epochs', type=int)
     parser.add_argument("--normal_with_back", action = 'store_true')
     import ast
     def arg_as_list(arg):
