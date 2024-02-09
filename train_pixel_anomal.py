@@ -323,7 +323,7 @@ def main(args):
                 background_cls_loss = (background_cls_score / total_score) ** 2
                 background_trigger_loss = (1 - (background_trigger_score / total_score)) ** 2
 
-                if args.margin_attn_loss :
+                if args.marginal_attn_loss :
                     normal_cls_loss = normal_cls_max_score
                     normal_trigger_loss = (1- normal_trigger_max_score)
                     anormal_cls_loss = (1-anormal_cls_max_score)
@@ -355,8 +355,6 @@ def main(args):
             if args.do_dist_loss:
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
-                #loss_dict['normal_dist_loss'] = normal_dist_loss.item()
-                #loss_dict['anormal_dist_loss'] = anormal_dist_loss.item()
             if args.do_attn_loss:
                 loss += attn_loss.mean()
                 loss_dict['attn_loss'] = attn_loss.mean().item()
@@ -522,6 +520,9 @@ if __name__ == "__main__":
     parser.add_argument("--normal_dist_loss_squere", action='store_true')
     parser.add_argument("--background_with_normal", action='store_true')
     parser.add_argument("--background_weight", type=float, default=1)
+    parser.add_argument("--marginal_dist_loss", action='store_true')
+    parser.add_argument("--marginal_attn_loss", type=float, default=1.0)
+
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
