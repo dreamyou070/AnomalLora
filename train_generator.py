@@ -194,8 +194,9 @@ def main(args):
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.max_train_epochs}")
         network.on_epoch_start(text_encoder, unet)
 
-        for step, batch in enumerate(train_dataloader):
-            on_step_start(text_encoder, unet)
+        #for step, batch in enumerate(train_dataloader):
+            #on_step_start(text_encoder, unet)
+            """
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=vae_dtype)).latent_dist.sample()
                 if torch.any(torch.isnan(latents)):
@@ -251,16 +252,18 @@ def main(args):
                 progress_bar.set_postfix(**loss_dict)
             if global_step >= args.max_train_steps:
                 break
+            """
         accelerator.wait_for_everyone()
         if args.save_every_n_epochs is not None:
-            saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < args.start_epoch + args.num_epochs
+            saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < args.start_epoch + args.max_train_epochs
             if is_main_process and saving:
                 ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
                 save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
         sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet,
-                      prompt = batch['caption'])
+                      #prompt = batch['caption'])
+                      prompt = 'bagel')
         attention_storer.reset()
-    accelerator.end_training()
+    #accelerator.end_training()
 
 
 if __name__ == "__main__":
