@@ -16,7 +16,6 @@ def save_model(args, ckpt_name, unwrapped_nw, save_dtype):
     save_model_base_dir = os.path.join(args.output_dir, "models")
     os.makedirs(save_model_base_dir, exist_ok=True)
     ckpt_file = os.path.join(save_model_base_dir, ckpt_name)
-
     metadata = {}
     unwrapped_nw.save_weights(ckpt_file, save_dtype, metadata)
 
