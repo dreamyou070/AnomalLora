@@ -94,6 +94,7 @@ def main(args):
     query_list = []
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
     text_encoder, unet, vae = text_encoder.to(accelerator.device), unet.to(accelerator.device), vae.to(accelerator.device)
+    network = network.to(accelerator.device)
 
     for step, batch, in enumerate(train_dataloader):
         with torch.no_grad():
