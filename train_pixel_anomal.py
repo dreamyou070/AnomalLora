@@ -286,12 +286,9 @@ def main(args):
 
                 # ----------------------------------------- 3. attn loss --------------------------------------------- #
                 attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
-                if args.back_token_separating :
-                    cls_score, trigger_score, back_score  = attention_score.chunk(3, dim=-1)
-                    cls_score, trigger_score, back_score = cls_score.squeeze(), trigger_score.squeeze(), back_score.squeeze()  # head, pix_num
-                else :
-                    cls_score, trigger_score = attention_score.chunk(2, dim=-1)
-                    cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+
+                cls_score, trigger_score = attention_score.chunk(2, dim=-1)
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
 
                 # (1) get position
                 head_num = cls_score.shape[0]
@@ -300,7 +297,7 @@ def main(args):
                 background_position = background_position.unsqueeze(0).repeat(head_num, 1)
 
 
-                normal_cls_score = (cls_score * normal_position).mean(dim=0)  # pix_num
+                normal_cls_score = (cls_score * normal_position).mean(dim=0)  # (head, pix_num) *
                 normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
                 anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
                 anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
