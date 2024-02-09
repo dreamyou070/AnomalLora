@@ -241,28 +241,26 @@ def main(args):
                 ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
                 save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
 
-        scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
-        scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
-                                  beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
-                                  beta_schedule=args.scheduler_schedule)
-        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
-                                                           unet=unet, scheduler=scheduler, safety_checker=None,
-                                                           feature_extractor=None,
-                                                           requires_safety_checker=False, random_vector_generator=None,
-                                                           trg_layer_list=None)
-        latents = pipeline(prompt=args.trigger_word,
-                           height=512, width=512, num_inference_steps=args.num_ddim_steps,
-                           guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
-        gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
-        img_save_base_dir = args.output_dir + "/sample"
-        os.makedirs(img_save_base_dir, exist_ok=True)
-        ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
-        num_suffix = f"e{epoch:06d}"
-        img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
-        gen_img.save(os.path.join(img_save_base_dir, img_filename))
-
-
-        attention_storer.reset()
+                scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
+                scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
+                                          beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
+                                          beta_schedule=args.scheduler_schedule)
+                pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
+                                                                   unet=unet, scheduler=scheduler, safety_checker=None,
+                                                                   feature_extractor=None,
+                                                                   requires_safety_checker=False, random_vector_generator=None,
+                                                                   trg_layer_list=None)
+                latents = pipeline(prompt=args.trigger_word,
+                                   height=512, width=512, num_inference_steps=args.num_ddim_steps,
+                                   guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
+                gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
+                img_save_base_dir = args.output_dir + "/sample"
+                os.makedirs(img_save_base_dir, exist_ok=True)
+                ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+                num_suffix = f"e{epoch:06d}"
+                img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
+                gen_img.save(os.path.join(img_save_base_dir, img_filename))
+                attention_storer.reset()
     #accelerator.end_training()
 
 
@@ -335,7 +333,27 @@ if __name__ == "__main__":
     parser.add_argument("--scheduler_linear_start", type=float, default=0.00085)
     parser.add_argument("--scheduler_linear_end", type=float, default=0.012)
     parser.add_argument("--scheduler_timesteps", type=int, default=1000)
-    parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear")
+
+    # step 7. inference check
+    parser.add_argument("--sample_sampler", type=str, default="ddim",
+                        choices=["ddim", "pndm", "lms", "euler", "euler_a", "heun", "dpm_2", "dpm_2_a", "dpmsolver",
+                                 "dpmsolver++", "dpmsingle", "k_lms", "k_euler", "k_euler_a", "k_dpm_2",
+                                 "k_dpm_2_a", ], )
+    parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear",
+                        choices=["scaled_linear", "linear", "cosine", "cosine_warmup", ], )
+    parser.add_argument("--prompt", type=str, default="bagel", )
+    parser.add_argument("--num_ddim_steps", type=int, default=30)
+    parser.add_argument("--guidance_scale", type=float, default=8.5)
+    parser.add_argument("--negative_prompt", type=str,
+                        default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
+    parser.add_argument("--anomal_only_on_object", action='store_true')
+    parser.add_argument("--normal_dist_loss_squere", action='store_true')
+    parser.add_argument("--background_with_normal", action='store_true')
+    parser.add_argument("--background_weight", type=float, default=1)
+
+
+
+
     parser.add_argument("--output_name", type=str, default=None, help="base name of trained model file ")
     parser.add_argument("--save_model_as", type=str, default="safetensors",
                         choices=[None, "ckpt", "pt", "safetensors"],
