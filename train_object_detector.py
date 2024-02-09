@@ -1,46 +1,22 @@
 import os
 import argparse, torch
-from model.diffusion_model import load_SD_model
+from model.diffusion_model import load_SD_model, transform_models_if_DDP
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
-from model.segmentation_model import SegmentationSubNetwork
 from data.mvtec_sy import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
 from diffusers import DDPMScheduler
 from accelerate import Accelerator
 from utils import prepare_dtype
 from utils.model_utils import get_noise_noisy_latents_and_timesteps
-from attention_store import AttentionStore
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
-from tqdm import tqdm
+from attention_store import AttentionStore
 from utils.attention_control import register_attention_control
 from utils import get_epoch_ckpt_name, save_model
 import time
 import json
-from torch import nn
-import einops
-import torch.nn.functional as F
-class BinaryFocalLoss(nn.Module):
-    def __init__(self, alpha=0.5, gamma=4, logits=False, reduce=True):
-        super(BinaryFocalLoss, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.logits = logits
-        self.reduce = reduce
-
-    def forward(self, inputs, targets):
-        if self.logits:
-            BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
-        else:
-            BCE_loss = F.binary_cross_entropy(inputs, targets, reduction='none')
-        pt = torch.exp(-BCE_loss)
-        F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
-
-        if self.reduce:
-            return torch.mean(F_loss)
-        else:
-            return F_loss
+from tqdm import tqdm
 
 def main(args) :
 
@@ -59,28 +35,18 @@ def main(args) :
     print(f' (2.1) stable diffusion model')
     tokenizer = load_tokenizer(args)
     text_encoder, vae, unet = load_SD_model(args)
+    text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
     vae_scale_factor = 0.18215
     noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
                                     num_train_timesteps=1000, clip_sample=False)
     print(f' (2.2) LoRA network')
-    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
-    print(f' (2.3) segmentation model')
-    #seg_model = SegmentationSubNetwork(in_channels=8, out_channels=1,)
-
-    print(f' (2.2) attn controller')
-    controller = AttentionStore()
-    register_attention_control(unet, controller)
+    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha)
+    network.apply_to(text_encoder, unet, args.train_unet, args.train_text_encoder)
 
     print(f'\n step 3. optimizer')
     print(f' (3.1) lora optimizer')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     optimizer = torch.optim.AdamW(trainable_params, lr=args.learning_rate)
-    print(f' (3.2) seg optimizer')
-    #segmentation_trainable_params = [{"params": seg_model.parameters(), "lr": args.seg_lr},]
-    #optimizer_seg = torch.optim.AdamW(segmentation_trainable_params)
-    #loss_focal = BinaryFocalLoss()
-    #loss_smL1 = nn.SmoothL1Loss()
-
 
     print(f'\n step 4. dataset and dataloader')
     obj_dir = os.path.join(args.data_path, args.obj_name)
@@ -91,76 +57,86 @@ def main(args) :
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
-                                     caption = args.trigger_word,
-                                     use_perlin = True,
-                                     num_repeat = args.num_repeat,
-                                     anomal_only_on_object = args.anomal_only_on_object)
+                                     caption=args.trigger_word,
+                                     use_perlin=True,
+                                     num_repeat=args.num_repeat,
+                                     anomal_only_on_object=args.anomal_only_on_object)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     print(f'\n step 5. lr')
     schedule_func = TYPE_TO_SCHEDULER_FUNCTION[SchedulerType.COSINE_WITH_RESTARTS]
     num_training_steps = len(dataloader) * args.num_epochs
-    num_cycles = args.lr_scheduler_num_cycles
     lr_scheduler = schedule_func(optimizer, num_warmup_steps=args.num_warmup_steps,
-                                 num_training_steps=num_training_steps, num_cycles=num_cycles, )
+                                 num_training_steps=num_training_steps, num_cycles=args.lr_scheduler_num_cycles)
 
     print(f'\n step 6. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
-                              mixed_precision=args.mixed_precision,
-                              log_with=args.log_with,
+                              mixed_precision=args.mixed_precision, log_with=args.log_with,
                               project_dir=args.logging_dir, )
     is_main_process = accelerator.is_main_process
-
-    vae.requires_grad_(False)
-    vae.eval()
-    vae.to(accelerator.device, dtype=weight_dtype)
+    if args.full_fp16:
+        assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16'"
+        accelerator.print("enable full fp16 training.")
+        network.to(weight_dtype)
+    elif args.full_bf16:
+        assert (args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / mixed_precision='bf16'"
+        accelerator.print("enable full bf16 training.")
+        network.to(weight_dtype)
 
     unet.requires_grad_(False)
     unet.to(dtype=weight_dtype)
-
-    text_encoder.requires_grad_(False)
-    text_encoder.to(dtype=weight_dtype)
-
-    print(f' (6.2) network with stable diffusion model')
-    network.apply_to(text_encoder, unet, True, True)
-    if args.network_weights is not None:
-        network.load_weights(args.network_weights)
-    if args.train_unet and args.train_text_encoder:
-        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
-    elif args.train_unet:
-        unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
-                                                                                       dataloader, lr_scheduler)
-        text_encoder.to(accelerator.device, dtype=weight_dtype)
-    elif args.train_text_encoder:
-        text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
-                                                                                               optimizer, dataloader,
-                                                                                               lr_scheduler)
-        unet.to(accelerator.device, dtype=weight_dtype)
-    from model.diffusion_model import transform_models_if_DDP
-    text_encoders = transform_models_if_DDP([text_encoder])
-    unet, network = transform_models_if_DDP([unet, network])
-    unet.eval()
     for text_encoder in text_encoders:
-        text_encoder.eval()
-    del text_encoders
+        text_encoder.requires_grad_(False)
+
+    print(f'\n step 7. training preparing')
+    if args.train_unet and args.train_text_encoder:
+        unet, text_encoder, network, optimizer, dataloader, lr_scheduler = accelerator.prepare(
+            unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
+        text_encoders = [text_encoder]
+    elif args.train_unet:
+        unet, network, optimizer, dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer, dataloader,
+                                                                                 lr_scheduler)
+        text_encoder.to(accelerator.device)
+    elif args.train_text_encoder:
+        text_encoder, network, optimizer, dataloader, lr_scheduler = accelerator.prepare(
+            text_encoder, network, optimizer, dataloader, lr_scheduler)
+        text_encoders = [text_encoder]
+        unet.to(accelerator.device, dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
+    else:
+        network, optimizer, dataloader, lr_scheduler = accelerator.prepare(network, optimizer, dataloader, lr_scheduler)
+    text_encoders = transform_models_if_DDP(text_encoders)
+    unet, network = transform_models_if_DDP([unet, network])
+    if args.gradient_checkpointing:
+        unet.train()
+        for text_encoder in text_encoders:
+            text_encoder.train()
+            if args.train_text_encoder:
+                text_encoder.text_model.embeddings.requires_grad_(True)
+        if not args.train_text_encoder:  # train U-Net only
+            unet.parameters().__next__().requires_grad_(True)
+    else:
+        unet.eval()
+        for text_encoder in text_encoders:
+            text_encoder.eval()
     network.prepare_grad_etc(text_encoder, unet)
     vae.requires_grad_(False)
     vae.eval()
     vae.to(accelerator.device, dtype=weight_dtype)
 
-    print(f'\n step 7. Train!')
+    print(f'\n step . Object Detecting Train')
+    controller = AttentionStore()
+    register_attention_control(unet, controller)
     train_steps = args.num_epochs * len(dataloader)
     progress_bar = tqdm(range(train_steps), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
-
     global_step = 0
     loss_list = []
+
     for epoch in range(args.start_epoch, args.num_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
 
-        for step, batch in enumerate(train_dataloader):
+        for step, batch in enumerate(dataloader):
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
             # --------------------------------------------- Task Loss --------------------------------------------- #
             with torch.set_grad_enabled(True):
@@ -273,16 +249,11 @@ def main(args) :
             if args.do_dist_loss:
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
-                #loss_dict['normal_dist_loss'] = normal_dist_loss.item()
-                #loss_dict['anormal_dist_loss'] = anormal_dist_loss.item()
             if args.do_attn_loss:
                 loss += attn_loss.mean()
                 loss_dict['attn_loss'] = attn_loss.mean().item()
                 loss_dict['normal_loss'] = normal_loss.mean().item()
                 loss_dict['anomal_loss'] = anomal_loss.mean().item()
-            #if args.do_seg_loss:
-            #    loss += segmentation_loss
-            #    loss_dict['seg_loss'] = segmentation_loss.item()
 
             current_loss = loss.detach().item()
             if epoch == args.start_epoch :
@@ -298,8 +269,6 @@ def main(args) :
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad(set_to_none=True)
-            ### 4.1 logging
-            #accelerator.log(loss_dict, step=global_step)
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
@@ -309,13 +278,11 @@ def main(args) :
             if global_step >= args.max_train_steps:
                 break
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
-
         accelerator.wait_for_everyone()
         ### 4.2 sampling
         if is_main_process :
             ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
-            unwrapped_nw = accelerator.unwrap_model(network)
-            save_model(args, ckpt_name, unwrapped_nw, save_dtype)
+            save_model(args, ckpt_name, accelerator.unwrap_model(network), save_dtype)
             scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
             scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
                                       beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
@@ -334,7 +301,7 @@ def main(args) :
             img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
             gen_img.save(os.path.join(img_save_base_dir,img_filename))
             controller.reset()
-        accelerator.end_training()
+    accelerator.end_training()
 
 
 if __name__ == '__main__':
