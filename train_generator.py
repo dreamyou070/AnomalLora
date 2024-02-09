@@ -249,17 +249,19 @@ def main(args):
                                                                    feature_extractor=None,
                                                                    requires_safety_checker=False, random_vector_generator=None,
                                                                    trg_layer_list=None)
-                latents = pipeline(prompt=args.trigger_word,
-                                   height=512, width=512, num_inference_steps=args.num_ddim_steps,
-                                   guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
-                gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
-                img_save_base_dir = args.output_dir + "/sample"
-                os.makedirs(img_save_base_dir, exist_ok=True)
-                ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
-                num_suffix = f"e{epoch:06d}"
-                img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
-                gen_img.save(os.path.join(img_save_base_dir, img_filename))
-                attention_storer.reset()
+                guidance_scales = [1,3,7.5]
+                for guidance_scale in guidance_scales:
+                    latents = pipeline(prompt=args.trigger_word,
+                                       height=512, width=512, num_inference_steps=args.num_ddim_steps,
+                                       guidance_scale=guidance_scale, negative_prompt=args.negative_prompt, )
+                    gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
+                    img_save_base_dir = args.output_dir + "/sample"
+                    os.makedirs(img_save_base_dir, exist_ok=True)
+                    ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+                    num_suffix = f"e{epoch:06d}"
+                    img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}_guidance_{guidance_scale}.png")
+                    gen_img.save(os.path.join(img_save_base_dir, img_filename))
+                    attention_storer.reset()
     accelerator.end_training()
 
 
