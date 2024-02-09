@@ -242,9 +242,8 @@ def main(args):
                 save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
 
                 scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
-                scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
-                                          beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
-                                          beta_schedule=args.scheduler_schedule)
+                scheduler = scheduler_cls(num_train_timesteps=1000, beta_start=args.scheduler_linear_start,
+                                          beta_end=args.scheduler_linear_end, beta_schedule=args.scheduler_schedule)
                 pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
                                                                    unet=unet, scheduler=scheduler, safety_checker=None,
                                                                    feature_extractor=None,
@@ -332,8 +331,6 @@ if __name__ == "__main__":
     parser.add_argument('--train_text_encoder', action='store_true')
     parser.add_argument("--scheduler_linear_start", type=float, default=0.00085)
     parser.add_argument("--scheduler_linear_end", type=float, default=0.012)
-    parser.add_argument("--scheduler_timesteps", type=int, default=1000)
-
     # step 7. inference check
     parser.add_argument("--sample_sampler", type=str, default="ddim",
                         choices=["ddim", "pndm", "lms", "euler", "euler_a", "heun", "dpm_2", "dpm_2_a", "dpmsolver",
@@ -350,10 +347,6 @@ if __name__ == "__main__":
     parser.add_argument("--normal_dist_loss_squere", action='store_true')
     parser.add_argument("--background_with_normal", action='store_true')
     parser.add_argument("--background_weight", type=float, default=1)
-
-
-
-
     parser.add_argument("--output_name", type=str, default=None, help="base name of trained model file ")
     parser.add_argument("--save_model_as", type=str, default="safetensors",
                         choices=[None, "ckpt", "pt", "safetensors"],
@@ -390,13 +383,11 @@ if __name__ == "__main__":
     parser.add_argument("--do_attn_loss", action='store_true')
     parser.add_argument("--attn_loss_weight", type=float, default=1.0)
     parser.add_argument('--normal_weight', type=float, default=1.0)
-
     parser.add_argument("--clip_skip",type=int,default=None,
                         help="use output of nth layer from back of text encoder (n>=1)")
     parser.add_argument("--max_token_length",type=int,default=None,choices=[None, 150, 225],
         help="max token length of text encoder (default for 75, 150 or 225) / text encoder",)
     parser.add_argument("--normal_with_back", action = 'store_true')
-    parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--normal_dist_loss_squere", action='store_true')
     parser.add_argument("--background_with_normal", action='store_true')
     parser.add_argument("--background_weight", type=float, default=1)
@@ -420,7 +411,6 @@ if __name__ == "__main__":
     parser.add_argument("--cls_training", action="store_true", )
     parser.add_argument("--background_loss", action="store_true")
     parser.add_argument("--average_mask", action="store_true", )
-
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--max_train_steps", type=int, default=1600, help="training steps / 学習ステップ数")
     parser.add_argument("--max_train_epochs", type=int, default=None, )
