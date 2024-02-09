@@ -60,7 +60,11 @@ def main(args) :
 
         # [1] recon base folder
         parent, _ = os.path.split(args.network_folder)
-        recon_base_folder = os.path.join(parent, 'reconstruction')
+        if args.truncating :
+            recon_base_folder = os.path.join(parent, 'reconstruction_truncating')
+        else :
+            recon_base_folder = os.path.join(parent, 'reconstruction_not_truncating')
+
         os.makedirs(recon_base_folder, exist_ok=True)
         lora_base_folder = os.path.join(recon_base_folder, f'lora_epoch_{lora_epoch}')
         os.makedirs(lora_base_folder, exist_ok=True)
@@ -99,7 +103,8 @@ def main(args) :
                         network.load_state_dict(raw_state_dict)
                         network.to(accelerator.device, dtype=weight_dtype)
                         encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
-                        unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
+                        unet(vae_latent, 0, encoder_hidden_states,
+                             trg_layer_list=args.trg_layer_list,)
                         attn_dict = controller.step_store
                         query_dict = controller.query_dict
                         controller.reset()
@@ -108,10 +113,11 @@ def main(args) :
                             if attn_map.shape[0] != 8:
                                 attn_map = attn_map.chunk(2, dim=0)[0]
 
-                            if args.back_token_separating:
-                                attn_map, trigger_map, back_map = attn_map.chunk(3, dim=-1)
-                            else:
-                                cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
+                            if args.truncating :
+                                cls_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
+                            else :
+                                cls_map = attn_map[:,:,0].squeeze()
+                                trigger_map = attn_map[:,:,1].squeeze()
                             trigger_map = (trigger_map.squeeze()).mean(dim=0)  #
                             binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
                             pix_num = binary_map.shape[0]
@@ -273,6 +279,7 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
+    parser.add_argument("--truncating", action='store_true')
     # step 8. test
     import ast
     def arg_as_list(arg):
