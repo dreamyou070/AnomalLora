@@ -27,26 +27,7 @@ def call_unet(args, accelerator, unet, noisy_latents, timesteps,
                       trg_layer_list=args.trg_layer_list,
                       noise_type=args.noise_type).sample
     return noise_pred
-def sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, prompt):
-    scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
-    scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
-                              beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
-                              beta_schedule=args.scheduler_schedule)
-    pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
-                                                       unet=unet, scheduler=scheduler, safety_checker=None,
-                                                       feature_extractor=None,
-                                                       requires_safety_checker=False, random_vector_generator=None,
-                                                       trg_layer_list=None)
-    latents = pipeline(prompt=prompt,
-                       height=512, width=512, num_inference_steps=args.num_ddim_steps,
-                       guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
-    gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
-    img_save_base_dir = args.output_dir + "/sample"
-    os.makedirs(img_save_base_dir, exist_ok=True)
-    ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
-    num_suffix = f"e{epoch:06d}"
-    img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
-    gen_img.save(os.path.join(img_save_base_dir, img_filename))
+
 
 def main(args):
 
@@ -259,9 +240,28 @@ def main(args):
             if is_main_process and saving:
                 ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
                 save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
-        sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizer, text_encoder, unet,
-                      #prompt = batch['caption'])
-                      prompt = 'bagel')
+
+        scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
+        scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
+                                  beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
+                                  beta_schedule=args.scheduler_schedule)
+        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
+                                                           unet=unet, scheduler=scheduler, safety_checker=None,
+                                                           feature_extractor=None,
+                                                           requires_safety_checker=False, random_vector_generator=None,
+                                                           trg_layer_list=None)
+        latents = pipeline(prompt=args.trigger_word,
+                           height=512, width=512, num_inference_steps=args.num_ddim_steps,
+                           guidance_scale=args.guidance_scale, negative_prompt=args.negative_prompt, )
+        gen_img = pipeline.latents_to_image(latents[-1])[0].resize((512, 512))
+        img_save_base_dir = args.output_dir + "/sample"
+        os.makedirs(img_save_base_dir, exist_ok=True)
+        ts_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+        num_suffix = f"e{epoch:06d}"
+        img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
+        gen_img.save(os.path.join(img_save_base_dir, img_filename))
+
+
         attention_storer.reset()
     #accelerator.end_training()
 
