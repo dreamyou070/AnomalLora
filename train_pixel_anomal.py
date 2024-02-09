@@ -58,7 +58,8 @@ def main(args):
                                      caption=args.trigger_word,
                                      use_perlin=True,
                                      num_repeat=args.num_repeat,
-                                     anomal_only_on_object=args.anomal_only_on_object)
+                                     anomal_only_on_object=args.anomal_only_on_object,
+                                     anomal_training  = True)
 
     print(f'\n step 3. preparing accelerator')
     accelerator = prepare_accelerator(args)
