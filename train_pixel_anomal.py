@@ -308,11 +308,11 @@ def main(args):
                 background_trigger_score = (trigger_score * background_position).mean(dim=0)
 
                 normal_cls_max_score = normal_cls_score.max()
-                normal_trigger_max_score = normal_trigger_score.max()
+                normal_trigger_min_score = normal_trigger_score.min()
                 anormal_cls_max_score = anormal_cls_score.max()
-                anormal_trigger_max_score = anormal_trigger_score.max()
+                anormal_trigger_min_score = anormal_trigger_score.min()
                 background_cls_max_score = background_cls_score.max()
-                background_trigger_max_score = background_trigger_score.max()
+                background_trigger_min_score = background_trigger_score.min()
 
                 total_score = torch.ones_like(normal_cls_score)
 
@@ -325,11 +325,11 @@ def main(args):
 
                 if args.marginal_attn_loss :
                     normal_cls_loss = normal_cls_max_score
-                    normal_trigger_loss = (1- normal_trigger_max_score)
+                    normal_trigger_loss = (1- normal_trigger_min_score)
                     anormal_cls_loss = (1-anormal_cls_max_score)
-                    anormal_trigger_loss = anormal_trigger_max_score
+                    anormal_trigger_loss = anormal_trigger_min_score
                     background_cls_loss = background_cls_max_score
-                    background_trigger_loss = (1-background_trigger_max_score)
+                    background_trigger_loss = (1-background_trigger_min_score)
 
 
                 normal_loss += normal_trigger_loss

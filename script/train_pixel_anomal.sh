@@ -19,4 +19,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --do_dist_loss --dist_loss_weight 1.0 \
  --do_attn_loss --attn_loss_weight 1.0 --do_cls_train --normal_weight 1 \
  --max_train_epochs 300 --start_epoch 0 --num_repeat 1 --anomal_only_on_object --unet_inchannels 4 \
- --marginal_attn_loss --marginal_dist_loss --normal_with_background
+ --marginal_attn_loss --marginal_dist_loss --background_with_normal
