@@ -67,6 +67,7 @@ def main(args) :
         print(f' [3] unet')
         controller = AttentionStore()
         register_attention_control(unet, controller)
+        print(f'args.trg_layer_list: {args.trg_layer_list}')
         unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list, )
 
         # get query
