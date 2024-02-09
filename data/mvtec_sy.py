@@ -145,7 +145,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         # idx = torch.randint(0, len(self.image_paths), (1,)).item()
         # anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
-        if len(self.anomaly_source_paths) > 0
+        if len(self.anomaly_source_paths) > 0 :
             anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
         img_idx = idx % len(self.image_paths)
 
