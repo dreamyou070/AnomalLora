@@ -27,19 +27,20 @@ def maie_noise (rand_x, rand_y) :
 
     # 3. thresholding ( check only brighter part )
     thresh = cv2.threshold(src = stretch, thresh = 175, maxval = 255, type = cv2.THRESH_BINARY)[1] # if more than 175, then 255, else 0
-    thresh_pil = Image.fromarray(thresh).convert('L')
+    #thresh_pil = Image.fromarray(thresh).convert('L')
     #thresh_pil.show()
 
-    #kernel = cv2.getStructuringElement(shape = cv2.MORPH_ELLIPSE, ksize = (9, 9))
+    kernel = cv2.getStructuringElement(shape = cv2.MORPH_ELLIPSE, ksize = (9, 9))
     #kernel_pil = Image.fromarray(kernel*255).convert('L')
     #kernel_pil.show()
 
 
-    #mask = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel) # more black
+    mask = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel) # more black
     #print(mask)
-    #mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel) # more white
-    #mask_pil = Image.fromarray(mask).convert('L')
-    return thresh_pil
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel) # more white
+    mask_pil = Image.fromarray(mask).convert('L')
+    return mask_pil
+
 for i in range(100):
 
     rand_x = torch.randint(0, 7, (1,)).numpy()[0]
