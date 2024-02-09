@@ -521,7 +521,7 @@ if __name__ == "__main__":
     parser.add_argument("--background_with_normal", action='store_true')
     parser.add_argument("--background_weight", type=float, default=1)
     parser.add_argument("--marginal_dist_loss", action='store_true')
-    parser.add_argument("--marginal_attn_loss", type=float, default=1.0)
+    parser.add_argument("--marginal_attn_loss", action='store_true')
 
     import ast
     def arg_as_list(arg):
