@@ -344,9 +344,6 @@ if __name__ == "__main__":
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     parser.add_argument("--anomal_only_on_object", action='store_true')
-    parser.add_argument("--normal_dist_loss_squere", action='store_true')
-    parser.add_argument("--background_with_normal", action='store_true')
-    parser.add_argument("--background_weight", type=float, default=1)
     parser.add_argument("--output_name", type=str, default=None, help="base name of trained model file ")
     parser.add_argument("--save_model_as", type=str, default="safetensors",
                         choices=[None, "ckpt", "pt", "safetensors"],
@@ -397,7 +394,6 @@ if __name__ == "__main__":
         if type(v) is not list:
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
-
     parser.add_argument("--add_random_query", action="store_true", )
     parser.add_argument("--unet_frozen", action="store_true", )
     parser.add_argument("--text_frozen", action="store_true", )
