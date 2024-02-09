@@ -54,8 +54,8 @@ def main(args) :
 
     print(f' (2) start with image')
     img_base_dir = r'/home/dreamyou070/MyData/anomaly_detection/MVTec3D-AD/bagel/test/crack'
-    org_img_dir = os.path.join(img_base_dir, 'rgb', '003.png')
-    gt_img_dir = os.path.join(img_base_dir, 'gt', '003.png')
+    org_img_dir = os.path.join(img_base_dir, 'rgb', '005.png')
+    gt_img_dir = os.path.join(img_base_dir, 'gt', '005.png')
 
     with torch.no_grad():
         print(f' [1] img')
@@ -109,8 +109,10 @@ def main(args) :
         import matplotlib.pyplot as plt
         plt.hist(normal_mahalanobis_dists, bins=100, alpha=0.5, label='normal')
         plt.savefig(os.path.join(args.output_dir, f'histogram/normal.png'))
+        plt.cla()
         plt.hist(anomal_mahalanobis_dists, bins=100, alpha=0.5, label='anomal')
         plt.savefig(os.path.join(args.output_dir, f'histogram/anomal.png'))
+        plt.cla()
 
         print(f' [4] down dim')
         from random import sample
@@ -124,12 +126,10 @@ def main(args) :
         anomal_mahalanobis_dists_down_dim = [mahal(feat, normal_mu_down_dim, normal_cov_down_dim) for feat in anomal_features_down_dim]
         plt.hist(normal_mahalanobis_dists_down_dim, bins=100, alpha=0.5, label='normal')
         plt.savefig(os.path.join(args.output_dir, f'histogram/normal_down_dim_{d}.png'))
+        plt.cla()
         plt.hist(anomal_mahalanobis_dists_down_dim, bins=100, alpha=0.5, label='anomal')
         plt.savefig(os.path.join(args.output_dir, f'histogram/anomal_down_dim_{d}.png'))
-
-
-
-
+        plt.cla()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Anomal Lora')
