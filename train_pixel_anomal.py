@@ -554,6 +554,7 @@ if __name__ == "__main__":
     parser.add_argument("--more_generalize", action='store_true')
     parser.add_argument("--down_dim", type=int)
     parser.add_argument("--noise_type", type=str)
+    parser.add_argument("--truncating", action='store_true')
     args = parser.parse_args()
     from model.unet import unet_passing_argument
     from utils.attention_control import passing_argument
