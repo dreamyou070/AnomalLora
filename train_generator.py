@@ -114,8 +114,7 @@ def main(args):
 
     print(f'\n step 7. training preparing')
     if args.max_train_epochs is not None:
-        args.max_train_steps = args.max_train_epochs * math.ceil(
-            len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
+        args.max_train_steps = args.max_train_epochs * math.ceil(len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
         accelerator.print(f"override steps. steps for {args.max_train_epochs} epochs / {args.max_train_steps}")
     if args.full_fp16:
         assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16'"
@@ -175,14 +174,11 @@ def main(args):
     attention_storer = AttentionStore()
     register_attention_control(unet, attention_storer)
 
-
     progress_bar = tqdm(range(args.max_train_steps), smoothing=0, disable=not accelerator.is_local_main_process,desc="steps")
     global_step = 0
-
     noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
                                     num_train_timesteps=1000, clip_sample=False)
     prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
-
     loss_list = []
     loss_total = 0.0
 
@@ -311,7 +307,8 @@ if __name__ == "__main__":
         help="generate sample images every N epochs (overwrites n_steps) / 学習中のモデルで指定エポックごとにサンプル出力する（ステップ数指定を上書きします）",)
     # step 5. optimizer
     parser.add_argument("--optimizer_type",type=str,default="AdamW",
-      help="AdamW , AdamW8bit, PagedAdamW8bit, PagedAdamW32bit, Lion8bit, PagedLion8bit, Lion, SGDNesterov, SGDNesterov8bit, DAdaptation(DAdaptAdamPreprint), DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptAdanIP, DAdaptLion, DAdaptSGD, AdaFactor",)
+      help="AdamW , AdamW8bit, PagedAdamW8bit, PagedAdamW32bit, Lion8bit, PagedLion8bit, Lion, SGDNesterov, "
+           "SGDNesterov8bit, DAdaptation(DAdaptAdamPreprint), DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptAdanIP, DAdaptLion, DAdaptSGD, AdaFactor",)
     parser.add_argument("--use_8bit_adam",action="store_true",
         help="use 8bit AdamW optimizer (requires bitsandbytes) / 8bit Adamオプティマイザを使う（bitsandbytesのインストールが必要）",)
     parser.add_argument("--use_lion_optimizer",action="store_true",help="use Lion optimizer (requires lion-pytorch)",)
@@ -322,24 +319,12 @@ if __name__ == "__main__":
     parser.add_argument("--lr_scheduler_args",type=str,default=None,nargs="*",
         help='additional arguments for scheduler (like "T_max=100") / スケジューラの追加引数（例： "T_max100"）',)
     parser.add_argument("--lr_scheduler",type=str,default="cosine_with_restarts",help="scheduler to use for learning rate")
-    parser.add_argument(
-        "--lr_warmup_steps",
-        type=int,
-        default=0,
-        help="Number of steps for the warmup in the lr scheduler (default is 0) / 学習率のスケジューラをウォームアップするステップ数（デフォルト0）",
-    )
-    parser.add_argument(
-        "--lr_scheduler_num_cycles",
-        type=int,
-        default=1,
-        help="Number of restarts for cosine scheduler with restarts / cosine with restartsスケジューラでのリスタート回数",
-    )
-    parser.add_argument(
-        "--lr_scheduler_power",
-        type=float,
-        default=1,
-        help="Polynomial power for polynomial scheduler / polynomialスケジューラでのpolynomial power",
-    )
+    parser.add_argument("--lr_warmup_steps",type=int,default=0,
+        help="Number of steps for the warmup in the lr scheduler (default is 0)",)
+    parser.add_argument("--lr_scheduler_num_cycles",type=int,default=1,
+        help="Number of restarts for cosine scheduler with restarts / cosine with restarts",)
+    parser.add_argument("--lr_scheduler_power",type=float,default=1,
+        help="Polynomial power for polynomial scheduler / polynomialスケジューラでのpolynomial power",)
     parser.add_argument('--text_encoder_lr', type=float, default=1e-5)
     parser.add_argument('--unet_lr', type=float, default=1e-5)
     parser.add_argument('--learning_rate', type=float, default=1e-5)
@@ -349,7 +334,8 @@ if __name__ == "__main__":
     parser.add_argument("--scheduler_linear_end", type=float, default=0.012)
     parser.add_argument("--scheduler_timesteps", type=int, default=1000)
     parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear")
-
+    parser.add_argument("--max_train_steps", type=int, default=1600, help="training steps / 学習ステップ数")
+    parser.add_argument("--max_train_epochs",type=int,default=None,)
     parser.add_argument("--save_model_as", type=str, default="safetensors",
                         choices=[None, "ckpt", "pt", "safetensors"],
                         help="format to save the model (default is .safetensors) / モデル保存時の形式（デフォルトはsafetensors）", )
