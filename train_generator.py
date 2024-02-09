@@ -370,6 +370,12 @@ if __name__ == "__main__":
     parser.add_argument("--attn_loss_weight", type=float, default=1.0)
     parser.add_argument('--normal_weight', type=float, default=1.0)
     parser.add_argument('--num_epochs', type=int)
+    parser.add_argument(
+        "--clip_skip",
+        type=int,
+        default=None,
+        help="use output of nth layer from back of text encoder (n>=1) / text encoderの後ろからn番目の層の出力を用いる（nは1以上）",
+    )
     parser.add_argument("--normal_with_back", action = 'store_true')
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--normal_dist_loss_squere", action='store_true')
