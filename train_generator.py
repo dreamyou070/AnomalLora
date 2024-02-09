@@ -106,7 +106,7 @@ def main(args):
                              unet,
                              neuron_dropout=args.network_dropout,
                              **net_kwargs, )
-    train_unet, train_text_encoder = args.train_unet, args.train_text_encpder
+    train_unet, train_text_encoder = args.train_unet, args.train_text_encoder
     network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
     if args.network_weights is not None:
         info = network.load_weights(args.network_weights)
