@@ -1,6 +1,6 @@
 import os
 import argparse, torch
-from model.diffusion_model import load_SD_model
+from model.diffusion_model import load_SD_model, transform_models_if_DDP
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
 from attention_store import AttentionStore
@@ -11,19 +11,27 @@ from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 from utils.model_utils import get_input_ids
 from PIL import Image
-import shutil
+from model.lora import LoRAInfModule
+from utils.image_utils import load_image, image2latent
 import numpy as np
 
 def main(args) :
 
-    print(f'\n step 1. model')
-    tokenizer = load_tokenizer(args)
-    text_encoder, vae, unet = load_SD_model(args)
-
-    print(f'\n step 2. accelerator and device')
+    print(f'\n step 1. accelerator')
     weight_dtype, save_dtype = prepare_dtype(args)
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
-                            mixed_precision=args.mixed_precision,log_with=args.log_with, project_dir='log')
+                              mixed_precision=args.mixed_precision, log_with=args.log_with, project_dir='log')
+
+    print(f'\n step 2. model')
+    tokenizer = load_tokenizer(args)
+    text_encoder, vae, unet = load_SD_model(args)
+    text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
+    unet.requires_grad_(False)
+    unet.to(dtype=weight_dtype)
+    for text_encoder in text_encoders:
+        text_encoder.requires_grad_(False)
+
+    print(f'\n step 2. accelerator and device')
     vae.requires_grad_(False)
     vae.to(accelerator.device, dtype=weight_dtype)
     unet.requires_grad_(False)
@@ -40,9 +48,6 @@ def main(args) :
 
     print(f'\n step 4. inference')
     models = os.listdir(args.network_folder)
-
-    from model.lora import LoRAInfModule
-    from utils.image_utils import load_image, image2latent
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha,
                           module_class=LoRAInfModule)
     network.apply_to(text_encoder, unet, True, True)
