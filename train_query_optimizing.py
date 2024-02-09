@@ -44,7 +44,7 @@ def main(args):
     if args.seed is None: args.seed = random.randint(0, 2 ** 32)
     set_seed(args.seed)
 
-    print(f'\n step 2. dataset')
+    print(f'\n step 2. dataset and find optimal query')
     tokenizer = load_tokenizer(args)
     tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
     obj_dir = os.path.join(args.data_path, args.obj_name)
@@ -85,15 +85,57 @@ def main(args):
         info = network.load_weights(args.network_weights)
         accelerator.print(f"load network weights from {args.network_weights}: {info}")
 
-    print(f'\n step 5. optimizer')
+    print(f'\n step 8. make representation query')
+    noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
+                                    num_train_timesteps=1000, clip_sample=False)
+    controller = AttentionStore()
+    register_attention_control(unet, controller)
+
+    query_list = []
+    train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
+    text_encoder, unet, vae = text_encoder.to(accelerator.device), unet.to(accelerator.device), vae.to(accelerator.device)
+
+    for step, batch, in enumerate(train_dataloader):
+        with torch.no_grad():
+            input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
+            enc_out = text_encoder(input_ids)  # batch, 77, 768
+            encoder_hidden_states = enc_out["last_hidden_state"]
+            latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
+            latents = latents * vae_scale_factor  # [1,4,64,64]
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_one_time(args, noise_scheduler, latents)
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                 noise_type=None).sample
+            query_dict = controller.query_dict
+            controller.reset()
+            query = query_dict[args.trg_layer_list[0]][0].squeeze()  # pix_num, dim
+            query_list.append(query)
+    optimal_query = torch.stack(query_list, dim=0).mean(dim=0)
+
+
+    print(f'\n step 5. optimizer for training')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     optimizer_name, optimizer_args, optimizer = get_optimizer(args, trainable_params)
 
-    print(f' step 6. dataloader')
-    train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
-
     print(f'\n step 7. lr')
     lr_scheduler = get_scheduler_fix(args, optimizer, accelerator.num_processes)
+
+    print(f'\n step 8. dataset and loader')
+    tokenizer = load_tokenizer(args)
+    tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
+    obj_dir = os.path.join(args.data_path, args.obj_name)
+    train_dir = os.path.join(obj_dir, "train")
+    root_dir = os.path.join(train_dir, "good/rgb")
+    args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
+    dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
+                                     anomaly_source_path=args.anomaly_source_path,
+                                     resize_shape=[512, 512],
+                                     tokenizer=tokenizer,
+                                     caption=args.trigger_word,
+                                     use_perlin=True,
+                                     num_repeat=args.num_repeat,
+                                     anomal_only_on_object=args.anomal_only_on_object,
+                                     anomal_training=True)
+    train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 
     print(f'\n step 7. training preparing')
     if args.max_train_epochs is not None:
@@ -151,30 +193,6 @@ def main(args):
     vae.eval()
     vae.to(accelerator.device, dtype=vae_dtype)
 
-    print(f'\n step 8. make representation query')
-    noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
-                                    num_train_timesteps=1000, clip_sample=False)
-    controller = AttentionStore()
-    register_attention_control(unet, controller)
-
-    query_list = []
-
-    for step, batch, in enumerate(train_dataloader):
-        with torch.no_grad():
-            input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
-            enc_out = text_encoder(input_ids)  # batch, 77, 768
-            encoder_hidden_states = enc_out["last_hidden_state"]
-            latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
-            latents = latents * vae_scale_factor  # [1,4,64,64]
-            noise, noisy_latents, timesteps = get_noise_noisy_latents_one_time(args, noise_scheduler, latents)
-            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=None).sample
-            query_dict = controller.query_dict
-            controller.reset()
-            query = query_dict[args.trg_layer_list[0]][0].squeeze() # pix_num, dim
-            query_list.append(query)
-    optimal_query = torch.stack(query_list, dim=0).mean(dim=0)
-
-
     print(f'\n step 9. training')
     args.save_every_n_epochs = 1
 
@@ -219,8 +237,8 @@ def main(args):
                 controller.reset()
                 query_loss = torch.nn.functional.mse_loss(query.float(), optimal_query.float(), reduction="none")
                 query_loss = query_loss.mean()
-                loss = query_loss
-            """ 
+
+            # -------------------------------------------- Additional Loss ------------------------------------------- #
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = anomal_latents * vae_scale_factor
@@ -228,8 +246,6 @@ def main(args):
             with accelerator.autocast():
                 unet(anomal_noisy_latents, timesteps, encoder_hidden_states,
                      trg_layer_list=args.trg_layer_list,noise_type=None).sample
-
-            # -------------------------------------------- Additional Loss ------------------------------------------- #
             query_dict = controller.query_dict
             attn_dict = controller.step_store
             controller.reset()
@@ -240,7 +256,6 @@ def main(args):
             anomal_mask = anomal_mask_.flatten().squeeze(0)
             object_mask_ = batch['object_mask'].squeeze() # [64,64]
             object_mask = object_mask_.flatten().squeeze() # [64*64]
-
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
                 # -------------------------------------------------------------------------------------------------- #
@@ -283,22 +298,8 @@ def main(args):
                     anormal_dist_mean = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
                     anormal_dist_min = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
 
-                if args.normal_dist_loss_squere :
-                    total_dist = (normal_dist_mean)**2 + (anormal_dist_mean)**2
-                else :
-                    total_dist = normal_dist_mean + anormal_dist_mean
-
-                if args.marginal_dist_loss :
-                    total_dist = (normal_dist_max + anormal_dist_min)
-
-                if args.normal_dist_loss_squere :
-                    normal_dist_loss = (normal_dist_mean**2 / total_dist)
-
-                elif args.marginal_dist_loss :
-                    normal_dist_loss = normal_dist_max / total_dist
-
-                else :
-                    normal_dist_loss = normal_dist_mean / total_dist
+                total_dist = normal_dist_mean + anormal_dist_mean
+                normal_dist_loss = normal_dist_max / total_dist
 
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
                 dist_loss += normal_dist_loss.requires_grad_()
@@ -363,10 +364,16 @@ def main(args):
                     if args.background_with_normal:
                         attn_loss += args.background_weight * background_cls_loss
                         normal_loss += background_cls_loss
-            """
+
             # --------------------------------------------- 4. total loss --------------------------------------------- #
+            loss = query_loss + dist_loss + attn_loss
+
             current_loss = loss.detach().item()
+
             loss_dict['query_loss'] = loss.item()
+            loss_dict['dist_loss'] = dist_loss.item()
+            loss_dict['attn_loss'] = attn_loss.item()
+
             if epoch == args.start_epoch :
                 loss_list.append(current_loss)
             else:
