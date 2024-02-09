@@ -59,13 +59,13 @@ def main(args) :
     print(f' (2.1) stable diffusion model')
     tokenizer = load_tokenizer(args)
     text_encoder, vae, unet = load_SD_model(args)
-
-
+    text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
     vae_scale_factor = 0.18215
     noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
                                     num_train_timesteps=1000, clip_sample=False)
     print(f' (2.2) LoRA network')
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim = args.network_dim, alpha = args.network_alpha)
+    network.apply_to(text_encoder, unet, args.train_unet, args.train_text_encoder)
 
     print(f'\n step 3. optimizer')
     print(f' (3.1) lora optimizer')
@@ -102,15 +102,11 @@ def main(args) :
                               project_dir=args.logging_dir,)
     is_main_process = accelerator.is_main_process
 
-    vae.requires_grad_(False)
-    vae.eval()
-    vae.to(accelerator.device, dtype=weight_dtype)
-
+    network.to(weight_dtype)
     unet.requires_grad_(False)
     unet.to(dtype=weight_dtype)
-
-    text_encoder.requires_grad_(False)
-    text_encoder.to(dtype=weight_dtype)
+    for text_encoder in text_encoders:
+        text_encoder.requires_grad_(False)
 
     print(f' (6.2) network with stable diffusion model')
     network.apply_to(text_encoder, unet, True, True)
@@ -127,22 +123,24 @@ def main(args) :
         text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
                                                                                  optimizer, dataloader, lr_scheduler)
         unet.to(accelerator.device,dtype=weight_dtype)
+
     from model.diffusion_model import transform_models_if_DDP
     text_encoders = transform_models_if_DDP([text_encoder])
     unet, network = transform_models_if_DDP([unet, network])
     unet.eval()
     for text_encoder in text_encoders:
         text_encoder.eval()
+    text_encoder =text_encoders[0]
     del text_encoders
     network.prepare_grad_etc(text_encoder, unet)
     vae.requires_grad_(False)
     vae.eval()
     vae.to(accelerator.device, dtype=weight_dtype)
 
+
     print(f'\n step 7. Train!')
     train_steps = args.num_epochs * len(dataloader)
-    progress_bar = tqdm(range(train_steps), smoothing=0,
-                        disable=not accelerator.is_local_main_process, desc="steps")
+    progress_bar = tqdm(range(train_steps), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
     global_step = 0
     for epoch in range(args.start_epoch, args.num_epochs):
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
