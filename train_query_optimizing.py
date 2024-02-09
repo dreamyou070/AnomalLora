@@ -320,7 +320,6 @@ def main(args):
                 anormal_position = anormal_position.unsqueeze(0).repeat(head_num, 1)
                 background_position = background_position.unsqueeze(0).repeat(head_num, 1)
 
-
                 normal_cls_score = (cls_score * normal_position).mean(dim=0)  # (head, pix_num) *
                 normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
                 anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
@@ -328,6 +327,16 @@ def main(args):
                 background_cls_score = (cls_score * background_position).mean(dim=0)
                 background_trigger_score = (trigger_score * background_position).mean(dim=0)
 
+                total_score = torch.ones_like(normal_cls_score)
+
+                normal_cls_loss = (normal_cls_score / total_score) ** 2
+                normal_trigger_loss = (1 - (normal_trigger_score / total_score)) ** 2
+                anormal_cls_loss = (1 - (anormal_cls_score / total_score)) ** 2
+                anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
+                background_cls_loss = (background_cls_score / total_score) ** 2
+                background_trigger_loss = (1 - (background_trigger_score / total_score)) ** 2
+
+                """
                 normal_cls_max_score = normal_cls_score.max()
                 normal_trigger_min_score = normal_trigger_score.min()
                 anormal_cls_max_score = anormal_cls_score.max()
@@ -336,7 +345,7 @@ def main(args):
                 background_trigger_min_score = background_trigger_score.min()
 
                 total_score = torch.ones_like(normal_cls_score)
-
+                
                 normal_cls_loss = (normal_cls_score / total_score) ** 2
                 normal_trigger_loss = (1- (normal_trigger_score / total_score)) ** 2
                 anormal_cls_loss = (1-(anormal_cls_score / total_score)) ** 2
@@ -351,7 +360,7 @@ def main(args):
                     anormal_trigger_loss = anormal_trigger_min_score
                     background_cls_loss = background_cls_max_score
                     background_trigger_loss = (1-background_trigger_min_score)
-
+                """
                 normal_loss += normal_trigger_loss
                 anomal_loss += anormal_trigger_loss
 
