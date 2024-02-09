@@ -236,9 +236,9 @@ def main(args) :
                     return torch.sqrt(m)
 
                 normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
-                anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
                 normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
-                if len(anormal_mahalanobis_dists) > 0:
+                if len(anormal_feats) > 0:
+                    anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
                     anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
                 else :
                     anormal_dist_mean = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
