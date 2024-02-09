@@ -94,7 +94,11 @@ def main(args):
         for net_arg in args.network_args:
             key, value = net_arg.split("=")
             net_kwargs[key] = value
-    network = create_network(1.0,
+    sys.path.append(os.path.dirname(__file__))
+    args.network_module = 'model.lora'
+    accelerator.print("import network module:", args.network_module)
+    network_module = importlib.import_module(args.network_module)
+    network = network_module.create_network(1.0,
                              args.network_dim,
                              args.network_alpha,
                              vae,
