@@ -174,7 +174,7 @@ def main(args):
     register_attention_control(unet, controller)
     for epoch in range(args.start_epoch, args.start_epoch + args.max_train_epochs):
 
-        loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
+        #loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
         epoch_loss_total = 0.0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.max_train_epochs}")
         network.on_epoch_start(text_encoder, unet)
@@ -283,9 +283,8 @@ def main(args):
                     anomal_loss += anormal_cls_loss
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
-            if args.do_task_loss:
-                loss += task_loss
-                loss_dict['task_loss'] = task_loss.item()
+            loss = task_loss
+            loss_dict['task_loss'] = task_loss.item()
             if args.do_dist_loss:
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
