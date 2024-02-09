@@ -94,14 +94,17 @@ def main(args):
     query_list = []
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
     text_encoder, unet, vae = text_encoder.to(accelerator.device), unet.to(accelerator.device), vae.to(accelerator.device)
+    text_encoder, unet, vae = text_encoder.to(weight_dtype), unet.to(weight_dtype), vae.to(weight_dtype)
     network = network.to(accelerator.device)
+    network = network.to(weight_dtype)
 
     for step, batch, in enumerate(train_dataloader):
         with torch.no_grad():
             input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
             enc_out = text_encoder(input_ids)  # batch, 77, 768
             encoder_hidden_states = enc_out["last_hidden_state"]
-            latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
+            img = batch["image"].to(accelerator.device).to(dtype=weight_dtype)
+            latents = vae.encode(img).latent_dist.sample()  # 1, 4, 64, 64
             latents = latents * vae_scale_factor  # [1,4,64,64]
             noise, noisy_latents, timesteps = get_noise_noisy_latents_one_time(args, noise_scheduler, latents)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
