@@ -376,6 +376,13 @@ if __name__ == "__main__":
         default=None,
         help="use output of nth layer from back of text encoder (n>=1) / text encoderの後ろからn番目の層の出力を用いる（nは1以上）",
     )
+    parser.add_argument(
+        "--max_token_length",
+        type=int,
+        default=None,
+        choices=[None, 150, 225],
+        help="max token length of text encoder (default for 75, 150 or 225) / text encoderのトークンの最大長（未指定で75、150または225が指定可）",
+    )
     parser.add_argument("--normal_with_back", action = 'store_true')
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--normal_dist_loss_squere", action='store_true')
