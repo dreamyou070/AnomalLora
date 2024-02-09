@@ -174,10 +174,10 @@ def main(args):
     loss_dict = {}
     controller = AttentionStore()
     register_attention_control(unet, controller)
-    for epoch in range(args.start_epoch, args.num_epochs):
+    for epoch in range(args.start_epoch, args.max_train_epochs):
 
         epoch_loss_total = 0
-        accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
+        accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.max_train_epochs}")
 
         for step, batch in enumerate(train_dataloader):
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
