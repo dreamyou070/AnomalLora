@@ -313,23 +313,14 @@ if __name__ == "__main__":
     parser.add_argument('--text_encoder_lr', type=float, default=1e-5)
     parser.add_argument('--unet_lr', type=float, default=1e-5)
     parser.add_argument('--learning_rate', type=float, default=1e-5)
-
-
-
-    train_unet = not args.network_train_text_encoder_only
-    train_text_encoder = not args.network_train_unet_only
+    parser.add_argument('--train_unet', action='store_true')
+    parser.add_argument('--train_text_encoder', action='store_true')
 
 
     parser.add_argument("--scheduler_linear_start", type=float, default=0.00085)
     parser.add_argument("--scheduler_linear_end", type=float, default=0.012)
     parser.add_argument("--scheduler_timesteps", type=int, default=1000)
     parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear")
-
-    # step 4. training
-    train_util.add_training_arguments(parser, True)
-    custom_train_functions.add_custom_train_arguments(parser)
-
-    # step 5. optimizer
 
     parser.add_argument("--save_model_as", type=str, default="safetensors",
                         choices=[None, "ckpt", "pt", "safetensors"],
@@ -376,7 +367,6 @@ if __name__ == "__main__":
         return v
     parser.add_argument("--trg_layer_list", type=arg_as_list, )
     parser.add_argument('--mahalanobis_loss_weight', type=float, default=1.0)
-
     parser.add_argument("--cls_training", action="store_true", )
     parser.add_argument("--background_loss", action="store_true")
     parser.add_argument("--average_mask", action="store_true", )
@@ -389,7 +379,14 @@ if __name__ == "__main__":
     parser.add_argument("--negative_prompt", type=str,
                         default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     parser.add_argument("--gen_images", action="store_true", )
+    parser.add_argument("--unet_inchannels", type=int, default=9)
+    parser.add_argument("--back_token_separating", action='store_true')
+    parser.add_argument("--more_generalize", action='store_true')
+    parser.add_argument("--down_dim", type=int)
     args = parser.parse_args()
-    args = train_util.read_config_from_file(args, parser)
-    trainer = NetworkTrainer()
-    trainer.train(args)
+    from model.unet import unet_passing_argument
+    from utils.attention_control import passing_argument
+    unet_passing_argument(args)
+    passing_argument(args)
+    args = parser.parse_args()
+    main(args)
