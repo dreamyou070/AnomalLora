@@ -303,7 +303,7 @@ def main(args):
                     anormal_dist_min = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
 
                 total_dist = normal_dist_mean + anormal_dist_mean
-                normal_dist_loss = normal_dist_max / total_dist
+                normal_dist_loss = normal_dist_mean / total_dist
 
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
                 dist_loss += normal_dist_loss.requires_grad_()
@@ -351,7 +351,6 @@ def main(args):
                     anormal_trigger_loss = anormal_trigger_min_score
                     background_cls_loss = background_cls_max_score
                     background_trigger_loss = (1-background_trigger_min_score)
-
 
                 normal_loss += normal_trigger_loss
                 anomal_loss += anormal_trigger_loss
