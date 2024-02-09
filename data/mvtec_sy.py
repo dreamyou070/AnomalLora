@@ -85,6 +85,8 @@ class MVTecDRAEMTrainDataset(Dataset):
             self.anomaly_source_paths = []
             for ext in ["png", "jpg"]:
                 self.anomaly_source_paths.extend(sorted(glob.glob(anomaly_source_path + f"/*/*/*.{ext}")))
+        else :
+            self.anomaly_source_paths = []
 
         self.caption = caption
         self.tokenizer = tokenizer
@@ -101,7 +103,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
     def __len__(self):
 
-        if len(self.image_paths) > 0:
+        if len(self.anomaly_source_paths) > 0:
             return max(len(self.image_paths), len(self.anomaly_source_paths))
         else :
             return len(self.image_paths)
