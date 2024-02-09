@@ -338,11 +338,7 @@ if __name__ == "__main__":
                                  "k_dpm_2_a", ], )
     parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear",
                         choices=["scaled_linear", "linear", "cosine", "cosine_warmup", ], )
-    parser.add_argument("--prompt", type=str, default="bagel", )
     parser.add_argument("--num_ddim_steps", type=int, default=30)
-    parser.add_argument("--guidance_scale", type=float, default=8.5)
-    parser.add_argument("--negative_prompt", type=str,
-                        default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--output_name", type=str, default=None, help="base name of trained model file ")
     parser.add_argument("--save_model_as", type=str, default="safetensors",
