@@ -2,6 +2,7 @@ from torch import nn
 from data.perlin import rand_perlin_2d_np
 import torch
 from attention_store import AttentionStore
+import argparse
 
 def mahal(u, v, cov):
     delta = u - v
@@ -26,6 +27,9 @@ def passing_argument(args):
     down_dim = args.down_dim
     more_generalize = args.more_generalize
     back_token_separating = args.back_token_separating
+def add_attn_argument(parser: argparse.ArgumentParser) :
+    parser.add_argument("--down_dim", type=int, default=160)
+
 
 def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
@@ -34,70 +38,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             query = self.to_q(hidden_states)
             if trg_layer_list is not None and layer_name in trg_layer_list :
-                """
-                b = hidden_states.shape[0]
-                if b == 1 :
-                    normal_query = query.squeeze(0)
-                    pix_num, dim = normal_query.shape[0], normal_query.shape[1]
-                    normal_feats = []
-                    for pix_idx in range(pix_num):
-                        normal_feat = normal_query[pix_idx].squeeze(0)
-                        normal_feats.append(normal_feat.unsqueeze(0))
-                    normal_feats = torch.cat(normal_feats, dim=0)
-
-                     random down sampling the dim 
-                    from random import sample
-                    idx = torch.tensor(sample(range(0, dim), down_dim)).to(hidden_states.device)
-                    # print(idx)
-                    normal_feats = torch.index_select(normal_feats, 1, idx) # pix_num, 100
-                    normal_mu = torch.mean(normal_feats, dim=0)             # 100
-                    normal_cov = torch.cov(normal_feats.transpose(0, 1))    # 100, 100
-                    # ---------------------------------------------------------------------------------------------- #
-                    normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
-                    max_dist = max(normal_mahalanobis_dists)
-                    th = max_dist.item() * 1
-
-                    # ---------------------------------------------------------------------------------------------- #
-                    if noise_type == 'perlin' : # mask means using perlin noise
-                        perlin_noise = make_perlin_noise(pix_num, dim)
-                        perlin_noise = torch.tensor(perlin_noise).to(hidden_states.device)
-                        noise = hidden_states.squeeze() + perlin_noise
-                    else :
-                        noise = hidden_states + torch.randn_like(hidden_states).to(hidden_states.device)
-                        noise = noise.squeeze()
-
-                    anomal_map, anomal_features = [], []
-                    normal_hidden_states = hidden_states.squeeze(0)
-                    anormal_hidden_states = noise.squeeze(0)
-                    for pix_idx in range(pix_num):
-                        sub_feature = anormal_hidden_states[pix_idx, :].squeeze(0)
-                        down_dim_sub_feature = torch.index_select(sub_feature.unsqueeze(0), 1, idx)
-                        normal_feat = normal_hidden_states[pix_idx, :].squeeze(0)
-                        sub_dist = mahal(down_dim_sub_feature.float().squeeze(), normal_mu.squeeze(), normal_cov)
-                        if sub_dist > th:
-                            anomal_features.append(sub_feature.unsqueeze(0))
-                            anomal_map.append(1)
-                        else:
-                            if more_generalize :
-                                anomal_features.append(sub_feature.unsqueeze(0))
-                            else :
-                                anomal_features.append(normal_feat.unsqueeze(0))
-                            anomal_map.append(0)
-                    anormal_hidden_states = torch.cat(anomal_features, dim=0).to(hidden_states.dtype) # pix_num, dim
-                    anomal_map = torch.tensor(anomal_map).unsqueeze(0)
-                    res = int(pix_num ** 0.5)
-                    anomal_map = anomal_map.view(res, res)
-                    # ---------------------------------------------------------------------------------------------- #
-                    temp_query = torch.cat([query, self.to_q(anormal_hidden_states.unsqueeze(0))], dim=0)
-                    controller.save_query(temp_query, layer_name) # [2, res*res, 320] #################################
-                    controller.save_query([normal_mu, normal_cov, idx], layer_name)   #################################
-                    controller.save_map(anomal_map, layer_name)   # [res,res]         #################################
-                    temp_query = self.reshape_heads_to_batch_dim(temp_query)
-                    if self.upcast_attention:
-                        temp_query = temp_query.float()
-                    # ---------------------------------------------------------------------------------------------- #
-                else :
-                """
                 controller.save_query(query, layer_name)
             context = context if context is not None else hidden_states
             key = self.to_k(context)
@@ -108,24 +48,12 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
-            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype,
-                                                         device=query.device), query,key.transpose(-1, -2),
-                                             beta=0, alpha=self.scale, )
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
+                                                dtype=query.dtype, device=query.device), query,key.transpose(-1, -2),
+                                                beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
             if trg_layer_list is not None and layer_name in trg_layer_list :
-                """
-                if b == 1 :
-                    temp_key = torch.cat([key, key], dim=0)
-                    temp_attention_scores = torch.baddbmm(torch.empty(temp_query.shape[0], temp_query.shape[1],
-                                                                 temp_key.shape[1], dtype=query.dtype, device=query.device),
-                                                     temp_query, temp_key.transpose(-1, -2), beta=0,alpha=self.scale, )
-                    temp_attention_probs = temp_attention_scores.softmax(dim=-1)
-                    temp_trg_map = temp_attention_probs.to(value.dtype)[:, :, :2]
-                    controller.store(temp_trg_map, layer_name) # 2, res*res, 2
-                else :
-                    trg_map = attention_probs[:, :, :2]
-                """
                 if back_token_separating :
                     trg_map = attention_probs[:, :, :3]
                 else :
@@ -157,10 +85,4 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
 
-
-
-import argparse
-
-def add_attn_argument(parser: argparse.ArgumentParser) :
-    parser.add_argument("--down_dim", type=int, default=160)
 
