@@ -207,8 +207,8 @@ def main(args):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, torch_num, sen_len
                 encoder_hidden_states = get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
                 if args.truncate_pad:
-                    text_encoder_conds = text_encoder_conds[:, :args.truncate_length, :]
-                input_text_encoder_conds = text_encoder_conds
+                    encoder_hidden_states = encoder_hidden_states[:, :args.truncate_length, :]
+                input_text_encoder_conds = encoder_hidden_states
 
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, input_latents,)
             with accelerator.autocast():
