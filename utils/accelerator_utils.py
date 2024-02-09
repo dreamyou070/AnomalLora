@@ -1,6 +1,6 @@
 import argparse
 import time
-from accelerator import Accelerator
+from accelerate import Accelerator
 def prepare_accelerator(args: argparse.Namespace):
     print(f'args.logging_dir : {args.logging_dir}')
     if args.logging_dir is None:
