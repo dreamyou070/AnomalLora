@@ -357,6 +357,10 @@ if __name__ == "__main__":
     parser.add_argument('--normal_weight', type=float, default=1.0)
     parser.add_argument('--num_epochs', type=int)
     parser.add_argument("--normal_with_back", action = 'store_true')
+    parser.add_argument("--anomal_only_on_object", action='store_true')
+    parser.add_argument("--normal_dist_loss_squere", action='store_true')
+    parser.add_argument("--background_with_normal", action='store_true')
+    parser.add_argument("--background_weight", type=float, default=1)
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
