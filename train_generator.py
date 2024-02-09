@@ -310,6 +310,21 @@ if __name__ == "__main__":
                   help="Drops neurons out of training every step (0 or None is default behavior (no dropout), 1 would drop all neurons)", )
     parser.add_argument("--network_args", type=str, default=None, nargs="*",
                         help="additional argmuments for network (key=value)")
+    parser.add_argument(
+        "--lowram",
+        action="store_true",
+        help="enable low RAM optimization. e.g. load models to VRAM instead of RAM (for machines which have bigger VRAM than RAM such as Colab and Kaggle) / メインメモリが少ない環境向け最適化を有効にする。たとえばVRAMにモデルを読み込むなど（ColabやKaggleなどRAMに比べてVRAMが多い環境向け）",
+    )
+    parser.add_argument(
+        "--sample_every_n_steps", type=int, default=None,
+        help="generate sample images every N steps / 学習中のモデルで指定ステップごとにサンプル出力する"
+    )
+    parser.add_argument(
+        "--sample_every_n_epochs",
+        type=int,
+        default=None,
+        help="generate sample images every N epochs (overwrites n_steps) / 学習中のモデルで指定エポックごとにサンプル出力する（ステップ数指定を上書きします）",
+    )
     # step 5. optimizer
     parser.add_argument('--text_encoder_lr', type=float, default=1e-5)
     parser.add_argument('--unet_lr', type=float, default=1e-5)
