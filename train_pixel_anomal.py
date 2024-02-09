@@ -260,11 +260,17 @@ def main(args):
                     anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
                 else :
                     anormal_dist_mean = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
-                total_dist = normal_dist_mean + anormal_dist_mean
+
                 if args.normal_dist_loss_squere :
-                    normal_dist_loss = (normal_dist_mean / total_dist) ** 2
+                    total_dist = (normal_dist_mean)**2 + (anormal_dist_mean)**2
+                else :
+                    total_dist = normal_dist_mean + anormal_dist_mean
+
+                if args.normal_dist_loss_squere :
+                    normal_dist_loss = (normal_dist_mean**2 / total_dist)
                 else :
                     normal_dist_loss = normal_dist_mean / total_dist
+
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
                 dist_loss += normal_dist_loss.requires_grad_()
 
@@ -507,15 +513,11 @@ if __name__ == "__main__":
     parser.add_argument("--background_with_normal", action='store_true')
     parser.add_argument("--background_weight", type=float, default=1)
     import ast
-
-
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
         if type(v) is not list:
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
-
-
     parser.add_argument("--add_random_query", action="store_true", )
     parser.add_argument("--unet_frozen", action="store_true", )
     parser.add_argument("--text_frozen", action="store_true", )
