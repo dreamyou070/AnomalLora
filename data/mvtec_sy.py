@@ -100,7 +100,12 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.anomal_training = anomal_training
 
     def __len__(self):
-        return max(len(self.image_paths), len(self.anomaly_source_paths))
+
+        if len(self.image_paths) > 0:
+            return max(len(self.image_paths), len(self.anomaly_source_paths))
+        else :
+            return len(self.image_paths)
+
     def get_input_ids(self, caption):
         tokenizer_output = self.tokenizer(caption, padding="max_length", truncation=True,return_tensors="pt")
         input_ids = tokenizer_output.input_ids
@@ -140,7 +145,8 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         # idx = torch.randint(0, len(self.image_paths), (1,)).item()
         # anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
-        anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
+        if len(self.anomaly_source_paths) > 0
+            anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
         img_idx = idx % len(self.image_paths)
 
         # [1] base
