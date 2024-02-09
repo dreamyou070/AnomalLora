@@ -1,6 +1,6 @@
 import os
 import argparse, torch
-from model.diffusion_model import load_SD_model
+from model.diffusion_model import load_SD_model, transform_models_if_DDP
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
 from model.segmentation_model import SegmentationSubNetwork
@@ -90,53 +90,61 @@ def main(args) :
     print(f'\n step 5. lr')
     schedule_func = TYPE_TO_SCHEDULER_FUNCTION[SchedulerType.COSINE_WITH_RESTARTS]
     num_training_steps = len(dataloader) * args.num_epochs
-    num_cycles = args.lr_scheduler_num_cycles
     lr_scheduler = schedule_func(optimizer, num_warmup_steps=args.num_warmup_steps,
-                                 num_training_steps=num_training_steps, num_cycles=num_cycles, )
+                                 num_training_steps=num_training_steps, num_cycles=args.lr_scheduler_num_cycles)
 
     print(f'\n step 6. accelerator and device')
     weight_dtype, save_dtype = prepare_dtype(args)
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
-                              mixed_precision=args.mixed_precision,
-                              log_with=args.log_with,
-                              project_dir=args.logging_dir,)
+                    mixed_precision=args.mixed_precision, log_with=args.log_with, project_dir=args.logging_dir,)
     is_main_process = accelerator.is_main_process
+    if args.full_fp16:
+        assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16'"
+        accelerator.print("enable full fp16 training.")
+        network.to(weight_dtype)
+    elif args.full_bf16:
+        assert (args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / mixed_precision='bf16'"
+        accelerator.print("enable full bf16 training.")
+        network.to(weight_dtype)
 
-    network.to(weight_dtype)
     unet.requires_grad_(False)
     unet.to(dtype=weight_dtype)
     for text_encoder in text_encoders:
         text_encoder.requires_grad_(False)
 
-    print(f' (6.2) network with stable diffusion model')
-    network.apply_to(text_encoder, unet, True, True)
-    if args.network_weights is not None:
-        network.load_weights(args.network_weights)
+    print(f'\n step 7. training preparing')
     if args.train_unet and args.train_text_encoder:
-        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-                                                 unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
+        unet, text_encoder, network, optimizer, dataloader, lr_scheduler = accelerator.prepare(
+            unet, text_encoder, network, optimizer, dataloader, lr_scheduler)
+        text_encoders = [text_encoder]
     elif args.train_unet:
-        unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
-                                                                                       dataloader, lr_scheduler)
-        text_encoder.to(accelerator.device,dtype=weight_dtype)
+        unet, network, optimizer, dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer, dataloader, lr_scheduler)
+        text_encoder.to(accelerator.device)
     elif args.train_text_encoder:
-        text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(text_encoder, network,
-                                                                                 optimizer, dataloader, lr_scheduler)
-        unet.to(accelerator.device,dtype=weight_dtype)
-
-    from model.diffusion_model import transform_models_if_DDP
-    text_encoders = transform_models_if_DDP([text_encoder])
+        text_encoder, network, optimizer, dataloader, lr_scheduler = accelerator.prepare(
+            text_encoder, network, optimizer, dataloader, lr_scheduler)
+        text_encoders = [text_encoder]
+        unet.to(accelerator.device, dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
+    else:
+        network, optimizer, dataloader, lr_scheduler = accelerator.prepare(network, optimizer, dataloader, lr_scheduler)
+    text_encoders = transform_models_if_DDP(text_encoders)
     unet, network = transform_models_if_DDP([unet, network])
-    unet.eval()
-    for text_encoder in text_encoders:
-        text_encoder.eval()
-    text_encoder =text_encoders[0]
-    del text_encoders
+    if args.gradient_checkpointing:
+        unet.train()
+        for text_encoder in text_encoders:
+            text_encoder.train()
+            if args.train_text_encoder:
+                text_encoder.text_model.embeddings.requires_grad_(True)
+        if not args.train_text_encoder:  # train U-Net only
+            unet.parameters().__next__().requires_grad_(True)
+    else:
+        unet.eval()
+        for text_encoder in text_encoders:
+            text_encoder.eval()
     network.prepare_grad_etc(text_encoder, unet)
     vae.requires_grad_(False)
     vae.eval()
     vae.to(accelerator.device, dtype=weight_dtype)
-
 
     print(f'\n step 7. Train!')
     train_steps = args.num_epochs * len(dataloader)
@@ -145,7 +153,7 @@ def main(args) :
     for epoch in range(args.start_epoch, args.num_epochs):
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.num_epochs}")
 
-        for step, batch in enumerate(train_dataloader):
+        for step, batch in enumerate(dataloader):
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
             # --------------------------------------------- Task Loss --------------------------------------------- #
             with torch.set_grad_enabled(True):
@@ -243,6 +251,9 @@ if __name__ == '__main__':
                         choices=["no", "fp16", "bf16"],)
     parser.add_argument("--save_precision",  type=str,  default=None,
                          choices=[None, "float", "fp16", "bf16"],)
+    parser.add_argument("--full_fp16", action="store_true", help="fp16 training including gradients")
+    parser.add_argument("--full_bf16", action="store_true", help="bf16 training including gradients")
+    parser.add_argument("--gradient_checkpointing", action="store_true",help="enable gradient checkpointing")
     parser.add_argument("--gradient_accumulation_steps",type=int,default=1,)
     parser.add_argument("--log_with",type=str,default=None,choices=["tensorboard", "wandb", "all"],)
 
