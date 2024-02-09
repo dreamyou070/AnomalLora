@@ -24,8 +24,8 @@ def call_unet(args, accelerator, unet, noisy_latents, timesteps,
     noise_pred = unet(noisy_latents,
                       timesteps,
                       text_conds,
-                      trg_layer_list=trg_indexs_list,
-                      noise_type=mask_imgs, ).sample
+                      trg_layer_list=args.trg_layer_list,
+                      noise_type=args.noise_type).sample
     return noise_pred
 def sample_images(accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet, prompt):
     scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
@@ -394,7 +394,7 @@ if __name__ == "__main__":
         if type(v) is not list:
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
-    parser.add_argument("--trg_layer_list", type=arg_as_list, )
+    parser.add_argument("--trg_layer_list", type=arg_as_list, default = [] )
     parser.add_argument('--mahalanobis_loss_weight', type=float, default=1.0)
     parser.add_argument("--cls_training", action="store_true", )
     parser.add_argument("--background_loss", action="store_true")
@@ -416,6 +416,8 @@ if __name__ == "__main__":
     parser.add_argument("--back_token_separating", action='store_true')
     parser.add_argument("--more_generalize", action='store_true')
     parser.add_argument("--down_dim", type=int)
+    parser.add_argument("--noise_type", type=str)
+
     args = parser.parse_args()
     from model.unet import unet_passing_argument
     from utils.attention_control import passing_argument
