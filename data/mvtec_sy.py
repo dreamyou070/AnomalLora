@@ -80,9 +80,11 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         self.root_dir = root_dir
         self.resize_shape=resize_shape
-        self.anomaly_source_paths = []
-        for ext in ["png", "jpg"]:
-            self.anomaly_source_paths.extend(sorted(glob.glob(anomaly_source_path + f"/*/*/*.{ext}")))
+
+        if anomaly_source_path is None:
+            self.anomaly_source_paths = []
+            for ext in ["png", "jpg"]:
+                self.anomaly_source_paths.extend(sorted(glob.glob(anomaly_source_path + f"/*/*/*.{ext}")))
 
         self.caption = caption
         self.tokenizer = tokenizer
@@ -160,37 +162,44 @@ class MVTecDRAEMTrainDataset(Dataset):
         object_mask_latent_np = np.where(object_mask_latent_np == 0, 0, 1)  #
         object_mask = torch.tensor(object_mask_latent_np) #
 
-        anomal_src = self.load_image(self.anomaly_source_paths[anomaly_source_idx], self.resize_shape[0], self.resize_shape[1])
-        dtype = img.dtype
+        if len(self.anomaly_source_paths) > 0:
 
-        # [3] augment ( anomaly mask white = anomal position )
+            anomal_src = self.load_image(self.anomaly_source_paths[anomaly_source_idx], self.resize_shape[0], self.resize_shape[1])
+            dtype = img.dtype
 
-        if self.anomal_training:
-            if not self.anomal_only_on_object:
-                anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0],self.resize_shape[1])
-                anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
-            if self.anomal_only_on_object:
-                while True :
-                    anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1])
+            # [3] augment ( anomaly mask white = anomal position )
+
+            if self.anomal_training:
+                if not self.anomal_only_on_object:
+                    anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0],self.resize_shape[1])
                     anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
-                    anomal_mask_np = anomal_mask_np * object_mask_np
-                    if anomal_mask_np.sum() > 0:
-                        break
-            mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
-            anomal_img = (1 - mask) * img + mask * anomal_src
+                if self.anomal_only_on_object:
+                    while True :
+                        anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1])
+                        anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
+                        anomal_mask_np = anomal_mask_np * object_mask_np
+                        if anomal_mask_np.sum() > 0:
+                            break
+                mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
+                anomal_img = (1 - mask) * img + mask * anomal_src
+            else :
+                anomal_img = np.zeros_like(img, dtype=dtype)
+                mask = np.zeros_like(img, dtype=dtype)
+
+
+            # [4] masked image
+            masked_img = (1-mask) * img
+
+            # [3] final
+            anomal_mask_pil = Image.fromarray((mask * 255).astype(np.uint8)).resize((64,64)).convert('L')
+            anomal_mask_np = np.array(anomal_mask_pil) / 255
+            anomal_mask_torch = torch.tensor(anomal_mask_np)
+            anomal_mask = torch.where(anomal_mask_torch > 0.5, 1, 0)  # strict anomal
+
         else :
-            anomal_img = np.zeros_like(img, dtype=dtype)
-            mask = np.zeros_like(img, dtype=dtype)
-
-
-        # [4] masked image
-        masked_img = (1-mask) * img
-
-        # [3] final
-        anomal_mask_pil = Image.fromarray((mask * 255).astype(np.uint8)).resize((64,64)).convert('L')
-        anomal_mask_np = np.array(anomal_mask_pil) / 255
-        anomal_mask_torch = torch.tensor(anomal_mask_np)
-        anomal_mask = torch.where(anomal_mask_torch > 0.5, 1, 0)  # strict anomal
+            anomal_img = img
+            anomal_mask = object_mask
+            masked_img = img
 
         # [4] caption
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
