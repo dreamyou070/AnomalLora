@@ -4,6 +4,7 @@ from model.lora import LoRANetwork
 from attention_store import AttentionStore
 from utils.attention_control import register_attention_control
 from accelerate import Accelerator
+from model.tokenizer import load_tokenizer
 from utils import prepare_dtype
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
@@ -23,6 +24,8 @@ def main(args) :
 
     print(f'\n step 2. model')
     weight_dtype, save_dtype = prepare_dtype(args)
+    tokenizer = load_tokenizer(args)
+    tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
     vae_dtype = weight_dtype
     text_encoder, vae, unet, _ = load_target_model(args, weight_dtype, accelerator)
     text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
