@@ -408,7 +408,7 @@ if __name__ == "__main__":
                         help="pretrained weights for network / 学習するネットワークの初期重み")
     parser.add_argument("--network_module", type=str, default=None,
                         help="network module to train / 学習対象のネットワークのモジュール")
-    parser.add_argument("--network_dim", type=int, default=None,
+    parser.add_argument("--network_dim", type=int, default=64,
                         help="network dimensions (depends on each network) ")
     parser.add_argument("--network_alpha", type=float, default=1,
                         help="alpha for LoRA weight scaling, default 1 (same as network_dim for same behavior as old version)", )
