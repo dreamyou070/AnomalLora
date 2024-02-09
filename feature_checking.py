@@ -41,19 +41,12 @@ def main(args) :
     scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps, beta_start=args.scheduler_linear_start,
                               beta_end=args.scheduler_linear_end, beta_schedule=args.scheduler_schedule)
 
-    print(f'\n step 3. object_detector network')
-    from safetensors.torch import load_file
-    object_detecting_state_dict = load_file(args.object_detector_weight)
-
     print(f'\n step 4. inference')
-    models = os.listdir(args.network_folder)
+    print(f' (1) loading network')
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha,
                           module_class=LoRAInfModule)
     network.apply_to(text_encoder, unet, True, True)
-    raw_state_dict = network.state_dict()
-    raw_state_dict_orig = raw_state_dict.copy()
-
-    print(f' (1) loading network')
+    from safetensors.torch import load_file
     pretrained_lora_dir = r'/home/dreamyou070/AnomalLora/result/bagel/3_caption_bagel_1_without_taskloss_dist_loss_background_with_normal_more_anomal_srcs_anomal_detail/models/epoch-000001.safetensors'
     anomal_detecting_state_dict = load_file(pretrained_lora_dir)
     network.load_state_dict(anomal_detecting_state_dict, strict=False)
@@ -117,6 +110,23 @@ def main(args) :
         plt.savefig(os.path.join(args.output_dir, f'histogram/normal.png'))
         plt.hist(anomal_mahalanobis_dists, bins=100, alpha=0.5, label='anomal')
         plt.savefig(os.path.join(args.output_dir, f'histogram/anomal.png'))
+
+        print(f' [4] down dim')
+        from random import sample
+        d = 100
+        idx = torch.tensor(sample(range(0, 320), d))
+        normal_features_down_dim = torch.index_select(normal_features, 1, idx)
+        anomal_features_down_dim = torch.index_select(anomal_features, 1, idx)
+        normal_mu_down_dim = torch.mean(normal_features_down_dim, dim=0)
+        normal_cov_down_dim = torch.cov(normal_features_down_dim.transpose(0, 1))
+        normal_mahalanobis_dists_down_dim = [mahal(feat, normal_mu_down_dim, normal_cov_down_dim) for feat in normal_features_down_dim]
+        anomal_mahalanobis_dists_down_dim = [mahal(feat, normal_mu_down_dim, normal_cov_down_dim) for feat in anomal_features_down_dim]
+        plt.hist(normal_mahalanobis_dists_down_dim, bins=100, alpha=0.5, label='normal')
+        plt.savefig(os.path.join(args.output_dir, f'histogram/normal_down_dim_{d}.png'))
+        plt.hist(anomal_mahalanobis_dists_down_dim, bins=100, alpha=0.5, label='anomal')
+        plt.savefig(os.path.join(args.output_dir, f'histogram/anomal_down_dim_{d}.png'))
+
+
 
 
 
