@@ -169,8 +169,7 @@ def main(args):
 
     print(f'\n step 8. training')
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
-    if (args.save_n_epoch_ratio is not None) and (args.save_n_epoch_ratio > 0):
-        args.save_every_n_epochs = math.floor(args.num_epochs / args.save_n_epoch_ratio) or 1
+    args.save_every_n_epochs = 1
     attention_storer = AttentionStore()
     register_attention_control(unet, attention_storer)
 
