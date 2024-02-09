@@ -181,10 +181,10 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [4] caption
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
 
-        images = [self.transform(img)]
-        images = torch.stack(images).to(memory_format=torch.contiguous_format).float()
+        #images = []
+        #images = torch.stack(images).to(memory_format=torch.contiguous_format).float()
         # [5] return
-        sample = {'image': images,
+        sample = {'image': self.transform(img),
                   "object_mask": object_mask.unsqueeze(0),  # [1, 64, 64]
                   'augmented_image': self.transform(anomal_img),
                   "anomaly_mask": anomal_mask.unsqueeze(0),  # [1, 64, 64]
