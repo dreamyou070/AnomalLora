@@ -240,7 +240,7 @@ if __name__ == '__main__':
     parser.add_argument('--network_alpha', type=float,default=4)
     parser.add_argument('--network_folder', type=str)
     parser.add_argument('--object_detector_weight', type=str)
-
+    parser.add_argument("--lowram", action="store_true", )
     # step 4. dataset and dataloader
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"], )
     parser.add_argument("--save_precision", type=str, default=None, choices=[None, "float", "fp16", "bf16"], )
