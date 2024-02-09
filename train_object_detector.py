@@ -185,6 +185,7 @@ def main(args):
             with torch.set_grad_enabled(train_text_encoder):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, torch_num, sen_len
                 encoder_hidden_states = get_hidden_states(args, input_ids, tokenizers[0], text_encoders[0], weight_dtype)
+
             if args.do_task_loss:
                 with torch.no_grad():
                     latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
