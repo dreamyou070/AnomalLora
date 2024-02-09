@@ -194,8 +194,7 @@ def main(args) :
         ### 4.2 sampling
         if is_main_process :
             ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
-            unwrapped_nw = accelerator.unwrap_model(network)
-            save_model(args, ckpt_name, unwrapped_nw, save_dtype)
+            save_model(args, ckpt_name, accelerator.unwrap_model(network), save_dtype)
             scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
             scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps,
                                       beta_start=args.scheduler_linear_start, beta_end=args.scheduler_linear_end,
@@ -213,7 +212,7 @@ def main(args) :
             num_suffix = f"e{epoch:06d}"
             img_filename = (f"{ts_str}_{num_suffix}_seed_{args.seed}.png")
             gen_img.save(os.path.join(img_save_base_dir,img_filename))
-        accelerator.end_training()
+    accelerator.end_training()
 
 
 if __name__ == '__main__':
