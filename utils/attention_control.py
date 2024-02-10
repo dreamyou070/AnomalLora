@@ -22,12 +22,9 @@ def make_perlin_noise(shape_row, shape_column):
 
 def passing_argument(args):
     global down_dim
-    global more_generalize
-    global back_token_separating
     global truncating
+
     down_dim = args.down_dim
-    more_generalize = args.more_generalize
-    back_token_separating = args.back_token_separating
     truncating = args.truncating
 def add_attn_argument(parser: argparse.ArgumentParser) :
     parser.add_argument("--down_dim", type=int, default=160)
@@ -65,10 +62,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
 
-                if not truncating :
-                    trg_map = attention_probs
-                else :
-                    trg_map = attention_probs[:, :, :2]
+                trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
