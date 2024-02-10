@@ -79,7 +79,7 @@ def main(args) :
             answer_anomal_folder = os.path.join(answer_base_folder, anomal_folder)
             os.makedirs(answer_anomal_folder, exist_ok=True)
 
-            save_base_folder = os.path.join(lora_base_folder, anomal_folder)
+            save_base_folder = os.path.join(check_base_folder, anomal_folder)
             os.makedirs(save_base_folder, exist_ok=True)
             anomal_folder_dir = os.path.join(test_img_folder, anomal_folder)
             rgb_folder = os.path.join(anomal_folder_dir, 'rgb')

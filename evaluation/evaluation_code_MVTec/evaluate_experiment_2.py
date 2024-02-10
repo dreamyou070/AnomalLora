@@ -182,17 +182,13 @@ def main():
     # Parse user arguments.
     args = parse_user_arguments()
 
-    base_save_dir = args.output_dir
-
     lora_folders = os.listdir(args.base_dir)
-
     for lora_folder in lora_folders:
 
         lora_dir = os.path.join(args.base_dir, lora_folder)
         args.anomaly_maps_dir = os.path.join(lora_dir, 'scoring')
 
-        args.output_dir = os.path.join(args.anomaly_maps_dir, base_save_dir)
-
+        args.output_dir = os.path.join(lora_dir, 'metrics')
 
         # Store evaluation results in this dictionary.
         evaluation_dict = dict()
@@ -208,11 +204,10 @@ def main():
 
             # Parse the filenames of all ground truth and corresponding anomaly
             # images for this object.
-            gt_filenames, prediction_filenames = \
-                parse_dataset_files(
-                    object_name=obj,
-                    dataset_base_dir=args.dataset_base_dir,
-                    anomaly_maps_dir=args.anomaly_maps_dir)
+            gt_filenames, prediction_filenames = parse_dataset_files(object_name=obj,
+                                                                     dataset_base_dir=args.dataset_base_dir,
+                                                                     anomaly_maps_dir=args.anomaly_maps_dir)
+
 
             # Calculate the PRO and ROC curves.
             au_pro, au_roc, pro_curve, roc_curve = \
