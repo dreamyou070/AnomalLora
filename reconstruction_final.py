@@ -108,6 +108,8 @@ def main(args) :
                         attn_dict = controller.step_store
                         query_dict = controller.query_dict
                         controller.reset()
+                        thred = len(args.trg_layer_list) / 2
+                        map_list = []
                         for layer_name in args.trg_layer_list:
                             attn_map = attn_dict[layer_name][0]
                             if attn_map.shape[0] != 8:
@@ -119,23 +121,16 @@ def main(args) :
                                 cls_map = attn_map[:,:,0].squeeze()
                                 trigger_map = attn_map[:,:,1].squeeze()
                             trigger_map = (trigger_map.squeeze()).mean(dim=0)  #
-                            binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
-                            pix_num = binary_map.shape[0]
-                            res = int(pix_num ** 0.5)
-                            binary_map = binary_map.unsqueeze(0)
-                            binary_map = binary_map.view(res, res)
-                            binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                            binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
-
-                            if args.back_token_separating:
-                                back_map = (back_map.squeeze()).mean(dim=0)
-                                back_binary_map = torch.where(back_map > 0.5, 1, 0).squeeze()
-                                pix_num = back_binary_map.shape[0]
-                                res = int(pix_num ** 0.5)
-                                back_binary_map = back_binary_map.unsqueeze(0)
-                                back_binary_map = back_binary_map.view(res, res)
-                                back_binary_pil = Image.fromarray(back_binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                                back_binary_pil.save(os.path.join(save_base_folder, f'{name}_back_map_{layer_name}.png'))
+                            map_list.append(trigger_map)
+                        map = torch.stack(map_list, dim=0)
+                        map = map.sum(dim=0)
+                        binary_map = torch.where(map > thred, 1, 0).squeeze()
+                        pix_num = binary_map.shape[0]
+                        res = int(pix_num ** 0.5)
+                        binary_map = binary_map.unsqueeze(0)
+                        binary_map = binary_map.view(res, res)
+                        binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                        binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
                         for k in raw_state_dict_orig.keys():
