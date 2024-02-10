@@ -269,7 +269,8 @@ def main(args):
                 normal_trigger_loss = (1-(normal_trigger_score / total_score)) ** 2
                 anormal_cls_loss = (1-(anormal_cls_score / total_score)) ** 2 # [pix_num]
                 anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
-
+                print(f'normal_trigger_loss : {normal_trigger_loss}')
+                print(f'anormal_trigger_loss : {anormal_trigger_loss}')
                 attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
 
                 if args.do_cls_train :
