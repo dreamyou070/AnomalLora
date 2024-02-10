@@ -153,6 +153,13 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         # [1] base
         img_path = self.image_paths[img_idx]
+
+        parent, name = os.path.split(img_path)
+        class_name = os.path.split(parent)[0]
+        name, ext = os.path.splitext(name)
+        final_name = f'{class_name}_{name}'
+
+
         # img_path = self.image_paths[idx]
         parent, name = os.path.split(img_path)
         parent, _ = os.path.split(parent)
@@ -248,5 +255,6 @@ class MVTecDRAEMTrainDataset(Dataset):
                   'masked_image_mask': anomal_mask.unsqueeze(0),
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),
-                  'caption': self.caption,}
+                  'caption': self.caption,
+                  'image_name' : final_name}
         return sample

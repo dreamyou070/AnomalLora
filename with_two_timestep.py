@@ -45,182 +45,97 @@ def main(args):
     set_seed(args.seed)
 
     print(f'\n step 2. dataset')
-    tokenizer = load_tokenizer(args)
-    tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
-    obj_dir = os.path.join(args.data_path, args.obj_name)
-    train_dir = os.path.join(obj_dir, "train")
-    root_dir = os.path.join(train_dir, "good/rgb")
-    args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
-    dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
-                                     anomaly_source_path=args.anomaly_source_path,
-                                     resize_shape=[512, 512],
-                                     tokenizer=tokenizer,
-                                     caption=args.trigger_word,
-                                     use_perlin=True,
-                                     num_repeat=args.num_repeat,
-                                     anomal_only_on_object=args.anomal_only_on_object,
-                                     anomal_training  = True)
-
-    print(f'\n step 3. preparing accelerator')
     accelerator = prepare_accelerator(args)
-    is_main_process = accelerator.is_main_process
+    tokenizer = load_tokenizer(args)
+    obj_dir = os.path.join(args.data_path, args.obj_name)
 
-    print(f'\n step 4. model')
-    weight_dtype, save_dtype = prepare_dtype(args)
-    vae_dtype = weight_dtype
-    print(f' (4.1) base model')
-    text_encoder, vae, unet, _ = load_target_model(args, weight_dtype, accelerator)
-    text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
-    print(' (4.2) lora model')
-    net_kwargs = {}
-    if args.network_args is not None:
-        for net_arg in args.network_args:
-            key, value = net_arg.split("=")
-            net_kwargs[key] = value
-    network = create_network(1.0, args.network_dim, args.network_alpha,
-                             vae, text_encoder, unet, neuron_dropout=args.network_dropout, **net_kwargs, )
-    train_unet, train_text_encoder = args.train_unet, args.train_text_encoder
-    network.apply_to(text_encoder, unet, train_text_encoder, train_unet)
-    if args.network_weights is not None:
-        info = network.load_weights(args.network_weights)
-        accelerator.print(f"load network weights from {args.network_weights}: {info}")
+    test_dir = os.path.join(obj_dir, "test")
+    folders = os.listdir(test_dir)
+    for folder in folders:
+        root_dir = os.path.join(test_dir, f"{folder}/rgb")
+        args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
+        dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
+                                         anomaly_source_path=args.anomaly_source_path,
+                                         resize_shape=[512, 512],
+                                         tokenizer=tokenizer,
+                                         caption=args.trigger_word,
+                                         use_perlin=True,
+                                         num_repeat=args.num_repeat,
+                                         anomal_only_on_object=args.anomal_only_on_object,
+                                         anomal_training=True)
 
-    print(f'\n step 5. optimizer')
-    trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
-    optimizer_name, optimizer_args, optimizer = get_optimizer(args, trainable_params)
+        weight_dtype, save_dtype = prepare_dtype(args)
+        vae_dtype = weight_dtype
+        print(f' (4.1) base model')
+        text_encoder, vae, unet, _ = load_target_model(args, weight_dtype, accelerator)
+        text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
 
-    print(f' step 6. dataloader')
-    train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
+        train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 
-    print(f'\n step 7. lr')
-    lr_scheduler = get_scheduler_fix(args, optimizer, accelerator.num_processes)
-
-    print(f'\n step 7. training preparing')
-    if args.max_train_epochs is not None:
-        args.max_train_steps = args.max_train_epochs * math.ceil(
-            len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
-        accelerator.print(f"override steps. steps for {args.max_train_epochs} epochs / {args.max_train_steps}")
-    if args.full_fp16:
-        assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16'"
-        accelerator.print("enable full fp16 training.")
-        network.to(weight_dtype)
-    elif args.full_bf16:
-        assert (args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / mixed_precision='bf16'"
-        accelerator.print("enable full bf16 training.")
-        network.to(weight_dtype)
-
-    unet.requires_grad_(False)
-    unet.to(dtype=weight_dtype)
-    for t_enc in text_encoders:
-        t_enc.requires_grad_(False)
-
-    if train_unet and train_text_encoder:
-        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
-        text_encoders = [text_encoder]
-    elif train_unet:
-        unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
-                                                                                       train_dataloader, lr_scheduler)
-        text_encoder.to(accelerator.device)
-    elif train_text_encoder:
-        text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            text_encoder, network, optimizer, train_dataloader, lr_scheduler)
-        text_encoders = [text_encoder]
-        unet.to(accelerator.device, dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
-    else:
-        network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer,
-                                                                                 train_dataloader, lr_scheduler)
-    text_encoders = transform_models_if_DDP(text_encoders)
-    unet, network = transform_models_if_DDP([unet, network])
-    if args.gradient_checkpointing:
-        unet.train()
+        unet.requires_grad_(False)
+        unet.to(dtype=weight_dtype)
         for t_enc in text_encoders:
-            t_enc.train()
-            if train_text_encoder:
-                t_enc.text_model.embeddings.requires_grad_(True)
-        if not train_text_encoder:  # train U-Net only
-            unet.parameters().__next__().requires_grad_(True)
-    else:
-        unet.eval()
-        for t_enc in text_encoders:
-            t_enc.eval()
-    del t_enc
+            t_enc.requires_grad_(False)
+        unet, text_encoder, train_dataloader = accelerator.prepare(unet, text_encoder, train_dataloader)
 
-    network.prepare_grad_etc(text_encoder, unet)
-    vae.requires_grad_(False)
-    vae.eval()
-    vae.to(accelerator.device, dtype=vae_dtype)
+        text_encoders = transform_models_if_DDP(text_encoders)
+        unet, network = transform_models_if_DDP([unet, network])
 
-    print(f'\n step 8. training')
-    args.save_every_n_epochs = 1
-    attention_storer = AttentionStore()
-    register_attention_control(unet, attention_storer)
-    max_train_steps = len(train_dataloader) * args.max_train_epochs
-    progress_bar = tqdm(range(max_train_steps),
-                        smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
-    global_step = 0
-    noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
-                                    num_train_timesteps=1000, clip_sample=False)
-    prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
-    loss_list = []
-    loss_total = 0.0
+        vae.requires_grad_(False)
+        vae.eval()
+        vae.to(accelerator.device, dtype=vae_dtype)
 
-    # callback for step start
-    if hasattr(network, "on_step_start"):
-        on_step_start = network.on_step_start
-    else:
-        on_step_start = lambda *args, **kwargs: None
+        noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
+                                        num_train_timesteps=1000, clip_sample=False)
+        prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
 
-    loss_dict = {}
-    controller = AttentionStore()
-    register_attention_control(unet, controller)
+        scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
+        scheduler = scheduler_cls(num_train_timesteps=1000, beta_start=args.scheduler_linear_start,
+                                  beta_end=args.scheduler_linear_end, beta_schedule=args.scheduler_schedule)
+        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
+                                                           unet=unet, scheduler=scheduler, safety_checker=None,
+                                                           feature_extractor=None,
+                                                           requires_safety_checker=False, random_vector_generator=None,
+                                                           trg_layer_list=None)
 
-    scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
-    scheduler = scheduler_cls(num_train_timesteps=1000, beta_start=args.scheduler_linear_start,
-                              beta_end=args.scheduler_linear_end, beta_schedule=args.scheduler_schedule)
-    pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder, tokenizer=tokenizer,
-                                                       unet=unet, scheduler=scheduler, safety_checker=None,
-                                                       feature_extractor=None,
-                                                       requires_safety_checker=False, random_vector_generator=None,
-                                                       trg_layer_list=None)
+        img_save_base_dir = os.path.join(args.output_dir, 'noising_test')
+        os.makedirs(img_save_base_dir, exist_ok=True)
+    
 
-    for step, batch in enumerate(train_dataloader):
+        for step, batch in enumerate(train_dataloader):
+            with torch.no_grad():
+                name = batch['image_name']
+                # [1] original image
+                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
+                latents = latents * vae_scale_factor  # [1,4,64,64]
 
-        with torch.no_grad():
+                noise = torch.randn_like(latents, device=latents.device)
 
-            # [1] original image
-            latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
-            latents = latents * vae_scale_factor  # [1,4,64,64]
+                random_times = [20,50, 100, 150, 300, 500]
 
-            noise = torch.randn_like(latents, device=latents.device)
+                for random_time in random_times:
 
-            random_times = [20,50, 100, 150, 300, 500]
+                    random_timestep = torch.tensor([random_time])
+                    random_timestep = random_timestep.long()
 
-            for random_time in random_times:
+                    noisy_latents = noise_scheduler.add_noise(latents, noise, random_timestep)
 
-                random_timestep = torch.tensor([random_time])
-                random_timestep = random_timestep.long()
+                    # [2] augmented image
+                    anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
+                    anomal_latents = anomal_latents * vae_scale_factor
+                    noisy_anomal_latents = noise_scheduler.add_noise(anomal_latents, noise, random_timestep)
 
-                noisy_latents = noise_scheduler.add_noise(latents, noise, random_timestep)
-
-                # [2] augmented image
-                anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
-                anomal_latents = anomal_latents * vae_scale_factor
-                noisy_anomal_latents = noise_scheduler.add_noise(anomal_latents, noise, random_timestep)
-
-                origin_pil = pipeline.latents_to_image(latents)[0].resize((512, 512))
-                origin_noise_pil = pipeline.latents_to_image(noisy_latents)[0].resize((512, 512))
-                anomal_pil = pipeline.latents_to_image(anomal_latents)[0].resize((512, 512))
-                anomal_noise_pil = pipeline.latents_to_image(noisy_anomal_latents)[0].resize((512, 512))
-
-                img_save_base_dir = args.output_dir
-                origin_pil.save(os.path.join(img_save_base_dir, f'origin.png'))
-                origin_noise_pil.save(os.path.join(img_save_base_dir, f'origin_noise_{random_time}_timestep.png'))
-                anomal_pil.save(os.path.join(img_save_base_dir, f'anomal.png'))
-                anomal_noise_pil.save(os.path.join(img_save_base_dir, f'anomal_noise_{random_time}_timestep.png'))
+                    origin_pil = pipeline.latents_to_image(latents)[0].resize((512, 512))
+                    origin_noise_pil = pipeline.latents_to_image(noisy_latents)[0].resize((512, 512))
+                    anomal_pil = pipeline.latents_to_image(anomal_latents)[0].resize((512, 512))
+                    anomal_noise_pil = pipeline.latents_to_image(noisy_anomal_latents)[0].resize((512, 512))
 
 
-            time.sleep(1000)
+                    origin_pil.save(os.path.join(img_save_base_dir, f'{name}_origin.png'))
+                    origin_noise_pil.save(os.path.join(img_save_base_dir, f'{name}_origin_noise_{random_time}_timestep.png'))
+                    anomal_pil.save(os.path.join(img_save_base_dir, f'{name}_anomal.png'))
+                    anomal_noise_pil.save(os.path.join(img_save_base_dir, f'{name}_anomal_noise_{random_time}_timestep.png'))
+
 
 
 
