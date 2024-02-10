@@ -59,18 +59,15 @@ def main(args) :
 
         # [1] recon base folder
         parent, _ = os.path.split(args.network_folder)
-        if args.truncating :
-            recon_base_folder = os.path.join(parent, 'reconstruction_truncating')
-        else :
-            recon_base_folder = os.path.join(parent, 'reconstruction_not_truncating')
-
+        recon_base_folder = os.path.join(parent, 'reconstruction')
         os.makedirs(recon_base_folder, exist_ok=True)
+
         lora_base_folder = os.path.join(recon_base_folder, f'lora_epoch_{lora_epoch}')
         os.makedirs(lora_base_folder, exist_ok=True)
 
-        answer_base_folder = os.path.join(recon_base_folder, f'{args.obj_name}')
-        os.makedirs(answer_base_folder, exist_ok=True)
-        answer_base_folder = os.path.join(answer_base_folder, f'test')
+        check_base_folder = os.path.join(lora_base_folder, f'my_check')
+        os.makedirs(check_base_folder, exist_ok=True)
+        answer_base_folder = os.path.join(lora_base_folder, f'scoring')
         os.makedirs(answer_base_folder, exist_ok=True)
 
         anomal_detecting_state_dict = load_file(network_model_dir)
@@ -139,9 +136,11 @@ def main(args) :
                             normal_map = normal_map.unsqueeze(0)
                             normal_map = normal_map.view(res, res)
                             anomaly_map = 1- normal_map
-                            normal_map_pil = Image.fromarray(
-                                normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                            normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
+                            #normal_map_pil = Image.fromarray(
+                            #    normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                            #normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
+                            anomaly_map_pil = Image.fromarray(anomaly_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                            anomaly_map_pil.save(os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
 
                             binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
                             binary_map = binary_map.unsqueeze(0)
@@ -149,6 +148,8 @@ def main(args) :
                             binary_pil = Image.fromarray(
                                 binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
+
+                            anomaly_map_pil.save(os.path.join(answer_anomal_folder, f'{name}.tiff'))
 
                         #map = torch.stack(map_list, dim=0)
                         #map = map.mean(dim=0) # pix_num
