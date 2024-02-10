@@ -67,7 +67,7 @@ def main(args) :
 
         check_base_folder = os.path.join(lora_base_folder, f'my_check')
         os.makedirs(check_base_folder, exist_ok=True)
-        answer_base_folder = os.path.join(lora_base_folder, f'scoring')
+        answer_base_folder = os.path.join(lora_base_folder, f'scoring/{args.obj_name}/test')
         os.makedirs(answer_base_folder, exist_ok=True)
 
         anomal_detecting_state_dict = load_file(network_model_dir)
@@ -124,7 +124,6 @@ def main(args) :
                             if args.truncating :
                                 cls_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
                             else :
-                                cls_map = attn_map[:,:,0].squeeze()
                                 trigger_map = attn_map[:,:,1].squeeze()
                             trigger_map = (trigger_map.squeeze()).mean(dim=0)  #
                             map_list.append(trigger_map)
@@ -133,12 +132,15 @@ def main(args) :
                             res = int(pix_num ** 0.5)
 
                             normal_map = torch.where(trigger_map > 0.5, 1, trigger_map).squeeze()
+                            normal_map_max = normal_map.max()
+                            print(f'normal_map_max : {normal_map_max}')
                             normal_map = normal_map.unsqueeze(0)
                             normal_map = normal_map.view(res, res)
-                            anomaly_map = 1- normal_map
-                            #normal_map_pil = Image.fromarray(
-                            #    normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                            #normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
+                            normal_map_pil = Image.fromarray(
+                                normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                            normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
+
+                            anomaly_map = 1 - normal_map
                             anomaly_map_pil = Image.fromarray(anomaly_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                             anomaly_map_pil.save(os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
 
