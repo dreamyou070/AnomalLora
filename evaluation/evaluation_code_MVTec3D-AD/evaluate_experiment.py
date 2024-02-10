@@ -182,15 +182,12 @@ def main():
     # Parse user arguments.
     args = parse_user_arguments()
 
-    base_anomaly_maps_dir = args.anomaly_maps_dir
-    base_save_dir = args.output_dir
-
     lora_folders = os.listdir(args.base_dir)
     for lora_folder in lora_folders:
         lora_dir = os.path.join(args.base_dir, lora_folder)
         print(f' * * * * Evaluate {lora_folder} * * * * ')
-        args.anomaly_maps_dir = os.path.join(lora_dir, base_anomaly_maps_dir)
-        args.output_dir = os.path.join(args.anomaly_maps_dir, base_save_dir)
+        args.anomaly_maps_dir = os.path.join(lora_dir, 'scoring')
+        args.output_dir = os.path.join(lora_dir, 'metrics')
 
         # Store evaluation results in this dictionary.
         evaluation_dict = dict()
