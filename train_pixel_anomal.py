@@ -328,7 +328,7 @@ if __name__ == "__main__":
     parser.add_argument('--anomaly_source_path', type=str)
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--num_repeat', type=int, default=1)
-    parser.add_argument('--trigger_word,', type=str)
+    parser.add_argument('--trigger_word', type=str)
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--latent_res", type=int, default=64)
     # step 3. preparing accelerator')
