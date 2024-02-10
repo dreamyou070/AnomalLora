@@ -200,6 +200,7 @@ def main(args):
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             normal_feat_list = []
+
             for trg_layer in args.trg_layer_list:
 
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
@@ -238,6 +239,8 @@ def main(args):
 
             anomal_mask = batch['anomaly_mask'].squeeze() # [64,64]
             anormal_position = anomal_mask.flatten() # [64*64]
+            total_anomal_position = anormal_position.sum().item()
+            print(f'total_anomal_position : {total_anomal_position}')
 
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
