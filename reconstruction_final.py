@@ -133,15 +133,14 @@ def main(args) :
 
                             normal_map = torch.where(trigger_map > 0.5, 1, trigger_map).squeeze()
 
-                            normal_map = normal_map.unsqueeze(0)
-                            normal_map = normal_map.view(res, res)
-                            normal_map_pil = Image.fromarray(
-                                normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                            normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
+                            #normal_map = normal_map.unsqueeze(0)
+                            #normal_map = normal_map.view(res, res)
+                            #normal_map_pil = Image.fromarray(
+                            #    normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                            #normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
 
                             anomaly_map = (1 - normal_map) * 255
                             anomal_np = anomaly_map.cpu().detach().numpy().astype(np.uint8)
-                            print(f'anomal_np max : {np.max(anomal_np)}')
                             anomaly_map_pil = Image.fromarray(anomal_np).resize((org_h, org_w))
                             anomaly_map_pil.save(os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
 
