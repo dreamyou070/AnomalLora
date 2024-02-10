@@ -1,7 +1,7 @@
 #! /bin/bash
 
 class_name="bagel"
-second_folder_name="1_64_down_total_normal_thred_0"
+second_folder_name="1_64_down_total_normal_thred_0.5"
 
 
 python ../evaluation/get_all_metrics.py \
