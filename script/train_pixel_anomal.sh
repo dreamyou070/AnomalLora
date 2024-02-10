@@ -1,14 +1,14 @@
 # !/bin/bash
 # if backtoken separating, CLS / Trigger / Background
 
-port_number=51132
+port_number=51100
 obj_name='bagel'
 trigger_word='bagel'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train_pixel_anomal.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
- --output_dir "../../result/${obj_name}/6_caption_bagel_64_down_harsh_timestep" \
+ --output_dir "../../result/${obj_name}/6_caption_bagel_64_down_strong_normal" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' \
  --trigger_word "${trigger_word}" \
