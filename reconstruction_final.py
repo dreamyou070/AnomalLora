@@ -133,8 +133,8 @@ def main(args) :
 
                             normal_map = torch.where(trigger_map > 0.5, 1, trigger_map).squeeze()
 
-                            #normal_map = normal_map.unsqueeze(0)
-                            #normal_map = normal_map.view(res, res)
+                            normal_map = normal_map.unsqueeze(0)
+                            normal_map = normal_map.view(res, res)
                             #normal_map_pil = Image.fromarray(
                             #    normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                             #normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
