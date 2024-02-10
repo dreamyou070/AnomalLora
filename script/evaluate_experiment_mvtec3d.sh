@@ -3,7 +3,7 @@
 class_name="bagel"
 dataset_cat="MVTec3D-AD"
 dataset_dir="../../../MyData/anomaly_detection/${dataset_cat}"
-sub_folder="2_64_up_1_total_normal_thred_1"
+sub_folder="3_64_up_2_total_normal_thred_1_change_dataset"
 
 
 output_dir="metrics"
