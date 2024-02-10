@@ -102,7 +102,6 @@ def main(args):
         img_save_base_dir = os.path.join(args.output_dir, 'noising_test')
         os.makedirs(img_save_base_dir, exist_ok=True)
 
-
         for step, batch in enumerate(train_dataloader):
             with torch.no_grad():
                 name = batch['image_name']

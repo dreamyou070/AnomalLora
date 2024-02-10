@@ -156,6 +156,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         parent, name = os.path.split(img_path)
         class_name = os.path.split(parent)[0]
+        class_name = os.path.split(class_name)[1]
         name, ext = os.path.splitext(name)
         final_name = f'{class_name}_{name}'
 
