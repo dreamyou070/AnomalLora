@@ -1,8 +1,8 @@
 # !/bin/bash
 
-port_number=52222
-obj_name='carrot'
-trigger_word='carrot'
+port_number=53333
+obj_name='cookie'
+trigger_word='cookie'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train_pixel_anomal.py \
