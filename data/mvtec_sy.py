@@ -104,7 +104,11 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.latent_res = latent_res
 
     def __len__(self):
-        return len(self.image_paths)
+        if len(self.anomal_source_paths) > 0:
+            return max(len(self.image_paths), len(self.anomaly_source_paths))
+        else:
+            return len(self.image_paths)
+
 
     def get_input_ids(self, caption):
         tokenizer_output = self.tokenizer(caption, padding="max_length", truncation=True,return_tensors="pt")
@@ -163,7 +167,9 @@ class MVTecDRAEMTrainDataset(Dataset):
     def __getitem__(self, idx):
 
         # [1] base
-        img_path = self.image_paths[idx]
+        img_idx = idx % len(self.image_paths)
+        img_path = self.image_paths[img_idx]
+
         img = self.load_image(img_path, self.resize_shape[0], self.resize_shape[1])
         dtype = img.dtype
         final_name = self.get_img_name(img_path)
@@ -176,7 +182,8 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         if len(self.anomaly_source_paths) > 0:
 
-            anomal_src_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
+            #anomal_src_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
+            anomal_src_idx = idx % len(self.anomaly_source_paths)
             anomal_src_img = self.load_image(self.anomaly_source_paths[anomal_src_idx],
                                              self.resize_shape[0], self.resize_shape[1])
 
