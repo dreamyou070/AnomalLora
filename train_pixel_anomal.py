@@ -248,8 +248,9 @@ def main(args):
 
             anomal_mask = batch['anomaly_mask'].squeeze() # [64,64]
             anormal_position = anomal_mask.flatten() # [64*64]
-            total_anomal_position = anormal_position.sum().item()
 
+            print(f'anormal_position: {anormal_position}')
+            print(f'anormal_position: {anormal_position.shape}')
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
                 pix_num = query.shape[0]
