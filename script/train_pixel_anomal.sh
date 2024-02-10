@@ -1,5 +1,4 @@
 # !/bin/bash
-# if backtoken separating, CLS / Trigger / Background
 
 port_number=51100
 obj_name='bagel'
@@ -17,5 +16,11 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --trg_layer_list "['down_blocks_0_attentions_1_transformer_blocks_0_attn2']" \
  --do_dist_loss --dist_loss_weight 1.0 \
  --do_attn_loss --attn_loss_weight 1.0 --do_cls_train --normal_weight 1 \
- --background_with_normal --max_train_epochs 300 --start_epoch 0 --num_repeat 1 --anomal_only_on_object --unet_inchannels 4 \
- --min_timestep 300 --max_timestep 1000 --truncating
+ --start_epoch 0 \
+ --max_train_epochs 300 \
+ --num_repeat 1 \
+ --anomal_only_on_object \
+ --unet_inchannels 4 \
+ --min_timestep 300 \
+ --max_timestep 1000 \
+ --truncating

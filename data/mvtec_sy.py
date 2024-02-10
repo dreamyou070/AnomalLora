@@ -93,7 +93,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.transform = transforms.Compose([transforms.ToTensor(),
                                              transforms.Normalize([0.5], [0.5]),])
         self.use_perlin = use_perlin
-        self.num_repeat = 1
+        self.num_repeat = num_repeat
 
         image_paths = sorted(glob.glob(root_dir + "/*.png"))
         self.image_paths = [image_path for image_path in image_paths for i in range(num_repeat)]
@@ -103,10 +103,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
     def __len__(self):
 
-        if len(self.anomaly_source_paths) > 0:
-            return max(len(self.image_paths), len(self.anomaly_source_paths))
-        else :
-            return len(self.image_paths)
+        return len(self.image_paths)
 
     def get_input_ids(self, caption):
         tokenizer_output = self.tokenizer(caption, padding="max_length", truncation=True,return_tensors="pt")
@@ -134,75 +131,70 @@ class MVTecDRAEMTrainDataset(Dataset):
         mask_np = np.array(mask_pil) / 255  # height, width, [0,1]
         return mask_np, mask_pil
 
-    def load_image(self, image_path, trg_h, trg_w):
+    def load_image(self, image_path, trg_h, trg_w,
+                   type='RGB'):
         image = Image.open(image_path)
-        if not image.mode == "RGB":
-            image = image.convert("RGB")
+        if type == 'RGB'
+            if not image.mode == "RGB":
+                image = image.convert("RGB")
+        elif type == 'L':
+            if not image.mode == "L":
+                image = image.convert("L")
         if trg_h and trg_w:
             image = image.resize((trg_w, trg_h), Image.BICUBIC)
         img = np.array(image, np.uint8)
         return img
 
-    def __getitem__(self, idx):
-
-        # idx = torch.randint(0, len(self.image_paths), (1,)).item()
-        # anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
-        if len(self.anomaly_source_paths) > 0 :
-            anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
-        img_idx = idx % len(self.image_paths)
-
-        # [1] base
-        img_path = self.image_paths[img_idx]
-
+    def get_img_name(self, img_path):
         parent, name = os.path.split(img_path)
-        class_name = os.path.split(parent)[0]
+        class_name = os.path.split(parent)[1]
         class_name = os.path.split(class_name)[1]
         name, ext = os.path.splitext(name)
         final_name = f'{class_name}_{name}'
+        return final_name
 
-
-        # img_path = self.image_paths[idx]
+    def get_object_mask_dir(self, img_path):
         parent, name = os.path.split(img_path)
         parent, _ = os.path.split(parent)
         object_mask_dir = os.path.join(parent, f"object_mask/{name}")
+        return object_mask_dir
 
+    def __getitem__(self, idx):
+
+        # [1] base
+        img_path = self.image_paths[idx]
         img = self.load_image(img_path, self.resize_shape[0], self.resize_shape[1])
-
-        object_img = Image.open(object_mask_dir).convert("L").resize((self.resize_shape[0], self.resize_shape[1]), Image.BICUBIC)
-        object_mask_np = np.array(object_img, np.uint8) / 255
-        object_mask_np = np.where(object_mask_np == 0, 0, 1)
+        dtype = img.dtype
+        final_name = self.get_img_name(img_path)
 
         # [2] object mask
-        object_img_latent =Image.open(object_mask_dir).convert("L").resize((64,64), Image.BICUBIC)
-        object_mask_latent_np = np.array(object_img_latent, np.uint8) / 255 # [64,64], 0~1
-        object_mask_latent_np = np.where(object_mask_latent_np == 0, 0, 1)  #
-        object_mask = torch.tensor(object_mask_latent_np) #
+        object_mask_dir = self.get_object_mask_dir(img_path)
+        object_img = self.load_image(object_mask_dir, 64,64, type='L')
+        object_mask_np = np.where((np.array(object_img, np.uint8) / 255) == 0, 0, 1)
+        object_mask = torch.tensor(object_mask_np) # shape = [64,64], 0 = background, 1 = object
 
         if len(self.anomaly_source_paths) > 0:
 
-            anomal_src = self.load_image(self.anomaly_source_paths[anomaly_source_idx], self.resize_shape[0], self.resize_shape[1])
-            dtype = img.dtype
+            anomal_src_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
+            anomal_src_img = self.load_image(self.anomaly_source_paths[anomal_src_idx],
+                                             self.resize_shape[0], self.resize_shape[1])
 
             # [3] augment ( anomaly mask white = anomal position )
-
             if self.anomal_training:
-
                 if not self.anomal_only_on_object:
-                    anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0],self.resize_shape[1])
+                    anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0],
+                                                                            self.resize_shape[1])
                     anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
 
-
                 if self.anomal_only_on_object:
-
                     p = random.random()
-
                     #if p > 0 :  # original noise
-
+                    object_img_aug = self.load_image(object_mask_dir, self.resize_shape[0], self.resize_shape[1], type='L')
+                    object_mask_np_aug = np.where((np.array(object_img_aug, np.uint8) / 255) == 0, 0, 1)
                     while True:
-                        anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0],
-                                                                                self.resize_shape[1])
+                        anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1])
                         anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
-                        anomal_mask_np = anomal_mask_np * object_mask_np
+                        anomal_mask_np = anomal_mask_np * object_mask_np_aug
                         if anomal_mask_np.sum() > 0:
                             break
                     """
@@ -225,27 +217,25 @@ class MVTecDRAEMTrainDataset(Dataset):
                         radius = int(radius_p * self.resize_shape[0])
                         anomal_mask_np = cv2.circle(random_mask, center, radius, (1, 1, 1), -1)
                     """
-                #print(f'anomal_mask_np.sum() : {anomal_mask_np.sum()}')
-                mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
-                anomal_img = (1 - mask) * img + mask * anomal_src
+                mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype) # 1 = anomal, 0 = normal
+                anomal_img = (1 - mask) * img + mask * anomal_src_img # [512,512]
             else :
-                anomal_img = np.zeros_like(img, dtype=dtype)
                 mask = np.zeros_like(img, dtype=dtype)
-
+                anomal_img = np.zeros_like(img, dtype=dtype)
 
             # [4] masked image
-            masked_img = (1-mask) * img
+            masked_img = (1 - mask) * img
 
             # [3] final
             anomal_mask_pil = Image.fromarray((mask * 255).astype(np.uint8)).resize((64,64)).convert('L')
-            anomal_mask_np = np.array(anomal_mask_pil) / 255
-            anomal_mask_torch = torch.tensor(anomal_mask_np)
-            anomal_mask = torch.where(anomal_mask_torch > 0.5, 1, 0)  # strict anomal
+            anomal_mask_torch = torch.tensor(np.array(anomal_mask_pil) / 255)
+            anomal_mask = torch.where(anomal_mask_torch > 0, 1, 0)  # strict anomal
 
         else :
-            anomal_img = img
-            anomal_mask = object_mask
             masked_img = img
+            anomal_img = img
+            anomal_mask = object_mask # [64,64]
+
 
         # [4] caption
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
@@ -261,4 +251,5 @@ class MVTecDRAEMTrainDataset(Dataset):
                   'input_ids': input_ids.squeeze(0),
                   'caption': self.caption,
                   'image_name' : final_name}
+
         return sample

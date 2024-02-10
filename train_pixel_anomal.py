@@ -15,8 +15,8 @@ from utils.attention_control import register_attention_control
 from utils.optimizer_utils import get_optimizer, get_scheduler_fix
 from utils.model_utils import get_hidden_states, get_noise_noisy_latents_and_timesteps, \
     prepare_scheduler_for_custom_training, get_noise_noisy_latents_partial_time
-from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
-from utils.scheduling_utils import get_scheduler
+from model.unet import unet_passing_argument
+from utils.attention_control import passing_argument
 
 vae_scale_factor = 0.18215
 
@@ -167,17 +167,10 @@ def main(args):
                                     num_train_timesteps=1000, clip_sample=False)
     prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
     loss_list = []
-    loss_total = 0.0
 
-    # callback for step start
-    if hasattr(network, "on_step_start"):
-        on_step_start = network.on_step_start
-    else:
-        on_step_start = lambda *args, **kwargs: None
-
-    loss_dict = {}
     controller = AttentionStore()
     register_attention_control(unet, controller)
+
     for epoch in range(args.start_epoch, args.max_train_epochs):
 
         epoch_loss_total = 0
@@ -187,6 +180,8 @@ def main(args):
 
             loss_dict = {}
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
+            dist_loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
+            attn_loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
 
             # -------------------------------------------- Normal Sample --------------------------------------------- #
             with torch.set_grad_enabled(True):
@@ -197,16 +192,12 @@ def main(args):
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
                 latents = latents * vae_scale_factor  # [1,4,64,64]
             noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                               latents, min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
+                                             latents, min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=None)
             # ---------------------------------------- Normal Sample Learning ---------------------------------------- #
-            query_dict = controller.query_dict
-            attn_dict = controller.step_store
+            query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             normal_feat_list = []
-            dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
-            attn_loss, normal_loss, anomal_loss = 0, 0, 0
-
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 pix_num = query.shape[0]
@@ -216,68 +207,44 @@ def main(args):
 
                 normal_feats = torch.cat(normal_feat_list, dim=0)
 
-                normal_mu = torch.mean(normal_feats, dim=0)
-                normal_cov = torch.cov(normal_feats.transpose(0, 1))
+                mu = torch.mean(normal_feats, dim=0)
+                cov = torch.cov(normal_feats.transpose(0, 1))
+                normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
 
-                normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
-
-                # ----------------------------------------- 3. attn loss --------------------------------------------- #
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-                normal_cls_score = (cls_score).mean(dim=0)      # pix_num
-                normal_trigger_score = (trigger_score).mean(dim=0)
+                normal_cls_score = cls_score.mean(dim=0)      # pix_num
+                normal_trigger_score = trigger_score.mean(dim=0)
 
-            # -------------------------------------------- Augment Sample --------------------------------------------- #
+            # ---------------------------------------- ANormal Sample Learning --------------------------------------- #
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = anomal_latents * vae_scale_factor
-            noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,anomal_latents)
-            if args.only_zero_timestep:
-                noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args,
-                        noise_scheduler, anomal_latents, min_timestep=args.min_timestep, max_timestep=args.max_timestep,)
+            noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
+                                                                                           anomal_latents)
             with accelerator.autocast():
-                unet(anomal_noisy_latents,timesteps,encoder_hidden_states,trg_layer_list=args.trg_layer_list,
-                     noise_type=None).sample
+                unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                     noise_type=None)
 
-            # -------------------------------------------- Additional Loss ------------------------------------------- #
-            query_dict = controller.query_dict
-            attn_dict = controller.step_store
+            query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             anormal_feat_list = []
-            dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
-            attn_loss, normal_loss, anomal_loss = 0, 0, 0
-            anomal_mask_ = batch['anomaly_mask'].squeeze() # [64,64]
-            anomal_mask = anomal_mask_.flatten().squeeze(0)
-            object_mask_ = batch['object_mask'].squeeze() # [64,64]
-            object_mask = object_mask_.flatten().squeeze() # [64*64]
-
-
+            anomal_mask = batch['anomaly_mask'].squeeze() # [64,64]
+            anormal_position = anomal_mask.flatten() # [64*64]
             for trg_layer in args.trg_layer_list:
-                # -------------------------------------------------------------------------------------------------- #
-                # normal_position = torch.where((object_mask == 1) & (anomal_mask == 0), 1, 0)  # [64*64]
-                #anormal_position = torch.where((object_mask == 1) & (anomal_mask == 1), 1, 0)  # [64*64]
-                anormal_position = anomal_mask  # [64*64]
-                normal_position = 1 - anormal_position
-
-                # --------------------------------------------- 2. dist loss ---------------------------------------- #
                 query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
                 pix_num = query.shape[0]
                 for pix_idx in range(pix_num):
                     feat = query[pix_idx].squeeze(0)
                     anomal_flag = anormal_position[pix_idx].item()
-                    normal_flag = normal_position[pix_idx].item()
                     if anomal_flag == 1 :
                         anormal_feat_list.append(feat.unsqueeze(0))
                 anormal_feats = torch.cat(anormal_feat_list, dim=0)
 
-                # normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
-                normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
-                normal_dist_max = torch.tensor(normal_mahalanobis_dists).max()
-
-                anormal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in anormal_feats]
+                anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
                 anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
-
+                normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
                 total_dist = normal_dist_mean + anormal_dist_mean
                 normal_dist_loss = normal_dist_mean / total_dist
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
@@ -301,15 +268,10 @@ def main(args):
                 anormal_cls_loss = (1-(anormal_cls_score / total_score)) ** 2 # [pix_num]
                 anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
 
-                normal_loss += normal_trigger_loss
-                anomal_loss += anormal_trigger_loss
-
                 attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
 
                 if args.do_cls_train :
                     attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
-                    normal_loss += normal_cls_loss
-                    anomal_loss += anormal_cls_loss
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
             if args.do_dist_loss:
@@ -318,8 +280,6 @@ def main(args):
             if args.do_attn_loss:
                 loss += attn_loss.mean()
                 loss_dict['attn_loss'] = attn_loss.mean().item()
-                loss_dict['normal_loss'] = normal_loss.mean().item()
-                loss_dict['anomal_loss'] = anomal_loss.mean().item()
 
             current_loss = loss.detach().item()
             if epoch == args.start_epoch :
@@ -330,12 +290,10 @@ def main(args):
             epoch_loss_total += current_loss
             avr_loss = epoch_loss_total / len(loss_list)
             loss_dict['avr_loss'] = avr_loss
-
             accelerator.backward(loss)
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad(set_to_none=True)
-
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
@@ -369,35 +327,41 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--num_repeat', type=int, default=1)
     parser.add_argument('--trigger_word,', type=str)
+    parser.add_argument("--anomal_only_on_object", action='store_true')
     # step 3. preparing accelerator')
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"], )
     parser.add_argument("--save_precision", type=str, default=None, choices=[None, "float", "fp16", "bf16"], )
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, )
     parser.add_argument("--log_with", type=str, default=None, choices=["tensorboard", "wandb", "all"], )
     parser.add_argument("--log_prefix", type=str, default=None)
+    parser.add_argument("--full_fp16", action="store_true",
+                        help="fp16 training including gradients / 勾配も含めてfp16で学習する")
+    parser.add_argument("--full_bf16", action="store_true", help="bf16 training including gradients")
     # step 4. model
     parser.add_argument('--pretrained_model_name_or_path', type=str, default='facebook/diffusion-dalle')
-    parser.add_argument("--network_weights", type=str, default=None,
-                        help="pretrained weights for network / 学習するネットワークの初期重み")
-    parser.add_argument("--network_module", type=str, default=None,
-                        help="network module to train / 学習対象のネットワークのモジュール")
-    parser.add_argument("--network_dim", type=int, default=64,
-                        help="network dimensions (depends on each network) ")
-    parser.add_argument("--network_alpha", type=float, default=1,
-                        help="alpha for LoRA weight scaling, default 1 (same as network_dim for same behavior as old version)", )
+    parser.add_argument("--clip_skip", type=int, default=None,
+                        help="use output of nth layer from back of text encoder (n>=1)")
+    parser.add_argument("--max_token_length", type=int, default=None, choices=[None, 150, 225],
+                        help="max token length of text encoder (default for 75, 150 or 225) / text encoder", )
+    parser.add_argument("--network_weights", type=str, default=None, help="pretrained weights for network")
+    parser.add_argument("--network_dim", type=int, default=64,help="network dimensions (depends on each network) ")
+    parser.add_argument("--network_alpha", type=float, default=4, help="alpha for LoRA weight scaling, default 1 ", )
     parser.add_argument("--network_dropout", type=float, default=None,
-                        help="Drops neurons out of training every step (0 or None is default behavior (no dropout), 1 would drop all neurons)", )
+                        help="Drops neurons out of training every step", )
     parser.add_argument("--network_args", type=str, default=None, nargs="*",
                         help="additional argmuments for network (key=value)")
-    parser.add_argument("--lowram", action="store_true", )
-    parser.add_argument("--sample_every_n_steps", type=int, default=None,
-                        help="generate sample images every N steps / 学習中のモデルで指定ステップごとにサンプル出力する")
-    parser.add_argument("--sample_every_n_epochs", type=int, default=None,
-                        help="generate sample images every N epochs (overwrites n_steps)", )
+    parser.add_argument("--dim_from_weights", action="store_true",
+                        help="automatically determine dim (rank) from network_weights / dim ", )
+    parser.add_argument("--scale_weight_norms", type=float, default=None,
+                        help="Scale the weight of each key pair to help prevent overtraing via exploding gradients. ", )
+    parser.add_argument("--base_weights", type=str, default=None, nargs="*",
+                        help="network weights to merge into the model before training", )
+    parser.add_argument("--base_weights_multiplier", type=float, default=None, nargs="*",
+                        help="multiplier for network weights to merge into the model before training ", )
     # step 5. optimizer
     parser.add_argument("--optimizer_type", type=str, default="AdamW",
-                        help="AdamW , AdamW8bit, PagedAdamW8bit, PagedAdamW32bit, Lion8bit, PagedLion8bit, Lion, SGDNesterov, "
-                             "SGDNesterov8bit, DAdaptation(DAdaptAdamPreprint), DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptAdanIP, "
+                help="AdamW , AdamW8bit, PagedAdamW8bit, PagedAdamW32bit, Lion8bit, PagedLion8bit, Lion, SGDNesterov, "
+              "SGDNesterov8bit, DAdaptation(DAdaptAdamPreprint), DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptAdanIP, "
                              "DAdaptLion, DAdaptSGD, AdaFactor", )
     parser.add_argument("--use_8bit_adam", action="store_true",
                         help="use 8bit AdamW optimizer (requires bitsandbytes)", )
@@ -406,6 +370,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm, 0 for no clipping")
     parser.add_argument("--optimizer_args", type=str, default=None, nargs="*",
                         help='additional arguments for optimizer (like "weight_decay=0.01 betas=0.9,0.999 ...") ', )
+    # lr
     parser.add_argument("--lr_scheduler_type", type=str, default="", help="custom scheduler module")
     parser.add_argument("--lr_scheduler_args", type=str, default=None, nargs="*",
                         help='additional arguments for scheduler (like "T_max=100") / スケジューラの追加引数（例： "T_max100"）', )
@@ -421,49 +386,23 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate', type=float, default=1e-5)
     parser.add_argument('--train_unet', action='store_true')
     parser.add_argument('--train_text_encoder', action='store_true')
-    parser.add_argument("--scheduler_linear_start", type=float, default=0.00085)
-    parser.add_argument("--scheduler_linear_end", type=float, default=0.012)
-    # step 7. inference check
-    parser.add_argument("--sample_sampler", type=str, default="ddim",
-                        choices=["ddim", "pndm", "lms", "euler", "euler_a", "heun", "dpm_2", "dpm_2_a", "dpmsolver",
-                                 "dpmsolver++", "dpmsingle", "k_lms", "k_euler", "k_euler_a", "k_dpm_2",
-                                 "k_dpm_2_a", ], )
-    parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear",
-                        choices=["scaled_linear", "linear", "cosine", "cosine_warmup", ], )
-    parser.add_argument("--num_ddim_steps", type=int, default=30)
-    parser.add_argument("--anomal_only_on_object", action='store_true')
+    # training
+    parser.add_argument("--lowram", action="store_true", )
+    parser.add_argument("--sample_every_n_steps", type=int, default=None,
+                        help="generate sample images every N steps ")
+    parser.add_argument("--sample_every_n_epochs", type=int, default=None,
+                        help="generate sample images every N epochs (overwrites n_steps)", )
     parser.add_argument("--output_name", type=str, default=None, help="base name of trained model file ")
     parser.add_argument("--save_model_as", type=str, default="safetensors",
                         choices=[None, "ckpt", "pt", "safetensors"],
                         help="format to save the model (default is .safetensors)", )
-    parser.add_argument("--network_train_unet_only", action="store_true",
-                        help="only training U-Net part / U-Net関連部分のみ学習する")
-    parser.add_argument("--network_train_text_encoder_only", action="store_true",
-                        help="only training Text Encoder part / Text Encoder関連部分のみ学習する")
     parser.add_argument("--training_comment", type=str, default=None,
                         help="arbitrary comment string stored in metadata / メタデータに記録する任意のコメント文字列")
-    parser.add_argument("--dim_from_weights", action="store_true",
-                        help="automatically determine dim (rank) from network_weights / dim ", )
-    parser.add_argument("--scale_weight_norms", type=float, default=None,
-                        help="Scale the weight of each key pair to help prevent overtraing via exploding gradients. ", )
-    parser.add_argument("--base_weights", type=str, default=None, nargs="*",
-                        help="network weights to merge into the model before training", )
-    parser.add_argument("--base_weights_multiplier", type=float, default=None, nargs="*",
-                        help="multiplier for network weights to merge into the model before training ", )
     parser.add_argument("--no_half_vae", action="store_true",
                         help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precision", )
-    parser.add_argument("--only_object_position", action="store_true", )
-    parser.add_argument("--mask_threshold", type=float, default=0.5)
-    parser.add_argument("--resume_lora_training", action="store_true", )
-    parser.add_argument("--back_training", action="store_true", )
-    parser.add_argument("--back_weight", type=float, default=1)
     parser.add_argument("--start_epoch", type=int, default=0)
-    parser.add_argument("--valid_data_dir", type=str)
-    parser.add_argument("--task_loss_weight", type=float, default=0.5)
-    parser.add_argument("--truncate_pad", action='store_true')
-    parser.add_argument("--truncate_length", type=int, default=3)
-    parser.add_argument("--anormal_sample_normal_loss", action='store_true')
-    parser.add_argument("--do_task_loss", action='store_true')
+    parser.add_argument("--max_train_steps", type=int, default=1600, help="training steps / 学習ステップ数")
+    parser.add_argument("--max_train_epochs", type=int, default=None, )
     parser.add_argument("--do_dist_loss", action='store_true')
     parser.add_argument("--dist_loss_weight", type=float, default=1.0)
     parser.add_argument("--do_cls_train", action='store_true')
@@ -471,53 +410,34 @@ if __name__ == "__main__":
     parser.add_argument("--attn_loss_weight", type=float, default=1.0)
     parser.add_argument("--anormal_weight", type=float, default=1.0)
     parser.add_argument('--normal_weight', type=float, default=1.0)
-    parser.add_argument("--clip_skip", type=int, default=None,
-                        help="use output of nth layer from back of text encoder (n>=1)")
-    parser.add_argument("--max_token_length", type=int, default=None, choices=[None, 150, 225],
-                        help="max token length of text encoder (default for 75, 150 or 225) / text encoder", )
-    parser.add_argument("--normal_with_back", action='store_true')
-    parser.add_argument("--normal_dist_loss_squere", action='store_true')
-    parser.add_argument("--background_with_normal", action='store_true')
-    parser.add_argument("--background_weight", type=float, default=1)
     import ast
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
         if type(v) is not list:
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
-    parser.add_argument("--add_random_query", action="store_true", )
-    parser.add_argument("--unet_frozen", action="store_true", )
-    parser.add_argument("--text_frozen", action="store_true", )
-    parser.add_argument("--trigger_word", type=str, default='teddy bear, wearing like a super hero')
-    parser.add_argument("--full_fp16", action="store_true",
-                        help="fp16 training including gradients / 勾配も含めてfp16で学習する")
-    parser.add_argument("--full_bf16", action="store_true", help="bf16 training including gradients")
-    # step 8. training
     parser.add_argument("--trg_layer_list", type=arg_as_list, default=[])
-    parser.add_argument('--mahalanobis_loss_weight', type=float, default=1.0)
-    parser.add_argument("--cls_training", action="store_true", )
-    parser.add_argument("--background_loss", action="store_true")
-    parser.add_argument("--average_mask", action="store_true", )
-    parser.add_argument("--guidance_scale", type=float, default=8.5)
-    parser.add_argument("--max_train_steps", type=int, default=1600, help="training steps / 学習ステップ数")
-    parser.add_argument("--max_train_epochs", type=int, default=None, )
     parser.add_argument("--gradient_checkpointing", action="store_true", help="enable gradient checkpointing")
-    parser.add_argument("--negative_prompt", type=str,
-                        default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
-    # extra
+    # step 7. inference check
+    parser.add_argument("--scheduler_linear_start", type=float, default=0.00085)
+    parser.add_argument("--scheduler_linear_end", type=float, default=0.012)
+    parser.add_argument("--sample_sampler", type=str, default="ddim",  choices=["ddim", "pndm", "lms", "euler",
+                                             "euler_a", "heun", "dpm_2", "dpm_2_a", "dpmsolver", "dpmsolver++",
+                                        "dpmsingle", "k_lms", "k_euler", "k_euler_a", "k_dpm_2", "k_dpm_2_a", ], )
+    parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear",
+                                               choices=["scaled_linear", "linear", "cosine", "cosine_warmup", ], )
+    parser.add_argument("--num_ddim_steps", type=int, default=30)
     parser.add_argument("--unet_inchannels", type=int, default=9)
     parser.add_argument("--back_token_separating", action='store_true')
-    parser.add_argument("--more_generalize", action='store_true')
+    parser.add_argument("--min_timestep", type=int, default=0)
+    parser.add_argument("--max_timestep", type=int, default=1000)
     parser.add_argument("--down_dim", type=int)
     parser.add_argument("--noise_type", type=str)
-    parser.add_argument("--only_zero_timestep", action="store_true")
     parser.add_argument("--truncating", action="store_true")
-    parser.add_argument("--min_timestep", type = int, default = 0)
-    parser.add_argument("--max_timestep", type = int, default = 1000)
+    parser.add_argument("--guidance_scale", type=float, default=8.5)
+    parser.add_argument("--negative_prompt", type=str,
+                             default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     args = parser.parse_args()
-    from model.unet import unet_passing_argument
-    from utils.attention_control import passing_argument
     unet_passing_argument(args)
     passing_argument(args)
-    args = parser.parse_args()
     main(args)
