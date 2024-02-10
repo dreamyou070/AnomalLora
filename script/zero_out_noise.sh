@@ -1,5 +1,5 @@
 # !/bin/bash
-# if backtoken separating, CLS / Trigger / Background
+
 
 port_number=59144
 obj_name='bagel'

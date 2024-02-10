@@ -195,6 +195,13 @@ def main(args):
 
             noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_one_time(args, noise_scheduler,
                                                                                       anomal_latents)
+
+            if args.normal_without_init_noise :
+                anomal_mask_ = batch['anomaly_mask'].squeeze()  # [64,64]
+                anomal_mask = anomal_mask_.unsqueeze(0).unsqueeze(0) # [1,1,64,64]
+                anormal_position_map = anomal_mask.repeat(1, 4, 1, 1).to(dtype=weight_dtype)
+                anomal_noisy_latents = anormal_position_map * anomal_noisy_latents + (1 - anormal_position_map) * anomal_latents
+
             with accelerator.autocast():
                 unet(anomal_noisy_latents, timesteps, encoder_hidden_states,
                      trg_layer_list=args.trg_layer_list,noise_type=None).sample
@@ -206,10 +213,10 @@ def main(args):
             normal_feat_list,anormal_feat_list = [], []
             dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
             attn_loss, normal_loss, anomal_loss = 0, 0, 0
-            anomal_mask_ = batch['anomaly_mask'].squeeze() # [64,64]
-            anomal_mask = anomal_mask_.flatten().squeeze(0)
-            object_mask_ = batch['object_mask'].squeeze() # [64,64]
-            object_mask = object_mask_.flatten().squeeze() # [64*64]
+            anomal_mask_ = batch['anomaly_mask'].squeeze()  # [64,64]
+            anomal_mask = anomal_mask_.flatten().squeeze() # [64*64]
+            object_mask_ = batch['object_mask'].squeeze()   # [64,64]
+            object_mask = object_mask_.flatten().squeeze()  # [64*64]
 
             loss_dict = {}
             for trg_layer in args.trg_layer_list:
@@ -509,6 +516,7 @@ if __name__ == "__main__":
     parser.add_argument("--only_zero_timestep", action="store_true")
     parser.add_argument("--truncating", action="store_true")
     parser.add_argument("--timestep_thred_ratio", type=float, default=0.1)
+    parser.add_argument("--normal_without_init_noise", action = 'store_true')
 
     args = parser.parse_args()
     from model.unet import unet_passing_argument

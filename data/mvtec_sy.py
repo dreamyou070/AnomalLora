@@ -181,13 +181,40 @@ class MVTecDRAEMTrainDataset(Dataset):
                 if not self.anomal_only_on_object:
                     anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0],self.resize_shape[1])
                     anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
+
+
                 if self.anomal_only_on_object:
-                    while True :
-                        anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1])
-                        anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
-                        anomal_mask_np = anomal_mask_np * object_mask_np
-                        if anomal_mask_np.sum() > 0:
-                            break
+
+                    p = random.random()
+
+                    if p > 0 :  # original noise
+
+                        while True:
+                            anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0],
+                                                                                    self.resize_shape[1])
+                            anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
+                            anomal_mask_np = anomal_mask_np * object_mask_np
+                            if anomal_mask_np.sum() > 0:
+                                break
+                    else:
+
+                        h, w = object_mask_latent_np.shape
+                        h_rep, w_rep = [], []
+                        for h_index in range(h):
+                            for w_index in range(w):
+                                if object_mask_latent_np[h_index, w_index] > 0:
+                                    h_rep.append(h_index)
+                                    w_rep.append(w_index)
+                        random_h = np.random.choice(h_rep)
+                        random_w = np.random.choice(w_rep)
+                        # maks gaussian noise
+                        random_mask = np.zeros((self.resize_shape[0], self.resize_shape[1]), dtype=np.uint8)
+                        center = (random_h, random_w)
+
+                        radius_p = random.triangular(0.01, 0.05)
+                        radius = int(radius_p * self.resize_shape[0])
+                        anomal_mask_np = cv2.circle(random_mask, center, radius, (1, 1, 1), -1)
+
                 mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
                 anomal_img = (1 - mask) * img + mask * anomal_src
             else :
