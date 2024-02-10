@@ -141,7 +141,9 @@ def main(args) :
 
                             anomaly_map = 1 - normal_map
                             print(f'anomaly_map max : {anomaly_map.max()}')
-                            anomaly_map_pil = Image.fromarray(anomaly_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                            anomal_np = anomaly_map.cpu().detach().numpy().astype(np.uint8) * 255
+                            print(f'anomal_np max : {np.max(anomal_np)}')
+                            anomaly_map_pil = Image.fromarray(anomal_np).resize((org_h, org_w))
                             anomaly_map_pil.save(os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
 
                             binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
