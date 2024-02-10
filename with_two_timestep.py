@@ -79,7 +79,7 @@ def main(args):
         unet, text_encoder, train_dataloader = accelerator.prepare(unet, text_encoder, train_dataloader)
 
         text_encoders = transform_models_if_DDP(text_encoders)
-        unet, network = transform_models_if_DDP([unet, network])
+        unet = transform_models_if_DDP([unet])
 
         vae.requires_grad_(False)
         vae.eval()
@@ -100,7 +100,7 @@ def main(args):
 
         img_save_base_dir = os.path.join(args.output_dir, 'noising_test')
         os.makedirs(img_save_base_dir, exist_ok=True)
-    
+
 
         for step, batch in enumerate(train_dataloader):
             with torch.no_grad():
