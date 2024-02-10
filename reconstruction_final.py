@@ -136,14 +136,14 @@ def main(args) :
                             res = int(pix_num ** 0.5)
 
                             normal_map = torch.where(trigger_map > 0.5, 1, trigger_map).squeeze()
-                            anomal_map = 1 - normal_map
-                            anomal_map = anomal_map.view(res, res)
+                            normal_map = normal_map.unsqueeze(0)
+                            normal_map = normal_map.view(res, res)
+                            anomaly_map = 1- normal_map
                             normal_map_pil = Image.fromarray(
                                 normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                             normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
-                            
-                            binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
 
+                            binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
                             binary_map = binary_map.unsqueeze(0)
                             binary_map = binary_map.view(res, res)
                             binary_pil = Image.fromarray(
