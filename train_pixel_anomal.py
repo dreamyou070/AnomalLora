@@ -534,8 +534,8 @@ if __name__ == "__main__":
     parser.add_argument("--noise_type", type=str)
     parser.add_argument("--only_zero_timestep", action="store_true")
     parser.add_argument("--truncating", action="store_true")
-    parser.add_argument("--min_timestep", int = 0)
-    parser.add_argument("--max_timestep", int=1000)
+    parser.add_argument("--min_timestep", type = int, default = 0)
+    parser.add_argument("--max_timestep", type = int, default = 1000)
     args = parser.parse_args()
     from model.unet import unet_passing_argument
     from utils.attention_control import passing_argument
