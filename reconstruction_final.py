@@ -122,6 +122,16 @@ def main(args) :
                                 trigger_map = attn_map[:,:,1].squeeze()
                             trigger_map = (trigger_map.squeeze()).mean(dim=0)  #
                             map_list.append(trigger_map)
+
+                            binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
+                            pix_num = binary_map.shape[0]
+                            res = int(pix_num ** 0.5)
+                            binary_map = binary_map.unsqueeze(0)
+                            binary_map = binary_map.view(res, res)
+                            binary_pil = Image.fromarray(
+                                binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                            binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
+
                         map = torch.stack(map_list, dim=0)
                         map = map.sum(dim=0)
                         binary_map = torch.where(map > thred, 1, 0).squeeze()
@@ -130,7 +140,7 @@ def main(args) :
                         binary_map = binary_map.unsqueeze(0)
                         binary_map = binary_map.view(res, res)
                         binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                        binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
+                        binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_concat.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
                         for k in raw_state_dict_orig.keys():
@@ -160,12 +170,6 @@ def main(args) :
                         object_pil.save(os.path.join(save_base_folder, f'{name}_object_map_{layer_name}.png'))
 
                         anormal_map = torch.where((object_map > 0) & (binary_map == 0), 1, 0) # object and anomal
-                        if args.back_token_separating:
-                            normal_map = 1- anormal_map
-                            background_map = back_binary_map
-                            normal_map = normal_map + background_map
-                            anormal_map = torch.where(normal_map == 0, 1, 0)
-
                         recon_map = 1 - anormal_map
                         recon_pil = Image.fromarray(recon_map.cpu().detach().numpy().astype(np.uint8) * 255).resize(
                             (org_h, org_w))
