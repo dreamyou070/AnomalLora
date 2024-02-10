@@ -201,6 +201,8 @@ def main(args):
             controller.reset()
             normal_feat_list = []
 
+
+            value_dict = {}
             for trg_layer in args.trg_layer_list:
 
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
@@ -222,7 +224,14 @@ def main(args):
                 normal_cls_score = cls_score.mean(dim=0)      # pix_num
                 normal_trigger_score = trigger_score.mean(dim=0)
 
-            # ---------------------------------------- ANormal Sample Learning --------------------------------------- #
+                value_dict[trg_layer] = {}
+                value_dict[trg_layer]['mu'] = mu
+                value_dict[trg_layer]['cov'] = cov
+                value_dict[trg_layer]['normal_mahalanobis_dists'] = normal_mahalanobis_dists
+                value_dict[trg_layer]['normal_cls_score'] = normal_cls_score
+                value_dict[trg_layer]['normal_trigger_score'] = normal_trigger_score
+
+                # ---------------------------------------- ANormal Sample Learning --------------------------------------- #
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = anomal_latents * vae_scale_factor
@@ -240,7 +249,6 @@ def main(args):
             anomal_mask = batch['anomaly_mask'].squeeze() # [64,64]
             anormal_position = anomal_mask.flatten() # [64*64]
             total_anomal_position = anormal_position.sum().item()
-            print(f'total_anomal_position : {total_anomal_position}')
 
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
@@ -252,9 +260,16 @@ def main(args):
                         anormal_feat_list.append(feat.unsqueeze(0))
                 anormal_feats = torch.cat(anormal_feat_list, dim=0)
 
+
+
+
+                mu = value_dict[trg_layer]['mu']
+                cov = value_dict[trg_layer]['cov']
                 anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
                 anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+                normal_mahalanobis_dists = value_dict[trg_layer]['normal_mahalanobis_dists']
                 normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
+
                 total_dist = normal_dist_mean + anormal_dist_mean
                 normal_dist_loss = normal_dist_mean / total_dist
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
@@ -273,6 +288,8 @@ def main(args):
                 anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
                 total_score = torch.ones_like(normal_cls_score)
 
+                normal_cls_score = value_dict[trg_layer]['normal_cls_score']
+                normal_trigger_score = value_dict[trg_layer]['normal_trigger_score']
                 normal_cls_loss = (normal_cls_score / total_score) ** 2 # [pix_num]
                 normal_trigger_loss = (1-(normal_trigger_score / total_score)) ** 2
                 anormal_cls_loss = (1-(anormal_cls_score / total_score)) ** 2 # [pix_num]
