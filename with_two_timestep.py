@@ -80,6 +80,7 @@ def main(args):
 
         text_encoders = transform_models_if_DDP(text_encoders)
         unet = transform_models_if_DDP([unet])
+        unet = unet[0]
 
         vae.requires_grad_(False)
         vae.eval()
