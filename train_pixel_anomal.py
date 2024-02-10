@@ -247,7 +247,7 @@ def main(args):
             anormal_feat_list = []
 
             anomal_mask = batch['anomaly_mask'].squeeze() # [64,64]
-            anormal_position = anomal_mask.flatten() # [64*64]
+            anormal_position = anomal_mask.flatten().squeeze() # [64*64]
 
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
@@ -258,10 +258,6 @@ def main(args):
                     if anomal_flag == 1 :
                         anormal_feat_list.append(feat.unsqueeze(0))
                 anormal_feats = torch.cat(anormal_feat_list, dim=0)
-
-
-
-
                 mu = value_dict[trg_layer]['mu']
                 cov = value_dict[trg_layer]['cov']
                 anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
