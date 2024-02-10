@@ -144,12 +144,12 @@ def main(args) :
                             anomaly_map_pil = Image.fromarray(anomal_np).resize((org_h, org_w))
                             anomaly_map_pil.save(os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
 
-                            binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
-                            binary_map = binary_map.unsqueeze(0)
-                            binary_map = binary_map.view(res, res)
-                            binary_pil = Image.fromarray(
-                                binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                            binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
+                            #binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
+                            #binary_map = binary_map.unsqueeze(0)
+                            #binary_map = binary_map.view(res, res)
+                            #binary_pil = Image.fromarray(
+                            #    binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                            #binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                             anomaly_map_pil.save(os.path.join(answer_anomal_folder, f'{name}.tiff'))
 
