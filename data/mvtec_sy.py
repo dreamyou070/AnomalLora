@@ -186,6 +186,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             # [3] augment ( anomaly mask white = anomal position )
 
             if self.anomal_training:
+
                 if not self.anomal_only_on_object:
                     anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0],self.resize_shape[1])
                     anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1

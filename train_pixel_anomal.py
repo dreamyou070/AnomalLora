@@ -14,7 +14,7 @@ from utils.accelerator_utils import prepare_accelerator
 from utils.attention_control import register_attention_control
 from utils.optimizer_utils import get_optimizer, get_scheduler_fix
 from utils.model_utils import get_hidden_states, get_noise_noisy_latents_and_timesteps, \
-    prepare_scheduler_for_custom_training, get_noise_noisy_latents_one_time
+    prepare_scheduler_for_custom_training, get_noise_noisy_latents_partial_time
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 
@@ -194,11 +194,11 @@ def main(args):
                     latents = latents * vae_scale_factor  # [1,4,64,64]
 
 
-                noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,latents)
-
-                if args.only_zero_timestep:
-                    noise, noisy_latents, timesteps = get_noise_noisy_latents_one_time(args, noise_scheduler, latents)
-
+                noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args,
+                                                                                       noise_scheduler,
+                                                                                       latents,
+                                                                                       min_timestep=args.min_timestep,
+                                                                                       max_timestep=args.max_timestep,)
                 with accelerator.autocast():
                     noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states,
                                       trg_layer_list=args.trg_layer_list, noise_type=None).sample
@@ -213,11 +213,17 @@ def main(args):
                 anomal_latents = anomal_latents * vae_scale_factor
             noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,anomal_latents)
             if args.only_zero_timestep:
-                noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_one_time(args, noise_scheduler,
-                                                                                               anomal_latents)
+                noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args,
+                                                                                              noise_scheduler,
+                                                                                              anomal_latents,
+                                                                                              min_timestep=args.min_timestep,
+                                                                                              max_timestep=args.max_timestep,)
             with accelerator.autocast():
-                unet(anomal_noisy_latents, timesteps, encoder_hidden_states,
-                     trg_layer_list=args.trg_layer_list,noise_type=None).sample
+                unet(anomal_noisy_latents,
+                     timesteps,
+                     encoder_hidden_states,
+                     trg_layer_list=args.trg_layer_list,
+                     noise_type=None).sample
 
             # -------------------------------------------- Additional Loss ------------------------------------------- #
             query_dict = controller.query_dict
@@ -528,6 +534,8 @@ if __name__ == "__main__":
     parser.add_argument("--noise_type", type=str)
     parser.add_argument("--only_zero_timestep", action="store_true")
     parser.add_argument("--truncating", action="store_true")
+    parser.add_argument("--min_timestep", int = 0)
+    parser.add_argument("--max_timestep", int=1000)
     args = parser.parse_args()
     from model.unet import unet_passing_argument
     from utils.attention_control import passing_argument
