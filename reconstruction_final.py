@@ -139,9 +139,8 @@ def main(args) :
                                 normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                             normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
 
-                            anomaly_map = 1 - normal_map
-                            print(f'anomaly_map max : {anomaly_map.max()}')
-                            anomal_np = anomaly_map.cpu().detach().numpy().astype(np.uint8) * 255
+                            anomaly_map = (1 - normal_map) * 255
+                            anomal_np = anomaly_map.cpu().detach().numpy().astype(np.uint8)
                             print(f'anomal_np max : {np.max(anomal_np)}')
                             anomaly_map_pil = Image.fromarray(anomal_np).resize((org_h, org_w))
                             anomaly_map_pil.save(os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
