@@ -198,7 +198,12 @@ def main(args):
             anomal_mask = anomal_mask_.flatten().unsqueeze(0)
             anomal_mask = anomal_mask.reshape(res, res).unsqueeze(0).unsqueeze(0)
             anomal_mask = anomal_mask.repeat(1, 4, 1, 1).to(accelerator.device)
+
+            """ psuedo anomal = not with init noise, normal = with init noise """
             anomal_noisy_latents = (1-anomal_mask) * anomal_noisy_latents + (anomal_mask) * anomal_latents
+
+            if args.pseudo_anomal_with_init_noise :
+                anomal_noisy_latents = (1-anomal_mask) * anomal_noisy_latents + (anomal_mask) * anomal_latents
 
             with accelerator.autocast():
                 unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,noise_type=None).sample
@@ -512,6 +517,7 @@ if __name__ == "__main__":
     parser.add_argument("--noise_type", type=str)
     parser.add_argument("--only_zero_timestep", action="store_true")
     parser.add_argument("--truncating", action="store_true")
+    parser.add_argument("--pseudo_anomal_with_init_noise", action="store_true")
     args = parser.parse_args()
     from model.unet import unet_passing_argument
     from utils.attention_control import passing_argument
