@@ -256,7 +256,8 @@ def main(args):
             for trg_layer in args.trg_layer_list:
                 # -------------------------------------------------------------------------------------------------- #
                 # normal_position = torch.where((object_mask == 1) & (anomal_mask == 0), 1, 0)  # [64*64]
-                anormal_position = torch.where((object_mask == 1) & (anomal_mask == 1), 1, 0)  # [64*64]
+                #anormal_position = torch.where((object_mask == 1) & (anomal_mask == 1), 1, 0)  # [64*64]
+                anormal_position = anomal_mask  # [64*64]
                 normal_position = 1 - anormal_position
 
                 # --------------------------------------------- 2. dist loss ---------------------------------------- #
