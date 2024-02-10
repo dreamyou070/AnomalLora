@@ -109,6 +109,7 @@ def main(args) :
                         query_dict = controller.query_dict
                         controller.reset()
                         thred = len(args.trg_layer_list) / 2
+
                         map_list = []
                         for layer_name in args.trg_layer_list:
                             attn_map = attn_dict[layer_name][0]
@@ -134,6 +135,13 @@ def main(args) :
 
                         map = torch.stack(map_list, dim=0)
                         map = map.sum(dim=0)
+                        normal_score_map = torch.where(map > thred, 1, map)
+                        anomal_score_map = 1 - normal_score_map
+                        anomaly_score_pil = Image.fromarray(anomal_score_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                        anomaly_mask_save_dir = os.path.join(save_base_folder, f'{name}{ext}')
+                        anomaly_score_pil.save(anomaly_mask_save_dir)
+
+                        """
                         binary_map = torch.where(map > thred, 1, 0).squeeze()
                         pix_num = binary_map.shape[0]
                         res = int(pix_num ** 0.5)
@@ -143,6 +151,7 @@ def main(args) :
                         binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_concat.png'))
 
                         # [2] object detection --------------------------------------------------------------------- #
+                        
                         for k in raw_state_dict_orig.keys():
                             raw_state_dict[k] = raw_state_dict_orig[k]
                         network.load_state_dict(raw_state_dict)
@@ -168,6 +177,7 @@ def main(args) :
                         object_map = object_map.unsqueeze(0).view(res, res) # object = 1, background = 0
                         object_pil = Image.fromarray(object_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                         object_pil.save(os.path.join(save_base_folder, f'{name}_object_map_{layer_name}.png'))
+                        
 
                         anormal_map = torch.where((object_map > 0) & (binary_map == 0), 1, 0) # object and anomal
                         recon_map = 1 - anormal_map
@@ -224,6 +234,7 @@ def main(args) :
                         anomaly_score_pil = Image.fromarray((anomaly_score * 255).astype(np.uint8)).resize((org_h, org_w))
                         anomaly_mask_save_dir = os.path.join(save_base_folder, f'{name}{ext}')
                         anomaly_score_pil.save(anomaly_mask_save_dir)
+                        """
 
                         # [5] save anomaly score --------------------------------------------------------------------- #
                         gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
@@ -236,6 +247,7 @@ def main(args) :
                             raw_state_dict[k] = raw_state_dict_orig[k]
                         network.load_state_dict(raw_state_dict)
                         #network.apply_to(text_encoder, unet, True, True)
+
 
 
 
