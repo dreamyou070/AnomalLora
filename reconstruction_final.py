@@ -134,8 +134,8 @@ def main(args) :
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
                         map = torch.stack(map_list, dim=0)
-                        map = map.sum(dim=0)
-                        normal_score_map = torch.where(map > thred, 1, map)
+                        map = map.mean(dim=0) # pix_num
+                        normal_score_map = torch.where(map > 0.5, 1, map)
                         anomal_score_map = 1 - normal_score_map
                         anomaly_score_pil = Image.fromarray(anomal_score_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                         anomaly_mask_save_dir = os.path.join(save_base_folder, f'{name}{ext}')
