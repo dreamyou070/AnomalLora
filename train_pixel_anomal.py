@@ -64,7 +64,8 @@ def main(args):
                                      use_perlin=True,
                                      num_repeat=args.num_repeat,
                                      anomal_only_on_object=args.anomal_only_on_object,
-                                     anomal_training  = True)
+                                     anomal_training  = True,
+                                     latent_res = args.latent_res,)
 
     print(f'\n step 3. preparing accelerator')
     accelerator = prepare_accelerator(args)
@@ -329,6 +330,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_repeat', type=int, default=1)
     parser.add_argument('--trigger_word,', type=str)
     parser.add_argument("--anomal_only_on_object", action='store_true')
+    parser.add_argument("--latent_res", type=int, default=64)
     # step 3. preparing accelerator')
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"], )
     parser.add_argument("--save_precision", type=str, default=None, choices=[None, "float", "fp16", "bf16"], )

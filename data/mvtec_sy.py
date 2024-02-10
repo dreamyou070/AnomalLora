@@ -76,7 +76,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                  use_perlin: bool = False,
                  num_repeat: int = 1,
                  anomal_only_on_object : bool = True,
-                 anomal_training : bool = False,):
+                 anomal_training : bool = False,
+                 latent_res : int = 64, ):
 
         self.root_dir = root_dir
         self.resize_shape=resize_shape
@@ -100,9 +101,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         random.shuffle(self.image_paths)
         self.anomal_only_on_object = anomal_only_on_object
         self.anomal_training = anomal_training
+        self.latent_res = latent_res
 
     def __len__(self):
-
         return len(self.image_paths)
 
     def get_input_ids(self, caption):
@@ -134,7 +135,7 @@ class MVTecDRAEMTrainDataset(Dataset):
     def load_image(self, image_path, trg_h, trg_w,
                    type='RGB'):
         image = Image.open(image_path)
-        if type == 'RGB'
+        if type == 'RGB' :
             if not image.mode == "RGB":
                 image = image.convert("RGB")
         elif type == 'L':
@@ -169,7 +170,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         # [2] object mask
         object_mask_dir = self.get_object_mask_dir(img_path)
-        object_img = self.load_image(object_mask_dir, 64,64, type='L')
+        object_img = self.load_image(object_mask_dir, self.latent_res, self.latent_res, type='L')
         object_mask_np = np.where((np.array(object_img, np.uint8) / 255) == 0, 0, 1)
         object_mask = torch.tensor(object_mask_np) # shape = [64,64], 0 = background, 1 = object
 
@@ -227,7 +228,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             masked_img = (1 - mask) * img
 
             # [3] final
-            anomal_mask_pil = Image.fromarray((mask * 255).astype(np.uint8)).resize((64,64)).convert('L')
+            anomal_mask_pil = Image.fromarray((mask * 255).astype(np.uint8)).resize((self.latent_res,self.latent_res)).convert('L')
             anomal_mask_torch = torch.tensor(np.array(anomal_mask_pil) / 255)
             anomal_mask = torch.where(anomal_mask_torch > 0, 1, 0)  # strict anomal
 
