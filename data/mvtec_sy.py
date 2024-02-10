@@ -224,6 +224,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                         radius = int(radius_p * self.resize_shape[0])
                         anomal_mask_np = cv2.circle(random_mask, center, radius, (1, 1, 1), -1)
 
+                print(f'anomal_mask_np.sum() : {anomal_mask_np.sum()}')
                 mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
                 anomal_img = (1 - mask) * img + mask * anomal_src
             else :
@@ -252,7 +253,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         sample = {'image': self.transform(img),
                   "object_mask": object_mask.unsqueeze(0),  # [1, 64, 64]
                   'augmented_image': self.transform(anomal_img),
-                  "anomaly_mask": anomal_mask.unsqueeze(0),  # [1, 64, 64]
+                  "anomaly_mask": anomal_mask.unsqueeze(0),  # [1, 64, 64] ################################
                   'masked_image': self.transform(masked_img),
                   'masked_image_mask': anomal_mask.unsqueeze(0),
                   'idx': idx,
