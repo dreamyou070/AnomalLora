@@ -20,6 +20,10 @@ from utils.scheduling_utils import get_scheduler
 
 vae_scale_factor = 0.18215
 
+def mahal(u, v, cov):
+    delta = u - v
+    m = torch.dot(delta, torch.matmul(cov, delta))
+    return torch.sqrt(m)
 
 def call_unet(args, accelerator, unet, noisy_latents, timesteps,
               text_conds, batch, weight_dtype, trg_indexs_list, mask_imgs):
@@ -182,42 +186,95 @@ def main(args):
         for step, batch in enumerate(train_dataloader):
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
 
-            # --------------------------------------------- Task Loss --------------------------------------------- #
+            # -------------------------------------------- Normal Sample --------------------------------------------- #
             with torch.set_grad_enabled(True):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
                 enc_out = text_encoder(input_ids)  # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
+            with torch.no_grad():
+                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
+                latents = latents * vae_scale_factor  # [1,4,64,64]
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args,
+                                                                                   noise_scheduler,
+                                                                                   latents,
+                                                                                   min_timestep=args.min_timestep,
+                                                                                   max_timestep=args.max_timestep,)
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=None)
+            # ---------------------------------------- Normal Sample Learning ---------------------------------------- #
+            query_dict = controller.query_dict
+            attn_dict = controller.step_store
+            controller.reset()
+            normal_feat_list = []
+            dist_loss, normal_dist_loss, anomal_dist_loss = 0, 0, 0
+            attn_loss, normal_loss, anomal_loss = 0, 0, 0
+            object_mask_ = batch['object_mask'].squeeze()  # [64,64]
+            object_mask = object_mask_.flatten().squeeze() # [64*64]
 
-            if args.do_task_loss:
-                with torch.no_grad():
-                    latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
-                    latents = latents * vae_scale_factor  # [1,4,64,64]
+            for trg_layer in args.trg_layer_list:
+                object_position = torch.where(object_mask == 1, 1, 0)  # [64*64]
+                background_position = 1 - object_position
+                # --------------------------------------------- 2. dist loss ---------------------------------------- #
+                query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
+                pix_num = query.shape[0]
+                for pix_idx in range(pix_num):
+                    feat = query[pix_idx].squeeze(0)
+                    normal_flag = object_position[pix_idx].item()
+                    if normal_flag == 1:
+                        normal_feat_list.append(feat.unsqueeze(0))
+                normal_feats = torch.cat(normal_feat_list, dim=0)
+                normal_mu = torch.mean(normal_feats, dim=0)
+                normal_cov = torch.cov(normal_feats.transpose(0, 1))
 
+                normal_mahalanobis_dists = [mahal(feat, normal_mu, normal_cov) for feat in normal_feats]
+                normal_dist_max = torch.tensor(normal_mahalanobis_dists).max()
 
-                noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args,
-                                                                                       noise_scheduler,
-                                                                                       latents,
-                                                                                       min_timestep=args.min_timestep,
-                                                                                       max_timestep=args.max_timestep,)
-                with accelerator.autocast():
-                    noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states,
-                                      trg_layer_list=args.trg_layer_list, noise_type=None).sample
-                target = noise
-                task_loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
-                task_loss = task_loss.mean([1, 2, 3])
-                task_loss = task_loss.mean()
-                task_loss = task_loss * args.task_loss_weight
+                normal_dist_loss = normal_dist_max.requires_grad_()
+                dist_loss += normal_dist_loss.mean()
 
+                # ----------------------------------------- 3. attn loss --------------------------------------------- #
+                attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                cls_score, trigger_score = attention_score.chunk(2, dim=-1)
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+                # (1) get position
+                head_num = cls_score.shape[0]
+                normal_position = object_mask.unsqueeze(0).repeat(head_num, 1)  # head, pix_num
+                background_position = background_position.unsqueeze(0).repeat(head_num, 1)
+
+                normal_cls_score = (cls_score * normal_position).mean(dim=0)  # pix_num
+                normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
+                background_cls_score = (cls_score * background_position).mean(dim=0)
+                background_trigger_score = (trigger_score * background_position).mean(dim=0)
+
+                total_score = torch.ones_like(normal_cls_score)
+
+                normal_cls_loss = (normal_cls_score / total_score) ** 2
+                normal_trigger_loss = (1 - (normal_trigger_score / total_score)) ** 2
+                background_cls_loss = (background_cls_score / total_score) ** 2
+                background_trigger_loss = (1 - (background_trigger_score / total_score)) ** 2
+
+                normal_loss += normal_trigger_loss
+                anomal_loss += anormal_trigger_loss
+
+                attn_loss += args.normal_weight * normal_trigger_loss
+                if args.background_with_normal:
+                    attn_loss += args.background_weight * background_trigger_loss
+                    normal_loss += background_trigger_loss
+
+                if args.do_cls_train:
+                    attn_loss += args.normal_weight * normal_cls_loss
+                    normal_loss += normal_cls_loss
+                    if args.background_with_normal:
+                        attn_loss += args.background_weight * background_cls_loss
+                        normal_loss += background_cls_loss
+
+            # -------------------------------------------- Augment Sample --------------------------------------------- #
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = anomal_latents * vae_scale_factor
             noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler,anomal_latents)
             if args.only_zero_timestep:
                 noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args,
-                                                                                              noise_scheduler,
-                                                                                              anomal_latents,
-                                                                                              min_timestep=args.min_timestep,
-                                                                                              max_timestep=args.max_timestep,)
+                        noise_scheduler, anomal_latents, min_timestep=args.min_timestep, max_timestep=args.max_timestep,)
             with accelerator.autocast():
                 unet(anomal_noisy_latents,
                      timesteps,
