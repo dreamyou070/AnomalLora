@@ -11,7 +11,7 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --object_detector_weight "../../result/${obj_name}/object_detector_experiments/object_detector_1/models/epoch-000100.safetensors" \
  --data_path "../../../MyData/anomaly_detection/MVTec3D-AD/${obj_name}/test" \
  --obj_name "${obj_name}" \
- --trg_layer_list "['down_blocks_0_atten27ons_1_transformer_blocks_0_attn2']" \
+ --trg_layer_list "['down_blocks_0_attentions_1_transformer_blocks_0_attn2']" \
  --network_dim 64 --network_alpha 4 \
  --down_dim 320 \
  --unet_inchannels 4 \
