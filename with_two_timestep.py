@@ -104,7 +104,7 @@ def main(args):
 
         for step, batch in enumerate(train_dataloader):
             with torch.no_grad():
-                name = batch['image_name']
+                name = batch['image_name'][0]
                 # [1] original image
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
                 latents = latents * vae_scale_factor  # [1,4,64,64]
