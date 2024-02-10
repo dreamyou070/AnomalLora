@@ -43,7 +43,6 @@ def main(args) :
 
     print(f'\n step 3. object_detector network')
     from safetensors.torch import load_file
-    object_detecting_state_dict = load_file(args.object_detector_weight)
 
     print(f'\n step 4. inference')
     models = os.listdir(args.network_folder)
@@ -69,11 +68,20 @@ def main(args) :
         lora_base_folder = os.path.join(recon_base_folder, f'lora_epoch_{lora_epoch}')
         os.makedirs(lora_base_folder, exist_ok=True)
 
+        answer_base_folder = os.path.join(recon_base_folder, f'{args.obj_name}')
+        os.makedirs(answer_base_folder, exist_ok=True)
+        answer_base_folder = os.path.join(answer_base_folder, f'test')
+        os.makedirs(answer_base_folder, exist_ok=True)
+
         anomal_detecting_state_dict = load_file(network_model_dir)
 
         test_img_folder = args.data_path
         anomal_folders = os.listdir(test_img_folder)
         for anomal_folder in anomal_folders:
+
+            answer_anomal_folder = os.path.join(answer_base_folder, anomal_folder)
+            os.makedirs(answer_anomal_folder, exist_ok=True)
+
             save_base_folder = os.path.join(lora_base_folder, anomal_folder)
             os.makedirs(save_base_folder, exist_ok=True)
             anomal_folder_dir = os.path.join(test_img_folder, anomal_folder)
@@ -140,6 +148,10 @@ def main(args) :
                         anomaly_score_pil = Image.fromarray(anomal_score_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                         anomaly_mask_save_dir = os.path.join(save_base_folder, f'{name}{ext}')
                         anomaly_score_pil.save(anomaly_mask_save_dir)
+
+
+                        answer_dir = os.path.join(answer_anomal_folder, f'{name}.tiff')
+                        anomaly_mask = Image.open(answer_dir)
 
                         """
                         binary_map = torch.where(map > thred, 1, 0).squeeze()
