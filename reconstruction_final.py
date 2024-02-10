@@ -151,7 +151,7 @@ def main(args) :
 
 
                         answer_dir = os.path.join(answer_anomal_folder, f'{name}.tiff')
-                        anomaly_mask = Image.open(answer_dir)
+                        anomaly_score_pil.save(answer_dir)
 
                         """
                         binary_map = torch.where(map > thred, 1, 0).squeeze()
