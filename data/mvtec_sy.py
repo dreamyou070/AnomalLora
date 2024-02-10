@@ -104,7 +104,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.latent_res = latent_res
 
     def __len__(self):
-        if len(self.anomal_source_paths) > 0:
+        if len(self.anomaly_source_paths) > 0 :
             return max(len(self.image_paths), len(self.anomaly_source_paths))
         else:
             return len(self.image_paths)
