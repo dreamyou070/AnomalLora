@@ -1,6 +1,6 @@
 # !/bin/bash
 
-port_number=59222
+port_number=59223
 obj_name='bagel'
 caption='bagel'
 
@@ -8,7 +8,7 @@ caption='bagel'
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../reconstruction_final.py \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
- --network_folder "../../result/${obj_name}/3_caption_bagel_64_up_2_pixel_anomal/models" \
+ --network_folder "../../result/${obj_name}/3_caption_bagel_64_up_3_normal_without_init_noise/models" \
  --object_detector_weight "../../result/${obj_name}/object_detector_experiments/object_detector_1/models/epoch-000100.safetensors" \
  --data_path "../../../MyData/anomaly_detection/MVTec3D-AD/${obj_name}/test" \
  --obj_name "${obj_name}" \
