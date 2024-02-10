@@ -38,6 +38,7 @@ def call_unet(args, accelerator, unet, noisy_latents, timesteps,
 def main(args):
     print(f'\n step 1. setting')
     output_dir = args.output_dir
+    print(f' *** output_dir : {output_dir}')
     os.makedirs(output_dir, exist_ok=True)
     args.logging_dir = os.path.join(output_dir, 'log')
     os.makedirs(args.logging_dir, exist_ok=True)
