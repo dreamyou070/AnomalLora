@@ -132,26 +132,35 @@ def main(args) :
                             trigger_map = (trigger_map.squeeze()).mean(dim=0)  #
                             map_list.append(trigger_map)
 
-                            binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
-                            pix_num = binary_map.shape[0]
+                            pix_num = trigger_map.shape[0]
                             res = int(pix_num ** 0.5)
+
+                            normal_map = torch.where(trigger_map > 0.5, 1, trigger_map).squeeze()
+                            anomal_map = 1 - normal_map
+                            anomal_map = anomal_map.view(res, res)
+                            normal_map_pil = Image.fromarray(
+                                normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                            normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
+                            
+                            binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
+
                             binary_map = binary_map.unsqueeze(0)
                             binary_map = binary_map.view(res, res)
                             binary_pil = Image.fromarray(
                                 binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                             binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
 
-                        map = torch.stack(map_list, dim=0)
-                        map = map.mean(dim=0) # pix_num
-                        normal_score_map = torch.where(map > 0.5, 1, map)
-                        anomal_score_map = 1 - normal_score_map
-                        anomaly_score_pil = Image.fromarray(anomal_score_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                        anomaly_mask_save_dir = os.path.join(save_base_folder, f'{name}{ext}')
-                        anomaly_score_pil.save(anomaly_mask_save_dir)
+                        #map = torch.stack(map_list, dim=0)
+                        #map = map.mean(dim=0) # pix_num
+                        #normal_score_map = torch.where(map > 0.5, 1, map)
+                        #anomal_score_map = 1 - normal_score_map
+                        #anomaly_score_pil = Image.fromarray(anomal_score_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                        #anomaly_mask_save_dir = os.path.join(save_base_folder, f'{name}{ext}')
+                        #anomaly_score_pil.save(anomaly_mask_save_dir)
 
 
-                        answer_dir = os.path.join(answer_anomal_folder, f'{name}.tiff')
-                        anomaly_score_pil.save(answer_dir)
+                        #answer_dir = os.path.join(answer_anomal_folder, f'{name}.tiff')
+                        #anomaly_score_pil.save(answer_dir)
 
                         """
                         binary_map = torch.where(map > thred, 1, 0).squeeze()
