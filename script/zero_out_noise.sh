@@ -21,3 +21,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --max_train_epochs 300 --start_epoch 0 --num_repeat 1 --anomal_only_on_object --unet_inchannels 4 \
  --background_with_normal --truncating \
  --normal_without_init_noise --timestep_thred_ratio 0.1
+ --
