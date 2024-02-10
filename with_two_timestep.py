@@ -194,26 +194,30 @@ def main(args):
 
             noise = torch.randn_like(latents, device=latents.device)
 
-            random_timestep = torch.tensor([500])
-            random_timestep = random_timestep.long()
+            random_times = [20,50, 100, 150, 300, 500]
 
-            noisy_latents = noise_scheduler.add_noise(latents, noise, random_timestep)
+            for random_time in random_times:
 
-            # [2] augmented image
-            anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
-            anomal_latents = anomal_latents * vae_scale_factor
-            noisy_anomal_latents = noise_scheduler.add_noise(anomal_latents, noise, random_timestep)
+                random_timestep = torch.tensor([random_time])
+                random_timestep = random_timestep.long()
 
-            origin_pil = pipeline.latents_to_image(latents)[0].resize((512, 512))
-            origin_noise_pil = pipeline.latents_to_image(noisy_latents)[0].resize((512, 512))
-            anomal_pil = pipeline.latents_to_image(anomal_latents)[0].resize((512, 512))
-            anomal_noise_pil = pipeline.latents_to_image(noisy_anomal_latents)[0].resize((512, 512))
+                noisy_latents = noise_scheduler.add_noise(latents, noise, random_timestep)
 
-            img_save_base_dir = args.output_dir
-            origin_pil.save(os.path.join(img_save_base_dir, f'origin.png'))
-            origin_noise_pil.save(os.path.join(img_save_base_dir, f'origin_noise_500_timestep.png'))
-            anomal_pil.save(os.path.join(img_save_base_dir, f'anomal.png'))
-            anomal_noise_pil.save(os.path.join(img_save_base_dir, f'anomal_noise_500_timestep.png'))
+                # [2] augmented image
+                anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
+                anomal_latents = anomal_latents * vae_scale_factor
+                noisy_anomal_latents = noise_scheduler.add_noise(anomal_latents, noise, random_timestep)
+
+                origin_pil = pipeline.latents_to_image(latents)[0].resize((512, 512))
+                origin_noise_pil = pipeline.latents_to_image(noisy_latents)[0].resize((512, 512))
+                anomal_pil = pipeline.latents_to_image(anomal_latents)[0].resize((512, 512))
+                anomal_noise_pil = pipeline.latents_to_image(noisy_anomal_latents)[0].resize((512, 512))
+
+                img_save_base_dir = args.output_dir
+                origin_pil.save(os.path.join(img_save_base_dir, f'origin.png'))
+                origin_noise_pil.save(os.path.join(img_save_base_dir, f'origin_noise_{random_time}_timestep.png'))
+                anomal_pil.save(os.path.join(img_save_base_dir, f'anomal.png'))
+                anomal_noise_pil.save(os.path.join(img_save_base_dir, f'anomal_noise_{random_time}_timestep.png'))
 
 
             time.sleep(1000)
