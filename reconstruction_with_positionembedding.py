@@ -163,122 +163,7 @@ def main(args):
                             anomaly_map_pil = Image.fromarray(anomal_np).resize((org_h, org_w))
                             anomaly_map_pil.save(
                                 os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
-
-                            # binary_map = torch.where(trigger_map > 0.5, 1, 0).squeeze()
-                            # binary_map = binary_map.unsqueeze(0)
-                            # binary_map = binary_map.view(res, res)
-                            # binary_pil = Image.fromarray(
-                            #    binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                            # binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_{layer_name}.png'))
-
                             anomaly_map_pil.save(os.path.join(answer_anomal_folder, f'{name}.tiff'))
-
-                        # map = torch.stack(map_list, dim=0)
-                        # map = map.mean(dim=0) # pix_num
-                        # normal_score_map = torch.where(map > 0.5, 1, map)
-                        # anomal_score_map = 1 - normal_score_map
-                        # anomaly_score_pil = Image.fromarray(anomal_score_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                        # anomaly_mask_save_dir = os.path.join(save_base_folder, f'{name}{ext}')
-                        # anomaly_score_pil.save(anomaly_mask_save_dir)
-
-                        # answer_dir = os.path.join(answer_anomal_folder, f'{name}.tiff')
-                        # anomaly_score_pil.save(answer_dir)
-
-                        """
-                        binary_map = torch.where(map > thred, 1, 0).squeeze()
-                        pix_num = binary_map.shape[0]
-                        res = int(pix_num ** 0.5)
-                        binary_map = binary_map.unsqueeze(0)
-                        binary_map = binary_map.view(res, res)
-                        binary_pil = Image.fromarray(binary_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                        binary_pil.save(os.path.join(save_base_folder, f'{name}_attn_map_concat.png'))
-
-                        # [2] object detection --------------------------------------------------------------------- #
-
-                        for k in raw_state_dict_orig.keys():
-                            raw_state_dict[k] = raw_state_dict_orig[k]
-                        network.load_state_dict(raw_state_dict)
-                        for k in object_detecting_state_dict.keys():
-                            raw_state_dict[k] = object_detecting_state_dict[k]
-                        network.load_state_dict(raw_state_dict)
-                        encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
-                        object_detect_trg_layer = ['up_blocks_3_attentions_2_transformer_blocks_0_attn2']
-                        unet(vae_latent,0,encoder_hidden_states,trg_layer_list=object_detect_trg_layer)
-                        attn_dict = controller.step_store
-                        controller.reset()
-                        attn_map = attn_dict[object_detect_trg_layer[0]][0]
-                        if attn_map.shape[0] != 8:
-                            attn_map = attn_map.chunk(2, dim=0)[0]
-                        if args.back_token_separating:
-                            cks_map, trigger_map, _ = attn_map.chunk(3, dim=-1)  # head, pix_num
-                        else :
-                            cks_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
-                        trigger_map = (trigger_map.squeeze()).mean(dim=0) #
-                        object_map = torch.where(trigger_map > 0.5, 1, 0).squeeze() # object = 1
-                        pix_num = object_map.shape[0]
-                        res = int(pix_num ** 0.5)
-                        object_map = object_map.unsqueeze(0).view(res, res) # object = 1, background = 0
-                        object_pil = Image.fromarray(object_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                        object_pil.save(os.path.join(save_base_folder, f'{name}_object_map_{layer_name}.png'))
-
-
-                        anormal_map = torch.where((object_map > 0) & (binary_map == 0), 1, 0) # object and anomal
-                        recon_map = 1 - anormal_map
-                        recon_pil = Image.fromarray(recon_map.cpu().detach().numpy().astype(np.uint8) * 255).resize(
-                            (org_h, org_w))
-                        recon_pil.save(os.path.join(save_base_folder, f'{name}_recon_map_{layer_name}.png'))
-
-                        # [3] image generation --------------------------------------------------------------------- #
-                        pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae, text_encoder=text_encoder,
-                                    tokenizer=tokenizer,unet=unet,scheduler=scheduler,safety_checker=None,
-                                    feature_extractor=None, requires_safety_checker=False, random_vector_generator=None,
-                                                                           trg_layer_list=None)
-                        latents = pipeline(prompt=args.prompt, height=512, width=512,
-                                           num_inference_steps=args.num_ddim_steps,
-                                           guidance_scale=args.guidance_scale,negative_prompt=args.negative_prompt,
-                                           reference_image=vae_latent, mask=recon_map)
-                        controller.reset()
-                        recon_latent = latents[-1]
-                        recon_image = pipeline.latents_to_image(recon_latent)[0].resize((org_h, org_w))
-                        img_dir = os.path.join(save_base_folder, f'{name}_recon{ext}')
-                        recon_image.save(img_dir)
-
-                        # [4] anomal map ----------------------------------------------------------------------------- #
-                        for k in raw_state_dict_orig.keys():
-                            raw_state_dict[k] = raw_state_dict_orig[k]
-                        network.load_state_dict(raw_state_dict)
-                        for k in anomal_detecting_state_dict.keys():
-                            raw_state_dict[k] = anomal_detecting_state_dict[k]
-                        network.load_state_dict(raw_state_dict)
-
-                        org_image = pipeline.latents_to_image(vae_latent)[0].resize((org_h, org_w))
-                        img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
-                        org_image.save(img_dir)
-                        # -------------------------------------------------------------------------------------------- #
-                        unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
-                        org_query_dict = controller.query_dict
-                        org_query = org_query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
-                        org_query = org_query / (torch.norm(org_query, dim=1, keepdim=True))
-                        controller.reset()
-                        # -------------------------------------------------------------------------------------------- #
-                        # (3) recon : recon_latent
-                        unet(recon_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list)
-                        recon_query_dict = controller.query_dict
-                        recon_query = recon_query_dict[args.trg_layer_list[0]][0].squeeze(0) # pix_num, dim
-                        recon_query = recon_query / (torch.norm(recon_query, dim=1, keepdim=True))
-
-                        # (3) anomaly score
-                        nomaly_score = (org_query @ recon_query.T).cpu() # pix_num, pix_num
-                        anomaly_score = (1-torch.diag(nomaly_score))
-                        anomaly_score = anomaly_score / anomaly_score.max()
-                        anomaly_score = anomaly_score.unsqueeze(0) # [1, pix_num]
-                        anomaly_score = anomaly_score.view(res, res)
-                        anomaly_score = anomaly_score.numpy()
-                        anomaly_score_pil = Image.fromarray((anomaly_score * 255).astype(np.uint8)).resize((org_h, org_w))
-                        anomaly_mask_save_dir = os.path.join(save_base_folder, f'{name}{ext}')
-                        anomaly_score_pil.save(anomaly_mask_save_dir)
-                        """
-
                         # [5] save anomaly score --------------------------------------------------------------------- #
                         gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
                         Image.open(gt_img_dir).resize((org_h, org_w)).save(gt_img_save_dir)
@@ -343,7 +228,7 @@ if __name__ == '__main__':
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
 
-
+    parser.add_argument("--latent_res", type=int, default=64)
     parser.add_argument("--trg_layer_list", type=arg_as_list)
     parser.add_argument("--more_generalize", action='store_true')
     from utils.attention_control import add_attn_argument, passing_argument

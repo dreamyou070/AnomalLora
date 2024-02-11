@@ -14,4 +14,5 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --network_dim 64 --network_alpha 4 \
  --down_dim 320 \
  --unet_inchannels 4 \
- --prompt "${caption}"
+ --prompt "${caption}" \
+ --latent_res 64
