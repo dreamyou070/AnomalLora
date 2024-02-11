@@ -1,14 +1,11 @@
 python remove_anything.py \
-    --input_img ./example/remove-anything/dog.jpg \
+    --input_img ./example/remove-anything/001.png \
     --coords_type key_in \
     --point_coords 200 450 \
     --point_labels 1 \
     --dilate_kernel_size 15 \
     --output_dir ./results \
     --sam_model_type "vit_t" \
-    --sam_ckpt ./weights/mobile_sam.pt \
+    --sam_ckpt ../../../sam_vit_h_4b8939.pth \
     --lama_config ./lama/configs/prediction/default.yaml \
-    --lama_ckpt ./pretrained_models/big-lama
-
-
-    
+    --lama_ckpt ../../../pretrained_stable_diffusion/big-lama
