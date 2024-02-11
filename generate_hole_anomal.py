@@ -14,12 +14,12 @@ import skimage
 from data.perlin import rand_perlin_2d_np
 from numpy.random import default_rng
 
-perlin_max_scale = 6
-kernel_size = 9
+perlin_max_scale = 8
+kernel_size = 5
 def make_random_mask(height, width) -> np.ndarray:
 
     perlin_scale = perlin_max_scale
-    min_perlin_scale = 0
+    min_perlin_scale = 4
     perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
     perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
     noise = rand_perlin_2d_np(shape = (height, width),
