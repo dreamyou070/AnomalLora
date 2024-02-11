@@ -178,11 +178,13 @@ def main(args):
 
     controller = AttentionStore()
     register_attention_control(unet, controller)
-
+    """
     total_step = len(train_dataloader)
     thred = args.total_normal_thred  # if 0, total_normal_training is just one time
-    target_num = total_step * thred
+    target_num = int(total_step * thred)
     total_learning_list = random.sample(range(total_step), target_num)
+    """
+    total_learning_list = [i for i in range(len(train_dataloader))]
 
     for epoch in range(args.start_epoch, args.max_train_epochs):
 
