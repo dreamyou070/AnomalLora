@@ -3,7 +3,7 @@
 class_name="cable_gland"
 dataset_cat="MVTec3D-AD"
 dataset_dir="../../../MyData/anomaly_detection/${dataset_cat}"
-sub_folder="64_up_2_total_normal_thred_0.3_anomal_src_more"
+sub_folder="64_up_2_total_normal_thred_1.0_anomal_src_more"
 
 
 output_dir="metrics"
