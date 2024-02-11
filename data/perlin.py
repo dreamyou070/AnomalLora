@@ -45,7 +45,6 @@ def generate_perlin_noise_2d(shape, res):
 
 def rand_perlin_2d_np(shape, res, fade=lambda t: 6 * t ** 5 - 15 * t ** 4 + 10 * t ** 3):
 
-    print(f'in rand_perlin_2d_np: shape={shape}, res={res}')
     delta = (res[0] / shape[0], res[1] / shape[1]) # /400, /400
     d = (shape[0] // res[0], shape[1] // res[1])
     grid = np.mgrid[0:res[0]:delta[0], 0:res[1]:delta[1]].transpose(1, 2, 0) % 1

@@ -89,8 +89,6 @@ def main(args):
         pseudo_anomal_img_pil = Image.fromarray(pseudo_anomal_img).resize((w,h))
         pseudo_anomal_mask_pil = Image.fromarray((anomal_mask_np * 255).astype(np.uint8)).convert('L').resize((w,h))
 
-
-
         pseudo_anomal_img_pil.save(os.path.join(bad_data_dir, "rgb", image))
         pseudo_anomal_mask_pil.save(os.path.join(bad_data_dir, "gt", image))
 
