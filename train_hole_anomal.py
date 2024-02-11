@@ -239,11 +239,16 @@ def main(args):
                 mu = torch.mean(normal_feats, dim=0)
                 cov = torch.cov(normal_feats.transpose(0, 1))
 
-                anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
-                anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
-
                 normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
                 normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
+
+                if len(anormal_feats) > 0:
+                    anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
+                    anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+                else :
+                    anormal_dist_mean = normal_dist_mean * 0
+
+
 
                 total_dist = normal_dist_mean + anormal_dist_mean
                 normal_dist_loss = normal_dist_mean / total_dist
