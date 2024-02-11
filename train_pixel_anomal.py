@@ -68,7 +68,9 @@ def main(args):
                                      num_repeat=args.num_repeat,
                                      anomal_only_on_object=args.anomal_only_on_object,
                                      anomal_training  = True,
-                                     latent_res = args.latent_res,)
+                                     latent_res = args.latent_res,
+                                     perlin_max_scale = args.perlin_max_scale,
+                                     kernel_size = args.kernel_size,)
 
     print(f'\n step 3. preparing accelerator')
     accelerator = prepare_accelerator(args)
@@ -374,6 +376,8 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--num_repeat', type=int, default=1)
     parser.add_argument('--trigger_word', type=str)
+    parser.add_argument('--perlin_max_scale', type=int, default=10)
+    parser.add_argument('--kernel_size', type=int, default=5)
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--latent_res", type=int, default=64)
     # step 3. preparing accelerator')
