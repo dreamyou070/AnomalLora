@@ -1,8 +1,8 @@
 # !/bin/bash
 
-port_number=59133
-obj_name='carrot'
-caption='carrot'
+port_number=59144
+obj_name='cookie'
+caption='cookie'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../reconstruction_final.py \
