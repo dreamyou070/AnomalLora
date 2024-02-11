@@ -390,12 +390,26 @@ def main(args):
                 save_model(args, ckpt_name, accelerator.unwrap_model(network), save_dtype)
 
                 # saving position embedder
-                position_embedder_ckpt_name = f'position_embedder_{epoch+1}.safetensors'
+                def model_save(model, save_dtype, save_dir):
+                    state_dict = model.state_dict()
+                    for key in list(state_dict.keys()):
+                        v = state_dict[key]
+                        v = v.detach().clone().to("cpu").to(save_dtype)
+                        state_dict[key] = v
+                    _, file = os.path.split(save_dir)
+                    if os.path.splitext(file)[1] == ".safetensors":
+                        from safetensors.torch import save_file
+                        save_file(state_dict, save_dir)
+                    else:
+                        torch.save(state_dict, save_dir)
+
                 position_embedder_base_save_dir = os.path.join(args.output_dir, 'position_embedder')
                 os.makedirs(position_embedder_base_save_dir, exist_ok=True)
-                position_embedder_ckpt_name = os.path.join(position_embedder_base_save_dir, position_embedder_ckpt_name)
-                meta_data = {}
-                accelerator.unwrap_model(position_embedder).save_weights(position_embedder_ckpt_name, save_dtype, meta_data)
+                p_save_dir = os.path.join(position_embedder_base_save_dir, f'position_embedder_{epoch + 1}.safetensors')
+                model_save(accelerator.unwrap_model(position_embedder), save_dtype, p_save_dir)
+
+
+
     accelerator.end_training()
 
 if __name__ == "__main__":
