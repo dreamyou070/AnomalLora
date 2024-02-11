@@ -6,8 +6,9 @@
 
 import numpy as np
 import torch
-
-from segment_anything.modeling import Sam
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from modeling import Sam
 
 from typing import Optional, Tuple
 
