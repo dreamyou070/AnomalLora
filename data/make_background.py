@@ -8,8 +8,10 @@ def main(args):
     image_base_dir = args.image_base_dir
     object_img = os.path.join(image_base_dir, f'{args.trg_cat}/train/good')
     rgb_base_dir = os.path.join(object_img, 'rgb')
-    background_base_dir = os.path.join(image_base_dir, f'background')
+
+    background_base_dir = os.path.join(object_img, f'background')
     os.makedirs(background_base_dir, exist_ok=True)
+
     object_mask_base_dir = os.path.join(object_img, 'object_mask')
     images = os.listdir(rgb_base_dir)
 
