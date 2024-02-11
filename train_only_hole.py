@@ -20,10 +20,12 @@ from utils.attention_control import passing_argument
 
 vae_scale_factor = 0.18215
 
+
 def mahal(u, v, cov):
     delta = u - v
     m = torch.dot(delta, torch.matmul(cov, delta))
     return torch.sqrt(m)
+
 
 def call_unet(args, accelerator, unet, noisy_latents, timesteps,
               text_conds, batch, weight_dtype, trg_indexs_list, mask_imgs):
@@ -57,7 +59,7 @@ def main(args):
     root_dir = os.path.join(train_dir, "good/rgb")
     if args.anomal_src_more:
         args.anomaly_source_path = os.path.join(args.data_path, "anomal_source_more")
-    else :
+    else:
         args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
                                      anomaly_source_path=args.anomaly_source_path,
@@ -67,10 +69,10 @@ def main(args):
                                      use_perlin=True,
                                      num_repeat=args.num_repeat,
                                      anomal_only_on_object=args.anomal_only_on_object,
-                                     anomal_training  = True,
-                                     latent_res = args.latent_res,
-                                     perlin_max_scale = args.perlin_max_scale,
-                                     kernel_size = args.kernel_size,)
+                                     anomal_training=True,
+                                     latent_res=args.latent_res,
+                                     perlin_max_scale=args.perlin_max_scale,
+                                     kernel_size=args.kernel_size, )
 
     print(f'\n step 3. preparing accelerator')
     accelerator = prepare_accelerator(args)
@@ -198,15 +200,17 @@ def main(args):
                 encoder_hidden_states = enc_out["last_hidden_state"]
 
             with torch.no_grad():
-                latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
+                latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
                 latents = latents * vae_scale_factor  # [1,4,64,64]
             noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                           latents, min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
+                                                                                   latents,
+                                                                                   min_timestep=args.min_timestep,
+                                                                                   max_timestep=args.max_timestep, )
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=None)
 
             object_mask = batch["object_mask"].to(accelerator.device)  # [1, 64, 64]
             object_mask = object_mask.flatten().squeeze()  # [64*64]
-            mask = batch["masked_image_mask"].squeeze() # [64,64]
+            mask = batch["masked_image_mask"].squeeze()  # [64,64]
             mask_position = mask.flatten().squeeze()  # [64*64]
             background_mask = 1 - mask_position
             a_normal_mask = mask_position + background_mask
@@ -225,71 +229,17 @@ def main(args):
                     object_flag = object_mask[pix_idx].item()
                     if flag == 1:
                         anormal_feat_list.append(feat.unsqueeze(0))
-                    elif object_flag == 1 :
+                    elif object_flag == 1:
                         normal_feat_list.append(feat.unsqueeze(0))
 
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
                 mask_position = mask_position.unsqueeze(0).repeat(cls_score.shape[0], 1)
-                normal_cls_score = (cls_score *normal_position).mean(dim=0)
+                normal_cls_score = (cls_score * normal_position).mean(dim=0)
                 normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
                 anormal_cls_score = (cls_score * mask_position).mean(dim=0)
                 anormal_trigger_score = (trigger_score * mask_position).mean(dim=0)
-                total_score = torch.ones_like(normal_cls_score)
-
-                normal_cls_loss += (normal_cls_score / total_score)
-                normal_trigger_loss += (1-(normal_trigger_score / total_score))
-                anormal_cls_loss += (1-(anormal_cls_score / total_score))
-                anormal_trigger_loss += (anormal_trigger_score / total_score)
-
-            # ---------------------------------------- ANormal Sample Learning --------------------------------------- #
-            with torch.no_grad():
-                anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
-                anomal_latents = anomal_latents * vae_scale_factor
-
-            noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                                                           anomal_latents)
-            with accelerator.autocast():
-                unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                     noise_type=None)
-
-            query_dict, attn_dict = controller.query_dict, controller.step_store
-            controller.reset()
-
-            anomal_mask = batch['anomaly_mask'].squeeze() # [64,64]
-            anormal_position = anomal_mask.flatten().squeeze() # [64*64]
-            object_mask = batch["object_mask"].to(accelerator.device)  # [1, 64, 64]
-            object_position = object_mask.flatten().squeeze()  # [64*64]
-            background_mask = 1 - object_position
-            a_normal_mask = object_position + background_mask
-            normal_position = torch.where(a_normal_mask == 0, 1, 0)
-
-            for trg_layer in args.trg_layer_list:
-                query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
-                pix_num = query.shape[0]
-                for pix_idx in range(pix_num):
-                    feat = query[pix_idx].squeeze(0)
-                    anomal_flag = anormal_position[pix_idx].item()
-                    object_flag = object_position[pix_idx].item()
-                    if anomal_flag == 1 :
-                        anormal_feat_list.append(feat.unsqueeze(0))
-                    elif object_flag == 1 :
-                        normal_feat_list.append(feat.unsqueeze(0))
-                # ----------------------------------------- 3. attn loss --------------------------------------------- #
-                attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
-                cls_score, trigger_score = attention_score.chunk(2, dim=-1)
-                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-
-                # (1) get position
-                anormal_position = anormal_position.unsqueeze(0).repeat(cls_score.shape[0], 1)
-
-                anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
-                anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
-
-                normal_cls_score = (cls_score * normal_position).mean(dim=0)
-                normal_trigger_score = (trigger_score * (1 - anormal_position)).mean(dim=0)
-
                 total_score = torch.ones_like(normal_cls_score)
 
                 normal_cls_loss += (normal_cls_score / total_score)
@@ -315,7 +265,7 @@ def main(args):
             # ----------------------------------------------------------------------------------------------------------
             # Attention
             attn_loss = (normal_trigger_loss + anormal_trigger_loss)
-            if args.do_cls_train :
+            if args.do_cls_train:
                 attn_loss += (normal_cls_loss + anormal_cls_loss)
             loss_dict['attn_loss'] = attn_loss.mean().item()
 
@@ -326,7 +276,7 @@ def main(args):
                 loss += dist_loss.mean()
                 loss_dict['dist_loss'] = dist_loss.item()
             current_loss = loss.detach().item()
-            if epoch == args.start_epoch :
+            if epoch == args.start_epoch:
                 loss_list.append(current_loss)
             else:
                 epoch_loss_total -= loss_list[step]
@@ -350,11 +300,12 @@ def main(args):
         accelerator.wait_for_everyone()
         if args.save_every_n_epochs is not None:
             saving = (epoch + 1) % args.save_every_n_epochs == 0 and (
-                        epoch + 1) < args.start_epoch + args.max_train_epochs
+                    epoch + 1) < args.start_epoch + args.max_train_epochs
             if is_main_process and saving:
                 ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
                 save_model(args, ckpt_name, accelerator.unwrap_model(network), save_dtype)
     accelerator.end_training()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -391,7 +342,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_token_length", type=int, default=None, choices=[None, 150, 225],
                         help="max token length of text encoder (default for 75, 150 or 225) / text encoder", )
     parser.add_argument("--network_weights", type=str, default=None, help="pretrained weights for network")
-    parser.add_argument("--network_dim", type=int, default=64,help="network dimensions (depends on each network) ")
+    parser.add_argument("--network_dim", type=int, default=64, help="network dimensions (depends on each network) ")
     parser.add_argument("--network_alpha", type=float, default=4, help="alpha for LoRA weight scaling, default 1 ", )
     parser.add_argument("--network_dropout", type=float, default=None,
                         help="Drops neurons out of training every step", )
@@ -407,8 +358,8 @@ if __name__ == "__main__":
                         help="multiplier for network weights to merge into the model before training ", )
     # step 5. optimizer
     parser.add_argument("--optimizer_type", type=str, default="AdamW",
-                help="AdamW , AdamW8bit, PagedAdamW8bit, PagedAdamW32bit, Lion8bit, PagedLion8bit, Lion, SGDNesterov, "
-              "SGDNesterov8bit, DAdaptation(DAdaptAdamPreprint), DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptAdanIP, "
+                        help="AdamW , AdamW8bit, PagedAdamW8bit, PagedAdamW32bit, Lion8bit, PagedLion8bit, Lion, SGDNesterov, "
+                             "SGDNesterov8bit, DAdaptation(DAdaptAdamPreprint), DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptAdanIP, "
                              "DAdaptLion, DAdaptSGD, AdaFactor", )
     parser.add_argument("--use_8bit_adam", action="store_true",
                         help="use 8bit AdamW optimizer (requires bitsandbytes)", )
@@ -459,21 +410,27 @@ if __name__ == "__main__":
     parser.add_argument("--anormal_weight", type=float, default=1.0)
     parser.add_argument('--normal_weight', type=float, default=1.0)
     import ast
+
+
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
         if type(v) is not list:
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
+
+
     parser.add_argument("--trg_layer_list", type=arg_as_list, default=[])
     parser.add_argument("--gradient_checkpointing", action="store_true", help="enable gradient checkpointing")
     # step 7. inference check
     parser.add_argument("--scheduler_linear_start", type=float, default=0.00085)
     parser.add_argument("--scheduler_linear_end", type=float, default=0.012)
-    parser.add_argument("--sample_sampler", type=str, default="ddim",  choices=["ddim", "pndm", "lms", "euler",
-                                             "euler_a", "heun", "dpm_2", "dpm_2_a", "dpmsolver", "dpmsolver++",
-                                        "dpmsingle", "k_lms", "k_euler", "k_euler_a", "k_dpm_2", "k_dpm_2_a", ], )
+    parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
+                                                                               "euler_a", "heun", "dpm_2", "dpm_2_a",
+                                                                               "dpmsolver", "dpmsolver++",
+                                                                               "dpmsingle", "k_lms", "k_euler",
+                                                                               "k_euler_a", "k_dpm_2", "k_dpm_2_a", ], )
     parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear",
-                                               choices=["scaled_linear", "linear", "cosine", "cosine_warmup", ], )
+                        choices=["scaled_linear", "linear", "cosine", "cosine_warmup", ], )
     parser.add_argument("--num_ddim_steps", type=int, default=30)
     parser.add_argument("--unet_inchannels", type=int, default=9)
     parser.add_argument("--back_token_separating", action='store_true')
@@ -484,8 +441,8 @@ if __name__ == "__main__":
     parser.add_argument("--truncating", action="store_true")
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
-                             default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
-    parser.add_argument("--anomal_src_more", action = 'store_true')
+                        default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
+    parser.add_argument("--anomal_src_more", action='store_true')
     parser.add_argument("--without_background", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)

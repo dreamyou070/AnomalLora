@@ -288,7 +288,7 @@ def main(args):
                 anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
 
                 normal_cls_score = (cls_score * normal_position).mean(dim=0)
-                normal_trigger_score = (trigger_score * (1 - anormal_position)).mean(dim=0)
+                normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
 
                 total_score = torch.ones_like(normal_cls_score)
 
