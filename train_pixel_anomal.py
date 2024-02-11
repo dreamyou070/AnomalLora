@@ -55,7 +55,10 @@ def main(args):
     obj_dir = os.path.join(args.data_path, args.obj_name)
     train_dir = os.path.join(obj_dir, "train")
     root_dir = os.path.join(train_dir, "good/rgb")
-    args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
+    if args.anomal_src_more:
+        args.anomaly_source_path = os.path.join(args.data_path, "anomal_source_more")
+    else :
+        args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
@@ -483,6 +486,7 @@ if __name__ == "__main__":
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                              default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
+    parser.add_argument("--anomal_src_more", action = 'store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
