@@ -40,8 +40,14 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 is_cross_attention = True
 
             query = self.to_q(hidden_states)
+
+            """ Position Embedding right after Down Block 1 """
+            if layer_name == 'down_blocks_0_attentions_0_transformer_blocks_0_attn1' :
+                query = noise_type(query)
+
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 controller.save_query(query, layer_name)
+
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
