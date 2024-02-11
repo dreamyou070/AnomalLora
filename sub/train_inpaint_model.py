@@ -88,8 +88,8 @@ def main(args) :
                                               feature_extractor=None,
                                               requires_safety_checker=False, )
     from PIL import Image
-    test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/000.png')
-    test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/000.png')
+    test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/rgb_000.png')
+    test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/rgb_000.png')
     test_rgb_pil = Image.open(test_rgb_dir)
     test_gt_pil = Image.open(test_gt_dir)
     latents = pipeline(prompt='bagel',
@@ -321,8 +321,8 @@ def main(args) :
                                                                        trg_layer_list=None)
             
             from PIL import Image
-            test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/000.png')
-            test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/000.png')
+            test_rgb_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/rgb/rgb_000.png')
+            test_gt_dir = os.path.join(args.data_path, f'{args.obj_name}/test/combined/gt/rgb_000.png')
             test_rgb_pil = Image.open(test_rgb_dir)
             test_gt_pil = Image.open(test_gt_dir)
             latents = pipeline(prompt='bagel',

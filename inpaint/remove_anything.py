@@ -36,11 +36,8 @@ def setup_args(parser):
         "--output_dir", type=str, required=True,
         help="Output path to the directory with results.",
     )
-    parser.add_argument(
-        "--sam_model_type", type=str,
-        default="vit_h", choices=['vit_h', 'vit_l', 'vit_b', 'vit_t'],
-        help="The type of sam model to load. Default: 'vit_h"
-    )
+    parser.add_argument("--sam_model_type", type=str,default="vit_h", choices=['vit_h', 'vit_l', 'vit_b', 'vit_t'],
+        help="The type of sam model to load. Default: 'vit_h")
     parser.add_argument(
         "--sam_ckpt", type=str, required=True,
         help="The path to the SAM checkpoint to use for mask generation.",
@@ -78,7 +75,8 @@ if __name__ == "__main__":
         img_path = os.path.join(train_good_rgb_dir, image)
         img = load_img_to_array(img_path)
         h, w = img.shape[:2]
-        masks, _, _ = predict_masks_with_sam(img,[latest_coords],args.point_labels,
+        masks, _, _ = predict_masks_with_sam(img,
+                                             [latest_coords],args.point_labels,
                                              model_type=args.sam_model_type,
                                              ckpt_p=args.sam_ckpt,device=device,)
         masks = masks.astype(np.uint8) * 255 # np array
