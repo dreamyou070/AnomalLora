@@ -34,7 +34,9 @@ def main(args):
             for j in range(10):
                 back_np[i * int(h / 10):(i + 1) * int(h / 10), j * int(w / 10):(j + 1) * int(w / 10)] = croped_np
         back_pil = Image.fromarray(back_np)
-        back_pil.save(os.path.join(background_base_dir, image))
+        back_dir = os.path.join(background_base_dir, image)
+        print(back_dir)
+        back_pil.save(back_dir)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
