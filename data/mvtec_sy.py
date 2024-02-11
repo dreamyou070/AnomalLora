@@ -229,6 +229,10 @@ class MVTecDRAEMTrainDataset(Dataset):
             anomal_mask_torch = torch.tensor(np.array(anomal_mask_pil) / 255)
             anomal_mask = torch.where(anomal_mask_torch > 0, 1, 0)  # strict anomal
 
+            hole_mask_pil = Image.fromarray((hole_mask * 255).astype(np.uint8)).resize((self.latent_res,self.latent_res)).convert('L')
+            hole_mask_torch = torch.tensor(np.array(hole_mask_pil) / 255)
+            hole_mask = torch.where(hole_mask_torch > 0, 1, 0)  
+
         else :
             masked_img = img
             anomal_img = img
