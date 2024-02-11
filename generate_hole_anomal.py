@@ -22,7 +22,8 @@ def make_random_mask(height, width) -> np.ndarray:
     min_perlin_scale = 0
     perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
     perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
-    noise = rand_perlin_2d_np((height, width), (perlin_scalex, perlin_scaley))
+    noise = rand_perlin_2d_np(shape = (height, width),
+                              res = (perlin_scalex, perlin_scaley))
 
     blur = cv2.GaussianBlur(noise, (0, 0), sigmaX=15, sigmaY=15, borderType=cv2.BORDER_DEFAULT)
     stretch = skimage.exposure.rescale_intensity(blur, in_range='image', out_range=(0, 255)).astype(np.uint8)
@@ -72,7 +73,7 @@ def main(args):
         dtype = good_img_np.dtype
 
         object_mask_dir = os.path.join(good_object_mask_dir, image)
-        object_mask_pil = Image.open(object_mask_dir).convert('L').resize((w,h))
+        object_mask_pil = Image.open(object_mask_dir).convert('L').resize((h,w))
         object_mask_np = np.array(object_mask_pil)
 
         while True:

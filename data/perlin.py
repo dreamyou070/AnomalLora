@@ -44,6 +44,8 @@ def generate_perlin_noise_2d(shape, res):
 
 
 def rand_perlin_2d_np(shape, res, fade=lambda t: 6 * t ** 5 - 15 * t ** 4 + 10 * t ** 3):
+
+    print(f'in rand_perlin_2d_np: shape={shape}, res={res}')
     delta = (res[0] / shape[0], res[1] / shape[1])
     d = (shape[0] // res[0], shape[1] // res[1])
     grid = np.mgrid[0:res[0]:delta[0], 0:res[1]:delta[1]].transpose(1, 2, 0) % 1
@@ -52,9 +54,9 @@ def rand_perlin_2d_np(shape, res, fade=lambda t: 6 * t ** 5 - 15 * t ** 4 + 10 *
     gradients = np.stack((np.cos(angles), np.sin(angles)), axis=-1)
     tt = np.repeat(np.repeat(gradients,d[0],axis=0),d[1],axis=1)
     tile_grads = lambda slice1, slice2: np.repeat(np.repeat(gradients[slice1[0]:slice1[1], slice2[0]:slice2[1]],d[0],axis=0),d[1],axis=1)
-    dot = lambda grad, shift: (
-                np.stack((grid[:shape[0], :shape[1], 0] + shift[0], grid[:shape[0], :shape[1], 1] + shift[1]),
-                            axis=-1) * grad[:shape[0], :shape[1]]).sum(axis=-1)
+
+    dot = lambda grad, shift: (np.stack((grid[:shape[0], :shape[1], 0] + shift[0], grid[:shape[0], :shape[1], 1] + shift[1]),
+                                        axis=-1) * grad[:shape[0], :shape[1]]).sum(axis=-1)
 
     n00 = dot(tile_grads([0, -1], [0, -1]), [0, 0])
     n10 = dot(tile_grads([1, None], [0, -1]), [-1, 0])
