@@ -201,104 +201,101 @@ def main(args):
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
             dist_loss = 0.0
             attn_loss = 0.0
+            normal_feat_list = []
+            value_dict = {}
 
             # -------------------------------------------- Holed Sample --------------------------------------------- #
             with torch.set_grad_enabled(True):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
                 enc_out = text_encoder(input_ids)  # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
+            # ---------------------------------------- normal sample --------------------------------------- #
+            with torch.no_grad():
+                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
+                latents = latents * vae_scale_factor  # [1,4,64,64]
+                if args.d_dim == 4:
+                    latents = position_embedder(latents)
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
+                                            latents, min_timestep=args.min_timestep, max_timestep=args.max_timestep,)
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
+            query_dict, attn_dict = controller.query_dict, controller.step_store
+            controller.reset()
 
-            if step in total_learning_list :
+            for trg_layer in args.trg_layer_list:
+                query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
+                pix_num = query.shape[0]
+                for pix_idx in range(pix_num):
+                    feat = query[pix_idx].squeeze(0)
+                    normal_feat_list.append(feat.unsqueeze(0))
+                normal_feats = torch.cat(normal_feat_list, dim=0)
+                mu = torch.mean(normal_feats, dim=0)
+                cov = torch.cov(normal_feats.transpose(0, 1))
+                normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
 
-                with torch.no_grad():
-                    latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
-                    latents = latents * vae_scale_factor  # [1,4,64,64]
+                attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                cls_score, trigger_score = attention_score.chunk(2, dim=-1)
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
 
-                    if args.d_dim == 4 :
-                        latents = position_embedder(latents)
+                normal_cls_score = cls_score.mean(dim=0)  # pix_num
+                normal_trigger_score = trigger_score.mean(dim=0)
 
-                noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                 latents, min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
-                unet(noisy_latents, timesteps, encoder_hidden_states,  trg_layer_list=args.trg_layer_list,
-                     noise_type=position_embedder)
-                # ---------------------------------------- Normal Sample Learning ---------------------------------------- #
+                value_dict[trg_layer] = {}
+                value_dict[trg_layer]['mu'] = mu
+                value_dict[trg_layer]['cov'] = cov
+                value_dict[trg_layer]['normal_mahalanobis_dists'] = normal_mahalanobis_dists
+                value_dict[trg_layer]['normal_cls_score'] = normal_cls_score
+                value_dict[trg_layer]['normal_trigger_score'] = normal_trigger_score
 
-                object_mask = batch["masked_image_mask"].squeeze() # [64,64]
-                object_position = object_mask.flatten().squeeze()  # [64*64]
-                background_position = 1 - object_position
+            # ---------------------------------------- Masked Sample Learning --------------------------------------- #
+            with torch.no_grad():
+                latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
+                latents = latents * vae_scale_factor  # [1,4,64,64]
+                if args.d_dim == 4 :
+                    latents = position_embedder(latents)
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
+                                             latents, min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
+            unet(noisy_latents, timesteps, encoder_hidden_states,  trg_layer_list=args.trg_layer_list,
+                 noise_type=position_embedder)
+            anomal_position = batch["masked_image_mask"].squeeze() # [64,64]
+            anomal_position = anomal_position.flatten().squeeze()  # [64*64]
+            query_dict, attn_dict = controller.query_dict, controller.step_store
+            controller.reset()
+            anormal_feat_list = []
+            for trg_layer in args.trg_layer_list:
+                query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
+                pix_num = query.shape[0]
+                for pix_idx in range(pix_num):
+                    feat = query[pix_idx].squeeze(0)
+                    anomal_flag = anomal_position[pix_idx].item()
+                    if anomal_flag == 1:
+                        anormal_feat_list.append(feat.unsqueeze(0))
 
-                query_dict, attn_dict = controller.query_dict, controller.step_store
-                controller.reset()
-                normal_feat_list = []
-                value_dict = {}
+                attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                cls_score, trigger_score = attention_score.chunk(2, dim=-1)
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+                anomal_position = anomal_position.unsqueeze(0).repeat(cls_score.shape[0], 1)
+                anormal_cls_score = (cls_score * anomal_position).mean(dim=0)
+                anormal_trigger_score = (trigger_score * anomal_position).mean(dim=0)
 
-                for trg_layer in args.trg_layer_list:
-
-                    query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
-                    pix_num = query.shape[0]
-
-                    for pix_idx in range(pix_num):
-                        feat = query[pix_idx].squeeze(0)
-                        object_flag = object_position[pix_idx].item()
-                        if args.without_background :
-                            if object_flag == 1:
-                                normal_feat_list.append(feat.unsqueeze(0))
-                        else :
-                            normal_feat_list.append(feat.unsqueeze(0))
-
-                    normal_feats = torch.cat(normal_feat_list, dim=0)
-
-                    mu = torch.mean(normal_feats, dim=0)
-                    cov = torch.cov(normal_feats.transpose(0, 1))
-                    normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
-
-                    attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
-                    cls_score, trigger_score = attention_score.chunk(2, dim=-1)
-                    cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-
-                    if args.without_background:
-                        object_position = object_position.unsqueeze(0).repeat(cls_score.shape[0], 1)
-                        normal_cls_score = (cls_score * object_position).mean(dim=0)
-                        normal_trigger_score = (trigger_score * object_position).mean(dim=0)
-                    else :
-                        normal_cls_score = cls_score.mean(dim=0)      # pix_num
-                        normal_trigger_score = trigger_score.mean(dim=0)
-
-                    value_dict[trg_layer] = {}
-                    value_dict[trg_layer]['mu'] = mu
-                    value_dict[trg_layer]['cov'] = cov
-                    value_dict[trg_layer]['normal_mahalanobis_dists'] = normal_mahalanobis_dists
-                    value_dict[trg_layer]['normal_cls_score'] = normal_cls_score
-                    value_dict[trg_layer]['normal_trigger_score'] = normal_trigger_score
+                value_dict[trg_layer]['anormal_cls_score'] = anormal_cls_score
+                value_dict[trg_layer]['anormal_trigger_score'] = anormal_trigger_score
 
 
             # ---------------------------------------- Anormal Sample Learning --------------------------------------- #
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = anomal_latents * vae_scale_factor
-
                 if args.d_dim == 4:
                     anomal_latents = position_embedder(anomal_latents)
-
             noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                                                            anomal_latents)
             with accelerator.autocast():
-                unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                     noise_type=position_embedder)
+                unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
 
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
-            anormal_feat_list = []
-            normal_feat_list = []
-
             anomal_mask = batch['anomaly_mask'].squeeze() # [64,64]
             anormal_position = anomal_mask.flatten().squeeze() # [64*64]
-            if args.without_background:
-                a_normal_position = anormal_position + background_position
-                a_normal_position = torch.where(a_normal_position > 0, 1, 0)
-                normal_position = 1 - a_normal_position
-            else :
-                normal_position = 1 - anormal_position
 
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
@@ -308,30 +305,20 @@ def main(args):
                     anomal_flag = anormal_position[pix_idx].item()
                     if anomal_flag == 1 :
                         anormal_feat_list.append(feat.unsqueeze(0))
-                    else :
-                        if args.without_background :
-                            if normal_flag == 1:
-                                normal_feat_list.append(feat.unsqueeze(0))
-                        else :
-                            normal_flag = normal_position[pix_idx].item()
 
                 anormal_feats = torch.cat(anormal_feat_list, dim=0)
-                if step in total_learning_list  :
-                    mu = value_dict[trg_layer]['mu']
-                    cov = value_dict[trg_layer]['cov']
-                else :
-                    normal_feats = torch.cat(normal_feat_list, dim=0)
-                    mu = torch.mean(normal_feats, dim=0)
-                    cov = torch.cov(normal_feats.transpose(0, 1))
+
+                mu = value_dict[trg_layer]['mu']
+                cov = value_dict[trg_layer]['cov']
+
                 anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
                 anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
-                if step in total_learning_list  :
-                    normal_mahalanobis_dists = value_dict[trg_layer]['normal_mahalanobis_dists']
-                else :
-                    normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
+
+                normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
                 normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
 
                 total_dist = normal_dist_mean + anormal_dist_mean
+
                 normal_dist_loss = normal_dist_mean / total_dist
                 normal_dist_loss = normal_dist_loss * args.dist_loss_weight
                 dist_loss += normal_dist_loss.requires_grad_()
@@ -344,15 +331,15 @@ def main(args):
                 # (1) get position
                 head_num = cls_score.shape[0]
                 anormal_position = anormal_position.unsqueeze(0).repeat(head_num, 1)
-                normal_position = normal_position.unsqueeze(0).repeat(head_num, 1)
                 anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
                 anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
-                if step in total_learning_list  :
-                    normal_cls_score = value_dict[trg_layer]['normal_cls_score']
-                    normal_trigger_score = value_dict[trg_layer]['normal_trigger_score']
-                else :
-                    normal_cls_score = (cls_score * normal_position).mean(dim=0)
-                    normal_trigger_score = (trigger_score * normal_position).mean(dim=0)
+
+                anormal_cls_score = (anormal_cls_score + value_dict[trg_layer]['anormal_cls_score']) / 2
+                anormal_trigger_score = (anormal_trigger_score + value_dict[trg_layer]['anormal_trigger_score']) / 2
+
+                normal_cls_score = value_dict[trg_layer]['normal_cls_score']
+                normal_trigger_score = value_dict[trg_layer]['normal_trigger_score']
+
                 total_score = torch.ones_like(normal_cls_score)
                 normal_cls_loss = (normal_cls_score / total_score) ** 2 # [pix_num]
                 normal_trigger_loss = (1-(normal_trigger_score / total_score)) ** 2
