@@ -1,6 +1,6 @@
 # !/bin/bash
 
-port_number=51010
+port_number=51015
 obj_name='bagel'
 trigger_word='bagel'
 

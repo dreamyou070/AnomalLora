@@ -175,8 +175,9 @@ def main(args):
 
     total_step = len(train_dataloader)
     thred = args.total_normal_thred  # if 0, total_normal_training is just one time
-    target_num = total_step * thred + 0.001  # 50
-    devide_num = int(total_step / target_num)
+    if thred == 0:
+        thred = 0.00001
+    devide_num = 1 / thred
 
 
     for epoch in range(args.start_epoch, args.max_train_epochs):
