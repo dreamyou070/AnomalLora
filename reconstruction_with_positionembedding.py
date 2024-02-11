@@ -29,10 +29,14 @@ def main(args):
     vae_dtype = weight_dtype
     text_encoder, vae, unet, _ = load_target_model(args, weight_dtype, accelerator)
     text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
-    from model.pe import PositionalEmbedding
-    position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
-                                            d_model=320, )
+    from model.pe import PositionalEmbedding, PE_Pooling
 
+    if args.use_position_embedder:
+        position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
+                                                d_model=320, )
+    elif args.use_pe_pooling:
+        position_embedder = PE_Pooling(max_len=args.latent_res * args.latent_res,
+                                       d_model=320, )
 
     print(f'\n step 2. accelerator and device')
     vae.requires_grad_(False)
@@ -237,6 +241,9 @@ if __name__ == '__main__':
     parser.add_argument("--unet_inchannels", type=int, default=4)
     parser.add_argument("--back_token_separating", action='store_true')
     parser.add_argument("--position_embedding_layer", type=str)
+    parser.add_argument("--use_position_embedder", action='store_true')
+    parser.add_argument("--use_pe_pooling", action='store_true')
+
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
