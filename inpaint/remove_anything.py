@@ -115,10 +115,8 @@ if __name__ == "__main__":
             plt.close()
 
             # -------------------------------------------- inpaint the masked image ---------------------------------- #
-            #
             for idx, mask in enumerate(masks):
                 mask_p = out_dir / f"mask_{idx}.png"
                 img_inpainted_p = out_dir / f"inpainted_with_{Path(mask_p).name}"
-                img_inpainted = inpaint_img_with_lama(
-                    img, mask, args.lama_config, args.lama_ckpt, device=device)
-                save_array_to_img(img_inpainted, img_inpainted_p)
+                img_inpainted = inpaint_img_with_lama(img, mask, args.lama_config, args.lama_ckpt, device=device)
+                Image.fromarray(img_inpainted.astype(np.uint8)).resize((h, w)).save(img_inpainted_p)
