@@ -77,7 +77,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                  num_repeat: int = 1,
                  anomal_only_on_object : bool = True,
                  anomal_training : bool = False,
-                 latent_res : int = 64, ):
+                 latent_res : int = 64,
+                 perlin_max_scale : int = 10,
+                 kernel_size : int = 5):
 
         self.root_dir = root_dir
         self.resize_shape=resize_shape
@@ -102,6 +104,8 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.anomal_only_on_object = anomal_only_on_object
         self.anomal_training = anomal_training
         self.latent_res = latent_res
+        self.perlin_max_scale = perlin_max_scale
+        self.kernel_size = kernel_size
 
     def __len__(self):
         if len(self.anomaly_source_paths) > 0 :
@@ -118,7 +122,7 @@ class MVTecDRAEMTrainDataset(Dataset):
     def make_random_mask(self, height, width) -> np.ndarray :
 
         if self.use_perlin:
-            perlin_scale = 6
+            perlin_scale = self.perlin_max_scale
             min_perlin_scale = 0
             perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
             perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
@@ -129,7 +133,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         blur = cv2.GaussianBlur(noise, (0, 0), sigmaX=15, sigmaY=15, borderType=cv2.BORDER_DEFAULT)
         stretch = skimage.exposure.rescale_intensity(blur, in_range='image', out_range=(0, 255)).astype(np.uint8)
         thresh = cv2.threshold(stretch, 175, 255, cv2.THRESH_BINARY)[1]
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (self.kernel_size,self.kernel_size))
         mask = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
         mask_pil = Image.fromarray(mask).convert('L')
