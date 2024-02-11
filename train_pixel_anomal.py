@@ -233,6 +233,9 @@ def main(args):
                         if args.without_background :
                             if object_flag == 1:
                                 normal_feat_list.append(feat.unsqueeze(0))
+                        else :
+                            normal_feat_list.append(feat.unsqueeze(0))
+
                     normal_feats = torch.cat(normal_feat_list, dim=0)
 
                     mu = torch.mean(normal_feats, dim=0)
@@ -259,7 +262,7 @@ def main(args):
                     value_dict[trg_layer]['normal_trigger_score'] = normal_trigger_score
 
 
-            # ---------------------------------------- ANormal Sample Learning --------------------------------------- #
+            # ---------------------------------------- Anormal Sample Learning --------------------------------------- #
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = anomal_latents * vae_scale_factor
@@ -520,7 +523,6 @@ if __name__ == "__main__":
     parser.add_argument("--max_timestep", type=int, default=1000)
     parser.add_argument("--down_dim", type=int)
     parser.add_argument("--noise_type", type=str)
-    parser.add_argument("--truncating", action="store_true")
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--negative_prompt", type=str,
                              default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
