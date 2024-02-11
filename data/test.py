@@ -3,12 +3,12 @@ import numpy as np
 import cv2
 import numpy as np
 
+rgb_img_dir = '000.png'
+object_mask_dir = 'object_000.png'
 
-mask_dir = 'banded_0002.jpg'
-pil_img = Image.open(mask_dir)
-org_h, org_w = pil_img.size
+rgb_np = np.array(Image.open(rgb_img_dir).convert('RGB').resize((256, 256)))
+#mask = np.array(Image.open(object_mask_dir).convert('L').resize((256, 256)))
+object_mask_np = np.array(Image.open(object_mask_dir).convert('RGB').resize((256, 256))) / 255
+background_position = 1 - object_mask_np
+background_img = Image.fromarray((rgb_np * background_position).astype(np.uint8)).convert('RGB')
 
-black_image = np.zeros((org_h, org_w, 3), dtype=np.uint8)
-black_pil = Image.fromarray(black_image)
-for i in range(1,10) :
-    black_pil.save(f'black_00{i}.jpg')
