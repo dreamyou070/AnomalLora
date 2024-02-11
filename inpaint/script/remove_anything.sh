@@ -1,4 +1,4 @@
-python remove_anything.py \
+python ../remove_anything.py \
     --input_img ./example/remove-anything/001.png \
     --coords_type key_in \
     --point_coords 200 450 \
