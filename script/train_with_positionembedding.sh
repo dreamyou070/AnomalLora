@@ -26,5 +26,5 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --latent_res 64 \
  --total_normal_thred 1 \
  --position_embedding_layer 'down_blocks_0_attentions_0_transformer_blocks_0_attn1' \
- --d_dim 4 \
+ --d_dim 320 \
  --use_position_embedder
