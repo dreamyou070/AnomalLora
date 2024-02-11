@@ -1,8 +1,8 @@
 # !/bin/bash
 
-port_number=55555
-obj_name='bagel'
-trigger_word='bagel'
+port_number=54545
+obj_name='cable_gland'
+trigger_word='cable'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train_pixel_anomal.py \
@@ -24,4 +24,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --min_timestep 0 \
  --max_timestep 1000 \
  --truncating --latent_res 64 \
- --total_normal_thred 0.3 --anomal_src_more
+ --total_normal_thred 1.0 --anomal_src_more
