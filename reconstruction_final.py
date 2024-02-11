@@ -89,12 +89,17 @@ def main(args) :
                 name, ext = os.path.splitext(rgb_img)
                 rgb_img_dir = os.path.join(rgb_folder, rgb_img)
                 org_h, org_w = Image.open(rgb_img_dir).size
+
+
+                img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
+                Image.open(rgb_img_dir).resize((org_h, org_w)).save(img_dir)
+
+
                 gt_img_dir = os.path.join(gt_folder, f'{name}.png')
 
                 # --------------------------------- gen cross attn map ---------------------------------------------- #
                 if accelerator.is_main_process:
                     with torch.no_grad():
-
                         img = load_image(rgb_img_dir, 512, 512)
                         vae_latent = image2latent(img, vae, weight_dtype)
                         input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
@@ -135,9 +140,9 @@ def main(args) :
 
                             normal_map = normal_map.unsqueeze(0)
                             normal_map = normal_map.view(res, res)
-                            #normal_map_pil = Image.fromarray(
-                            #    normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
-                            #normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
+                            normal_map_pil = Image.fromarray(
+                                normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                            normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
 
                             anomaly_map = (1 - normal_map) * 255
                             anomal_np = anomaly_map.cpu().detach().numpy().astype(np.uint8)
