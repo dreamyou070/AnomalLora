@@ -1,18 +1,10 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
 import numpy as np
 import torch
 import sys, os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from modeling import Sam
-
 from typing import Optional, Tuple
-
-from .utils.transforms import ResizeLongestSide
+from utils.transforms import ResizeLongestSide
 
 
 class SamPredictor:

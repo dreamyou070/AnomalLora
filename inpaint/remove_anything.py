@@ -114,7 +114,8 @@ if __name__ == "__main__":
             plt.savefig(img_mask_p, bbox_inches='tight', pad_inches=0)
             plt.close()
 
-            # inpaint the masked image
+            # -------------------------------------------- inpaint the masked image ---------------------------------- #
+            #
             for idx, mask in enumerate(masks):
                 mask_p = out_dir / f"mask_{idx}.png"
                 img_inpainted_p = out_dir / f"inpainted_with_{Path(mask_p).name}"
