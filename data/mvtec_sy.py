@@ -78,7 +78,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                  anomal_only_on_object : bool = True,
                  anomal_training : bool = False,
                  latent_res : int = 64,
-                 perlin_max_scale : int = 10,
+                 perlin_max_scale : int = 8,
                  kernel_size : int = 5):
 
         self.root_dir = root_dir
@@ -119,11 +119,11 @@ class MVTecDRAEMTrainDataset(Dataset):
         input_ids = tokenizer_output.input_ids
         attention_mask = tokenizer_output.attention_mask
         return input_ids, attention_mask
-    def make_random_mask(self, height, width) -> np.ndarray :
+    def make_random_mask(self, height, width, min_perlin_scale) -> np.ndarray :
 
         if self.use_perlin:
             perlin_scale = self.perlin_max_scale
-            min_perlin_scale = 0
+            min_perlin_scale = min_perlin_scale
             perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
             perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
             noise = rand_perlin_2d_np((height, width), (perlin_scalex, perlin_scaley))
@@ -202,20 +202,22 @@ class MVTecDRAEMTrainDataset(Dataset):
                 anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
 
             if self.anomal_only_on_object:
-                object_img_aug = self.load_image(object_mask_dir, self.resize_shape[0], self.resize_shape[1], type='L')
-                object_mask_np_aug = np.where((np.array(object_img_aug, np.uint8) / 255) == 0, 0, 1)
+                object_img_aug = self.load_image(object_mask_dir, self.resize_shape[0], self.resize_shape[1], type='L') # 512
+                object_mask_np_aug = np.where((np.array(object_img_aug) / 255) == 0, 0, 1)
                 # [3-1] anomal mask
                 while True:
-                    anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1])
-                    anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
-                    anomal_mask_np = anomal_mask_np * object_mask_np_aug
+                    anomal_mask_np, anomal_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1],
+                                                                            min_perlin_scale = 0)
+                    anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)
+                    anomal_mask_np = anomal_mask_np * object_mask_np_aug # 1 = anomal, 0 = normal
                     if anomal_mask_np.sum() > 0:
                         break
                 # [3-2] hole mask
                 while True:
-                    hold_mask_np, hold_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1])
-                    hold_mask_np = np.where(hold_mask_np == 0, 0, 1)  # strict anomal (0, 1
-                    hold_mask_np = hold_mask_np * object_mask_np_aug
+                    hold_mask_np, hold_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1],
+                                                                        min_perlin_scale = 4)
+                    hold_mask_np = np.where(hold_mask_np == 0, 0, 1)
+                    hold_mask_np = hold_mask_np * object_mask_np_aug  # 1 = hole, 0 = normal
                     if hold_mask_np.sum() > 0:
                         break
 
@@ -231,7 +233,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
             hole_mask_pil = Image.fromarray((hole_mask * 255).astype(np.uint8)).resize((self.latent_res,self.latent_res)).convert('L')
             hole_mask_torch = torch.tensor(np.array(hole_mask_pil) / 255)
-            hole_mask = torch.where(hole_mask_torch > 0, 1, 0)  
+            hole_mask = torch.where(hole_mask_torch > 0, 1, 0)
 
         else :
             masked_img = img

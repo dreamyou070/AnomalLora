@@ -301,7 +301,7 @@ def main(args):
             # ----------------------------------------------------------------------------------------------------------
             # Attention
             attn_loss = (normal_trigger_loss + anormal_trigger_loss)
-            if args.cls_training :
+            if args.do_cls_train :
                 attn_loss += (normal_cls_loss + anormal_cls_loss)
             loss_dict['attn_loss'] = attn_loss.mean().item()
 
@@ -357,7 +357,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--num_repeat', type=int, default=1)
     parser.add_argument('--trigger_word', type=str)
-    parser.add_argument('--perlin_max_scale', type=int, default=10)
+    parser.add_argument('--perlin_max_scale', type=int, default=8)
     parser.add_argument('--kernel_size', type=int, default=5)
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--latent_res", type=int, default=64)
