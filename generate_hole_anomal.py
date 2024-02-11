@@ -63,6 +63,7 @@ def main(args):
     good_rgb_dir = os.path.join(good_data_dir, "rgb")
     good_object_mask_dir = os.path.join(good_data_dir, "object_mask")
     good_gt_dir = os.path.join(good_data_dir, "gt")
+    good_background_dir = os.path.join(good_data_dir, "background")
     os.makedirs(good_rgb_dir, exist_ok=True)
 
     good_images = os.listdir(good_rgb_dir)
@@ -75,18 +76,16 @@ def main(args):
         good_img_pil = Image.open(good_img_dir).resize((h,w))
         good_img_np = np.array(good_img_pil)
 
-        gt_mask = np.zeros((h,w))
-        gt_mask_pil = Image.fromarray(gt_mask).convert('L').resize((w,h))
-        gt_mask_pil.save(os.path.join(good_gt_dir, image))
-        """
+        back_dir = os.path.join(good_background_dir, image)
+        back_pil = Image.open(back_dir).resize((h,w))
+        back_np = np.array(back_pil)
 
+        # [1] mask mask
         dtype = good_img_np.dtype
-
         object_mask_dir = os.path.join(good_object_mask_dir, image)
         object_mask_pil = Image.open(object_mask_dir).convert('L').resize((h,w))
         object_mask_np = np.array(object_mask_pil)
         object_mask_np = np.where(object_mask_np == 0, 0, 1)  # 1 = object, 0 = background
-
         while True:
             anomal_mask_np, anomal_mask_pil = make_random_mask(h,w)
             anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
@@ -94,18 +93,16 @@ def main(args):
             if anomal_mask_np.sum() > 0:
                 break
         final_mask_np = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)  # 1 = anomal, 0 = normal
-        pseudo_anomal_img = ((1 - final_mask_np) * good_img_np).astype(np.uint8)
+
+        pseudo_anomal_img = ((1 - final_mask_np) * good_img_np + (final_mask_np) * back_np ).astype(np.uint8)
 
         pseudo_anomal_img_pil = Image.fromarray(pseudo_anomal_img).resize((w,h))
         pseudo_anomal_mask_pil = Image.fromarray((anomal_mask_np * 255).astype(np.uint8)).convert('L').resize((w,h))
 
         pseudo_anomal_img_pil.save(os.path.join(bad_data_dir, "rgb", image))
         pseudo_anomal_mask_pil.save(os.path.join(bad_data_dir, "gt", image))
-
         pseudo_anomal_object_mask_pil = Image.fromarray((object_mask_np).astype(np.uint8)).convert('L').resize((w, h))
         pseudo_anomal_object_mask_pil.save(os.path.join(bad_data_dir, "object_mask", image))
-        """
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
