@@ -88,9 +88,13 @@ def main(args):
         accelerator.print(f"load network weights from {args.network_weights}: {info}")
 
     print(' (4.3) positional embedding model')
-    from model.pe import PositionalEmbedding
-    position_embedder = PositionalEmbedding(max_len = args.latent_res * args.latent_res,
-                                            d_model = 320,)
+    from model.pe import PositionalEmbedding, PE_Pooling
+    if args.use_position_embedder:
+        position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
+                                                d_model=320, )
+    elif args.use_pe_pooling:
+        position_embedder = PE_Pooling(max_len=args.latent_res * args.latent_res,
+                                       d_model=320, )
 
     print(f'\n step 5. optimizer')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
@@ -540,6 +544,9 @@ if __name__ == "__main__":
     parser.add_argument("--anomal_src_more", action = 'store_true')
     parser.add_argument("--without_background", action='store_true')
     parser.add_argument("--position_embedding_layer", type=str)
+    parser.add_argument("--use_position_embedder", action='store_true')
+    parser.add_argument("--use_pe_pooling", action='store_true')
+
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
