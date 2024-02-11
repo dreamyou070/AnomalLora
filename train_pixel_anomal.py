@@ -25,15 +25,6 @@ def mahal(u, v, cov):
     m = torch.dot(delta, torch.matmul(cov, delta))
     return torch.sqrt(m)
 
-def call_unet(args, accelerator, unet, noisy_latents, timesteps,
-              text_conds, batch, weight_dtype, trg_indexs_list, mask_imgs):
-    noise_pred = unet(noisy_latents,
-                      timesteps,
-                      text_conds,
-                      trg_layer_list=args.trg_layer_list,
-                      noise_type=args.noise_type).sample
-    return noise_pred
-
 
 def main(args):
     print(f'\n step 1. setting')
@@ -96,8 +87,15 @@ def main(args):
         info = network.load_weights(args.network_weights)
         accelerator.print(f"load network weights from {args.network_weights}: {info}")
 
+    print(' (4.3) positional embedding model')
+    from model.pe import PositionalEmbedding
+    position_embedder = PositionalEmbedding(max_len = args.latent_res * args.latent_res,
+                                            d_model = 320,)
+
     print(f'\n step 5. optimizer')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
+    trainable_params.append({"params": position_embedder.parameters(),
+                             "lr": args.learning_rate})
     optimizer_name, optimizer_args, optimizer = get_optimizer(args, trainable_params)
 
     print(f' step 6. dataloader')
@@ -126,9 +124,10 @@ def main(args):
         t_enc.requires_grad_(False)
 
     if train_unet and train_text_encoder:
-        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler)
+        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler, position_embedder = accelerator.prepare(
+            unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler, position_embedder)
         text_encoders = [text_encoder]
+    """
     elif train_unet:
         unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
                                                                                        train_dataloader, lr_scheduler)
@@ -141,10 +140,12 @@ def main(args):
     else:
         network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer,
                                                                                  train_dataloader, lr_scheduler)
+    """
     text_encoders = transform_models_if_DDP(text_encoders)
     unet, network = transform_models_if_DDP([unet, network])
     if args.gradient_checkpointing:
         unet.train()
+        position_embedder.train()
         for t_enc in text_encoders:
             t_enc.train()
             if train_text_encoder:
@@ -177,7 +178,6 @@ def main(args):
 
     controller = AttentionStore()
     register_attention_control(unet, controller)
-
     total_step = len(train_dataloader)
     thred = args.total_normal_thred  # if 0, total_normal_training is just one time
     if thred == 0:
@@ -197,7 +197,7 @@ def main(args):
             dist_loss = 0.0
             attn_loss = 0.0
 
-            # -------------------------------------------- Normal Sample --------------------------------------------- #
+            # -------------------------------------------- Holed Sample --------------------------------------------- #
             with torch.set_grad_enabled(True):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
                 enc_out = text_encoder(input_ids)  # batch, 77, 768
@@ -205,16 +205,23 @@ def main(args):
 
             if step % devide_num == 0 :
                 with torch.no_grad():
-                    latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
+                    latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
                     latents = latents * vae_scale_factor  # [1,4,64,64]
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                  latents, min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
-                unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=None)
+                unet(noisy_latents, timesteps, encoder_hidden_states,  trg_layer_list=args.trg_layer_list,
+                     noise_type=position_embedder)
                 # ---------------------------------------- Normal Sample Learning ---------------------------------------- #
+
+                object_mask = batch["masked_image_mask"].squeeze() # [64,64]
+                object_position = object_mask.flatten().squeeze()  # [64*64]
+                background_position = 1 - object_position
+
                 query_dict, attn_dict = controller.query_dict, controller.step_store
                 controller.reset()
                 normal_feat_list = []
                 value_dict = {}
+
                 for trg_layer in args.trg_layer_list:
 
                     query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
@@ -222,8 +229,10 @@ def main(args):
 
                     for pix_idx in range(pix_num):
                         feat = query[pix_idx].squeeze(0)
-                        normal_feat_list.append(feat.unsqueeze(0))
-
+                        object_flag = object_position[pix_idx].item()
+                        if args.without_background :
+                            if object_flag == 1:
+                                normal_feat_list.append(feat.unsqueeze(0))
                     normal_feats = torch.cat(normal_feat_list, dim=0)
 
                     mu = torch.mean(normal_feats, dim=0)
@@ -233,8 +242,14 @@ def main(args):
                     attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                     cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                     cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-                    normal_cls_score = cls_score.mean(dim=0)      # pix_num
-                    normal_trigger_score = trigger_score.mean(dim=0)
+
+                    if args.without_background:
+                        object_position = object_position.unsqueeze(0).repeat(cls_score.shape[0], 1)
+                        normal_cls_score = (cls_score * object_position).mean(dim=0)
+                        normal_trigger_score = (trigger_score * object_position).mean(dim=0)
+                    else :
+                        normal_cls_score = cls_score.mean(dim=0)      # pix_num
+                        normal_trigger_score = trigger_score.mean(dim=0)
 
                     value_dict[trg_layer] = {}
                     value_dict[trg_layer]['mu'] = mu
@@ -253,7 +268,7 @@ def main(args):
                                                                                            anomal_latents)
             with accelerator.autocast():
                 unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                     noise_type=None)
+                     noise_type=position_embedder)
 
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
@@ -262,7 +277,12 @@ def main(args):
 
             anomal_mask = batch['anomaly_mask'].squeeze() # [64,64]
             anormal_position = anomal_mask.flatten().squeeze() # [64*64]
-            normal_position = 1 - anormal_position
+            if args.without_background:
+                a_normal_position = anormal_position + background_position
+                a_normal_position = torch.where(a_normal_position > 0, 1, 0)
+                normal_position = 1 - a_normal_position
+            else :
+                normal_position = 1 - anormal_position
 
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0) # pix_num, dim
@@ -273,7 +293,12 @@ def main(args):
                     if anomal_flag == 1 :
                         anormal_feat_list.append(feat.unsqueeze(0))
                     else :
-                        normal_feat_list.append(feat.unsqueeze(0))
+                        if args.without_background :
+                            if normal_flag == 1:
+                                normal_feat_list.append(feat.unsqueeze(0))
+                        else :
+                            normal_flag = normal_position[pix_idx].item()
+
                 anormal_feats = torch.cat(anormal_feat_list, dim=0)
                 if step % devide_num == 0  :
                     mu = value_dict[trg_layer]['mu']
@@ -351,6 +376,7 @@ def main(args):
                 progress_bar.set_postfix(**loss_dict)
             if global_step >= args.max_train_steps:
                 break
+            break
         # ----------------------------------------------- Epoch Final ----------------------------------------------- #
         accelerator.wait_for_everyone()
         if args.save_every_n_epochs is not None:
@@ -359,6 +385,14 @@ def main(args):
             if is_main_process and saving:
                 ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
                 save_model(args, ckpt_name, accelerator.unwrap_model(network), save_dtype)
+
+                # saving position embedder
+                position_embedder_ckpt_name = f'position_embedder_{epoch+1}.safetensors'
+                position_embedder_base_save_dir = os.path.join(args.output_dir, 'position_embedder')
+                os.makedirs(position_embedder_base_save_dir, exist_ok=True)
+                position_embedder_ckpt_name = os.path.join(position_embedder_base_save_dir, position_embedder_ckpt_name)
+                meta_data = {}
+                accelerator.unwrap_model(position_embedder).save_weights(position_embedder_ckpt_name, save_dtype, meta_data)
     accelerator.end_training()
 
 if __name__ == "__main__":
@@ -376,7 +410,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--num_repeat', type=int, default=1)
     parser.add_argument('--trigger_word', type=str)
-    parser.add_argument('--perlin_max_scale', type=int, default=10)
+    parser.add_argument('--perlin_max_scale', type=int, default=8)
     parser.add_argument('--kernel_size', type=int, default=5)
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--latent_res", type=int, default=64)
@@ -491,6 +525,7 @@ if __name__ == "__main__":
     parser.add_argument("--negative_prompt", type=str,
                              default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     parser.add_argument("--anomal_src_more", action = 'store_true')
+    parser.add_argument("--without_background", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
