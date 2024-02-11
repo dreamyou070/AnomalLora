@@ -1,5 +1,5 @@
 import torch
-import sys
+from PIL import Image
 import argparse
 import numpy as np
 from pathlib import Path
@@ -58,6 +58,7 @@ def setup_args(parser):
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser()
     setup_args(parser)
     args = parser.parse_args(sys.argv[1:])
@@ -76,10 +77,11 @@ if __name__ == "__main__":
     for image in images:
         img_path = os.path.join(train_good_rgb_dir, image)
         img = load_img_to_array(img_path)
+        h, w = img.shape[:2]
         masks, _, _ = predict_masks_with_sam(img,[latest_coords],args.point_labels,
                                              model_type=args.sam_model_type,
                                              ckpt_p=args.sam_ckpt,device=device,)
-        masks = masks.astype(np.uint8) * 255
+        masks = masks.astype(np.uint8) * 255 # np array
 
         # dilate mask to avoid unmasked edge effect
         if args.dilate_kernel_size is not None:
@@ -95,8 +97,9 @@ if __name__ == "__main__":
             img_points_p = out_dir / f"with_points.png"
             img_mask_p = out_dir / f"with_{Path(mask_p).name}"
 
-            # save the mask
-            save_array_to_img(mask, mask_p)
+            # -------------------------------------------- saving mask -------------------------------------------- #
+            Image.fromarray(mask.astype(np.uint8)).resize((h, w)).save(mask_p)
+
 
             # save the pointed and masked image
             dpi = plt.rcParams['figure.dpi']
