@@ -11,6 +11,7 @@ class PositionalEmbedding(nn.Module):
 
     def forward(self, x: torch.Tensor):
 
+        start_dim = 3
         if x.dim() == 4:
             start_dim = 4
             x = einops.rearrange(x, 'b c h w -> b (h w) c')  # B,H*W,C
@@ -33,7 +34,8 @@ class PE_Pooling(nn.Module):
         self.positional_encodings = nn.Parameter(torch.randn(1,max_len, d_model), requires_grad=True)
 
     def forward(self, x: torch.Tensor):
-
+        
+        start_dim = 3
         if x.dim() == 4:
             start_dim = 4
             x = einops.rearrange(x, 'b c h w -> b (h w) c')  # B,H*W,C
