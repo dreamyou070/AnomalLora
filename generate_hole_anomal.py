@@ -1,39 +1,39 @@
 import importlib, argparse, math, sys, random, time, json
 from tqdm import tqdm
 from accelerate.utils import set_seed
-from diffusers import DDPMScheduler
+from PIL import Image
 import torch
 import os
 from data.mvtec_sy import MVTecDRAEMTrainDataset
-from model.diffusion_model import load_target_model, transform_models_if_DDP
-from model.lora import create_network
-from attention_store import AttentionStore
 from model.tokenizer import load_tokenizer
-from utils import get_epoch_ckpt_name, save_model, prepare_dtype
-from utils.accelerator_utils import prepare_accelerator
-from utils.attention_control import register_attention_control
-from utils.optimizer_utils import get_optimizer, get_scheduler_fix
-from utils.model_utils import get_hidden_states, get_noise_noisy_latents_and_timesteps, \
-    prepare_scheduler_for_custom_training, get_noise_noisy_latents_partial_time
 from model.unet import unet_passing_argument
 from utils.attention_control import passing_argument
+import numpy as np
+import cv2
+import skimage
+from data.perlin import rand_perlin_2d_np
+from numpy.random import default_rng
 
-vae_scale_factor = 0.18215
+perlin_max_scale = 6
+kernel_size = 9
+def make_random_mask(height, width) -> np.ndarray:
 
-def mahal(u, v, cov):
-    delta = u - v
-    m = torch.dot(delta, torch.matmul(cov, delta))
-    return torch.sqrt(m)
+    perlin_scale = perlin_max_scale
+    min_perlin_scale = 0
+    perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
+    perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
+    noise = rand_perlin_2d_np((height, width), (perlin_scalex, perlin_scaley))
 
-def call_unet(args, accelerator, unet, noisy_latents, timesteps,
-              text_conds, batch, weight_dtype, trg_indexs_list, mask_imgs):
-    noise_pred = unet(noisy_latents,
-                      timesteps,
-                      text_conds,
-                      trg_layer_list=args.trg_layer_list,
-                      noise_type=args.noise_type).sample
-    return noise_pred
+    blur = cv2.GaussianBlur(noise, (0, 0), sigmaX=15, sigmaY=15, borderType=cv2.BORDER_DEFAULT)
+    stretch = skimage.exposure.rescale_intensity(blur, in_range='image', out_range=(0, 255)).astype(np.uint8)
+    thresh = cv2.threshold(stretch, 175, 255, cv2.THRESH_BINARY)[1]
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+    mask = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    mask_pil = Image.fromarray(mask).convert('L')
+    mask_np = np.array(mask_pil) / 255  # height, width, [0,1]
 
+    return mask_np, mask_pil
 
 def main(args):
 
@@ -46,6 +46,54 @@ def main(args):
     tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
     obj_dir = os.path.join(args.data_path, args.obj_name)
     train_dir = os.path.join(obj_dir, "train")
+
+    good_data_dir = os.path.join(train_dir, "good")
+    bad_data_dir = os.path.join(train_dir, "bad")
+    os.makedirs(bad_data_dir, exist_ok=True)
+    bad_data_rgb_dir = os.path.join(bad_data_dir, "rgb")
+    bad_data_gt_dir = os.path.join(bad_data_dir, "gt")
+    bad_data_object_mask_dir = os.path.join(bad_data_dir, "object_mask")
+    os.makedirs(bad_data_rgb_dir, exist_ok=True)
+    os.makedirs(bad_data_gt_dir, exist_ok=True)
+    os.makedirs(bad_data_object_mask_dir, exist_ok=True)
+    
+    good_rgb_dir = os.path.join(good_data_dir, "rgb")
+    good_object_mask_dir = os.path.join(good_data_dir, "object_mask")
+    good_images = os.listdir(good_rgb_dir)
+
+
+    for image in good_images:
+
+        good_img_dir = os.path.join(good_rgb_dir, image)
+        good_img_pil = Image.open(good_img_dir)
+        good_img_np = np.array(good_img_pil)
+        h, w = good_img_pil.size
+        dtype = good_img_np.dtype
+
+        object_mask_dir = os.path.join(good_object_mask_dir, image)
+        object_mask_pil = Image.open(object_mask_dir).convert('L').resize((w,h))
+        object_mask_np = np.array(object_mask_pil)
+
+        while True:
+            anomal_mask_np, anomal_mask_pil = make_random_mask(h,w)
+            anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1)  # strict anomal (0, 1
+            anomal_mask_np = anomal_mask_np * object_mask_np
+            if anomal_mask_np.sum() > 0:
+                break
+        final_mask_np = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)  # 1 = anomal, 0 = normal
+        pseudo_anomal_img = ((1 - final_mask_np) * good_img_np).astype(np.uint8)
+
+        pseudo_anomal_img_pil = Image.fromarray(pseudo_anomal_img).resize((w,h))
+        pseudo_anomal_mask_pil = Image.fromarray((anomal_mask_np * 255).astype(np.uint8)).convert('L').resize((w,h))
+        pseudo_anomal_object_mask_pil = Image.fromarray((object_mask_np * 255).astype(np.uint8)).convert('L').resize((w,h))
+
+        pseudo_anomal_img_pil.save(os.path.join(bad_data_dir, "rgb", image))
+        pseudo_anomal_mask_pil.save(os.path.join(bad_data_dir, "gt", image))
+        pseudo_anomal_object_mask_pil.save(os.path.join(bad_data_dir, "object_mask", image))
+
+
+
+
     root_dir = os.path.join(train_dir, "good/rgb")
     if args.anomal_src_more:
         args.anomaly_source_path = os.path.join(args.data_path, "anomal_source_more")
@@ -72,6 +120,7 @@ def main(args):
         print(f'pseudo_anomal_img.shape : {pseudo_anomal_img.shape}')
         print(f'pseudo_anomal_gt.shape : {pseudo_anomal_gt.shape}')
         #pseudo_anomal_img_np = np.array(pseudo_anomal_img)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
