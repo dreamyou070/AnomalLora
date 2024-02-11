@@ -22,8 +22,11 @@ def make_perlin_noise(shape_row, shape_column):
 
 def passing_argument(args):
     global down_dim
+    global position_embedding_layer
 
     down_dim = args.down_dim
+    position_embedding_layer = args.position_embedding_layer
+
 def add_attn_argument(parser: argparse.ArgumentParser) :
     parser.add_argument("--down_dim", type=int, default=160)
 
@@ -40,7 +43,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             query = self.to_q(hidden_states)
 
             """ Position Embedding right after Down Block 1 """
-            if layer_name == 'down_blocks_0_attentions_0_transformer_blocks_0_attn1' :
+            if layer_name == position_embedding_layer  : #'down_blocks_0_attentions_0_transformer_blocks_0_attn1' :
                 query = noise_type(query)
 
             if trg_layer_list is not None and layer_name in trg_layer_list :

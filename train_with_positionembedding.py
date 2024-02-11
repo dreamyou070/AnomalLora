@@ -539,6 +539,7 @@ if __name__ == "__main__":
                              default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
     parser.add_argument("--anomal_src_more", action = 'store_true')
     parser.add_argument("--without_background", action='store_true')
+    parser.add_argument("--position_embedding_layer", type=str)
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
