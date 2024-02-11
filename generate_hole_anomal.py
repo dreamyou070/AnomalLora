@@ -69,12 +69,13 @@ def main(args):
         good_img_dir = os.path.join(good_rgb_dir, image)
         good_img_pil = Image.open(good_img_dir).resize((h,w))
         good_img_np = np.array(good_img_pil)
-        
+
         dtype = good_img_np.dtype
 
         object_mask_dir = os.path.join(good_object_mask_dir, image)
         object_mask_pil = Image.open(object_mask_dir).convert('L').resize((h,w))
         object_mask_np = np.array(object_mask_pil)
+        object_mask_np = np.where(object_mask_np == 0, 0, 1)  # 1 = object, 0 = background
 
         while True:
             anomal_mask_np, anomal_mask_pil = make_random_mask(h,w)
@@ -87,10 +88,13 @@ def main(args):
 
         pseudo_anomal_img_pil = Image.fromarray(pseudo_anomal_img).resize((w,h))
         pseudo_anomal_mask_pil = Image.fromarray((anomal_mask_np * 255).astype(np.uint8)).convert('L').resize((w,h))
-        pseudo_anomal_object_mask_pil = Image.fromarray((object_mask_np * 255).astype(np.uint8)).convert('L').resize((w,h))
+
+
 
         pseudo_anomal_img_pil.save(os.path.join(bad_data_dir, "rgb", image))
         pseudo_anomal_mask_pil.save(os.path.join(bad_data_dir, "gt", image))
+
+        pseudo_anomal_object_mask_pil = Image.fromarray((object_mask_np).astype(np.uint8)).convert('L').resize((w, h))
         pseudo_anomal_object_mask_pil.save(os.path.join(bad_data_dir, "object_mask", image))
 
 
