@@ -23,4 +23,5 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --unet_inchannels 4 \
  --min_timestep 0 \
  --max_timestep 1000 \
- --truncating --latent_res 64
+ --truncating --latent_res 64  \
+ --truncating 3

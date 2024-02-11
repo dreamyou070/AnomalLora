@@ -62,7 +62,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
 
-                trg_map = attention_probs[:, :, :2]
+                trg_map = attention_probs[:, :, :truncating]
                 controller.store(trg_map, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
