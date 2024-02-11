@@ -56,7 +56,7 @@ def main(args):
     os.makedirs(bad_data_rgb_dir, exist_ok=True)
     os.makedirs(bad_data_gt_dir, exist_ok=True)
     os.makedirs(bad_data_object_mask_dir, exist_ok=True)
-    
+
     good_rgb_dir = os.path.join(good_data_dir, "rgb")
     good_object_mask_dir = os.path.join(good_data_dir, "object_mask")
     good_images = os.listdir(good_rgb_dir)

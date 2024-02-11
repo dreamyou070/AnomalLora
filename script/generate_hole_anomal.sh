@@ -4,7 +4,7 @@ port_number=54412
 obj_name='cable_gland'
 trigger_word='cable'
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../train_pixel_anomal.py \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' \
  --trigger_word "${trigger_word}" \
