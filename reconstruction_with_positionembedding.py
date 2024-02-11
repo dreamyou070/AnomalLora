@@ -236,6 +236,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--unet_inchannels", type=int, default=4)
     parser.add_argument("--back_token_separating", action='store_true')
+    parser.add_argument("--position_embedding_layer", type=str)
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
