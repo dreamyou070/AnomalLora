@@ -1,9 +1,9 @@
 #! /bin/bash
 
-class_name="bagel"
+class_name="cable_gland"
 dataset_cat="MVTec3D-AD"
 dataset_dir="../../../MyData/anomaly_detection/${dataset_cat}"
-sub_folder="3_64_up_2_total_normal_thred_0.3"
+sub_folder="64_up_2_total_normal_thred_0.3"
 
 
 output_dir="metrics"
