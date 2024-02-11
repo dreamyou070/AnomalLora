@@ -5,11 +5,12 @@ import numpy as np
 import torch
 from pathlib import Path
 from matplotlib import pyplot as plt
+import os, sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from typing import Any, Dict, List
 from sam_segment import predict_masks_with_sam
 from stable_diffusion_inpaint import replace_img_with_sd
-from utils import load_img_to_array, save_array_to_img, dilate_mask, \
-    show_mask, show_points, get_clicked_point
+from utils import load_img_to_array, save_array_to_img, dilate_mask, show_mask, show_points, get_clicked_point
 
 
 def setup_args(parser):
@@ -63,17 +64,7 @@ def setup_args(parser):
 
 
 if __name__ == "__main__":
-    """Example usage:
-    python replace_anything.py \
-        --input_img ./example/replace-anything/dog.png \
-        --coords_type key_in \
-        --point_coords 750 500 \
-        --point_labels 1 \
-        --text_prompt "sit on the swing" \
-        --output_dir ./results \
-        --sam_model_type "vit_h" \
-        --sam_ckpt ./pretrained_models/sam_vit_h_4b8939.pth
-    """
+
     parser = argparse.ArgumentParser()
     setup_args(parser)
     args = parser.parse_args(sys.argv[1:])
@@ -83,6 +74,9 @@ if __name__ == "__main__":
         latest_coords = get_clicked_point(args.input_img)
     elif args.coords_type == "key_in":
         latest_coords = args.point_coords
+
+
+
     img = load_img_to_array(args.input_img)
 
     masks, _, _ = predict_masks_with_sam(
