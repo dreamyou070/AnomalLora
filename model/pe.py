@@ -16,7 +16,7 @@ class PositionalEmbedding(nn.Module):
             x = einops.rearrange(x, 'b c h w -> b (h w) c')  # B,H*W,C
         b_size = x.shape[0]
         res = int(x.shape[1] ** 0.5)
-        pe = self.positional_encodings.expand(b_size, 1, 1)
+        pe = self.positional_encodings.expand(b_size, -1, -1)
         x = x + pe
         if start_dim == 4:
             x = einops.rearrange(x, 'b (h w) c -> b c h w', h=res, w=res)
@@ -39,7 +39,7 @@ class PE_Pooling(nn.Module):
             x = einops.rearrange(x, 'b c h w -> b (h w) c')  # B,H*W,C
         b_size = x.shape[0]
         res = int(x.shape[1] ** 0.5)
-        pe = self.positional_encodings.expand(b_size, 1, 1)
+        pe = self.positional_encodings.expand(b_size, -1, -1)
         x = x + pe
         if start_dim == 4:
             x = einops.rearrange(x, 'b (h w) c -> b c h w', h=res, w=res)
