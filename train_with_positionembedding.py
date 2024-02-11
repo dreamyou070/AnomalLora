@@ -91,10 +91,10 @@ def main(args):
     from model.pe import PositionalEmbedding, PE_Pooling
     if args.use_position_embedder:
         position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
-                                                d_model=320, )
+                                                d_model=args.d_dim)
     elif args.use_pe_pooling:
         position_embedder = PE_Pooling(max_len=args.latent_res * args.latent_res,
-                                       d_model=320, )
+                                       d_model=args.d_dim)
 
     print(f'\n step 5. optimizer')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
@@ -213,6 +213,10 @@ def main(args):
                 with torch.no_grad():
                     latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() # 1, 4, 64, 64
                     latents = latents * vae_scale_factor  # [1,4,64,64]
+
+                    if args.d_dim == 4 :
+                        latents = position_embedder(latents)
+
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                  latents, min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
                 unet(noisy_latents, timesteps, encoder_hidden_states,  trg_layer_list=args.trg_layer_list,
@@ -272,6 +276,9 @@ def main(args):
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = anomal_latents * vae_scale_factor
+
+                if args.d_dim == 4:
+                    anomal_latents = position_embedder(anomal_latents)
 
             noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                                                            anomal_latents)
@@ -546,6 +553,7 @@ if __name__ == "__main__":
     parser.add_argument("--position_embedding_layer", type=str)
     parser.add_argument("--use_position_embedder", action='store_true')
     parser.add_argument("--use_pe_pooling", action='store_true')
+    parser.add_argument("--d_dim", default=320, type=int)
 
     args = parser.parse_args()
     unet_passing_argument(args)
