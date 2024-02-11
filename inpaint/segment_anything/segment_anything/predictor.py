@@ -1,12 +1,11 @@
 import numpy as np
 import torch
 import sys, os
-parent_path = os.path.abspath(os.path.dirname(__file__))
-print(f'parent_path: {parent_path}')
-sys.path.append(parent_path)
-from segment_anything.modeling import Sam
+present_path = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(present_path)
+from .modeling import Sam
 from typing import Optional, Tuple
-from segment_anything.utils.transforms import ResizeLongestSide
+from .utils.transforms import ResizeLongestSide
 
 
 class SamPredictor:
