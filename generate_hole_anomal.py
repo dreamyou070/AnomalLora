@@ -62,14 +62,14 @@ def main(args):
     good_object_mask_dir = os.path.join(good_data_dir, "object_mask")
     good_images = os.listdir(good_rgb_dir)
 
+    h, w = 512, 512
 
     for image in good_images:
 
         good_img_dir = os.path.join(good_rgb_dir, image)
-        good_img_pil = Image.open(good_img_dir)
+        good_img_pil = Image.open(good_img_dir).resize((h,w))
         good_img_np = np.array(good_img_pil)
-        h, w = good_img_pil.size
-        print(f"image size: {h}, {w}")
+        
         dtype = good_img_np.dtype
 
         object_mask_dir = os.path.join(good_object_mask_dir, image)
