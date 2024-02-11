@@ -257,7 +257,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         # [5] return
         sample = {'image': self.transform(img),
-                  "object_mask": object_mask.unsqueeze(0),  # [1, 64, 64]
+                  "object_mask": object_mask.unsqueeze(0),   # [1, 64, 64]
                   'augmented_image': self.transform(anomal_img),
                   "anomaly_mask": anomal_mask.unsqueeze(0),  # [1, 64, 64] ################################
                   'masked_image': self.transform(masked_img),
