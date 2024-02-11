@@ -1,13 +1,13 @@
 # !/bin/bash
 
-port_number=51055
-obj_name='cable_gland'
-trigger_word='cable'
+port_number=55555
+obj_name='bagel'
+trigger_word='bagel'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train_pixel_anomal.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
- --output_dir "../../result/${obj_name}/64_up_2_total_normal_thred_0.3_anomal_src_more" \
+ --output_dir "../../result/${obj_name}/64_up_2_total_normal_thred_1.0_anomal_src_more" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' \
  --trigger_word "${trigger_word}" \
