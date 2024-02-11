@@ -5,7 +5,7 @@ obj_name='cable_gland'
 trigger_word='cable'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
- --main_process_port $port_number ../train_pixel_anomal.py \
+ --main_process_port $port_number ../generate_hole_anomal.py \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' \
  --trigger_word "${trigger_word}" \
  --obj_name "${obj_name}" \
