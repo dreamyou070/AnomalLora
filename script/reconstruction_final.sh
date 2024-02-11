@@ -1,8 +1,8 @@
 # !/bin/bash
 
-port_number=59122
-obj_name='cable_gland'
-caption='cable'
+port_number=59133
+obj_name='carrot'
+caption='carrot'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../reconstruction_final.py \
