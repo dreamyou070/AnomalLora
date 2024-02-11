@@ -49,6 +49,8 @@ def main(args):
     train_dir = os.path.join(obj_dir, "train")
 
     good_data_dir = os.path.join(train_dir, "good")
+
+
     bad_data_dir = os.path.join(train_dir, "bad")
     os.makedirs(bad_data_dir, exist_ok=True)
     bad_data_rgb_dir = os.path.join(bad_data_dir, "rgb")
@@ -60,6 +62,9 @@ def main(args):
 
     good_rgb_dir = os.path.join(good_data_dir, "rgb")
     good_object_mask_dir = os.path.join(good_data_dir, "object_mask")
+    good_gt_dir = os.path.join(good_data_dir, "gt")
+    os.makedirs(good_rgb_dir, exist_ok=True)
+
     good_images = os.listdir(good_rgb_dir)
 
     h, w = 512, 512
@@ -69,6 +74,11 @@ def main(args):
         good_img_dir = os.path.join(good_rgb_dir, image)
         good_img_pil = Image.open(good_img_dir).resize((h,w))
         good_img_np = np.array(good_img_pil)
+
+        gt_mask = np.zeros((h,w))
+        gt_mask_pil = Image.fromarray(gt_mask).convert('L').resize((w,h))
+        gt_mask_pil.save(os.path.join(good_gt_dir, image))
+        """
 
         dtype = good_img_np.dtype
 
@@ -94,36 +104,7 @@ def main(args):
 
         pseudo_anomal_object_mask_pil = Image.fromarray((object_mask_np).astype(np.uint8)).convert('L').resize((w, h))
         pseudo_anomal_object_mask_pil.save(os.path.join(bad_data_dir, "object_mask", image))
-
-
-
-
-    root_dir = os.path.join(train_dir, "good/rgb")
-    if args.anomal_src_more:
-        args.anomaly_source_path = os.path.join(args.data_path, "anomal_source_more")
-    else :
-        args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
-    dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
-                                     anomaly_source_path=args.anomaly_source_path,
-                                     resize_shape=[512, 512],
-                                     tokenizer=tokenizer,
-                                     caption=args.trigger_word,
-                                     use_perlin=True,
-                                     num_repeat=args.num_repeat,
-                                     anomal_only_on_object=args.anomal_only_on_object,
-                                     anomal_training  = True,
-                                     latent_res = args.latent_res,
-                                     perlin_max_scale = args.perlin_max_scale,
-                                     kernel_size = args.kernel_size,)
-    train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
-
-    for step, batch in enumerate(train_dataloader):
-
-        pseudo_anomal_img = batch['masked_image'].squeeze()     # [3,512,512]
-        pseudo_anomal_gt = batch['masked_image_mask'].squeeze() # [64,64]
-        print(f'pseudo_anomal_img.shape : {pseudo_anomal_img.shape}')
-        print(f'pseudo_anomal_gt.shape : {pseudo_anomal_gt.shape}')
-        #pseudo_anomal_img_np = np.array(pseudo_anomal_img)
+        """
 
 
 if __name__ == "__main__":
