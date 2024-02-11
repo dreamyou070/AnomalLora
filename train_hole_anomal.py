@@ -56,11 +56,9 @@ def main(args):
     train_dir = os.path.join(obj_dir, "train")
 
     dataset = MVTecDRAEMTrainDataset_Sub(root_dir=train_dir,
-                                         anomaly_source_path=args.anomaly_source_path,
                                          resize_shape=[512, 512],
                                          tokenizer=tokenizer,
                                          caption=args.trigger_word,
-                                         use_perlin=True,
                                          num_repeat=args.num_repeat,
                                          anomal_only_on_object=args.anomal_only_on_object,
                                          anomal_training  = True,
@@ -202,13 +200,11 @@ def main(args):
 
             # ---------------------------------------- ANormal Sample Learning --------------------------------------- #
             with torch.no_grad():
-                anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
-                anomal_latents = anomal_latents * vae_scale_factor
-
-            noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                                                           anomal_latents)
+                latents = vae.encode(batch['image'].to(dtype=weight_dtype)).latent_dist.sample()
+                latents = latents * vae_scale_factor
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,latents)
             with accelerator.autocast():
-                unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=None)
+                unet(latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=None)
 
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
@@ -217,13 +213,11 @@ def main(args):
 
             object_mask = batch["object_mask"].squeeze()  # [64,64]
             object_position = object_mask.flatten().squeeze()  # [64*64]
-
             background_position = 1 - object_position
-
             anomal_mask = batch['anomaly_mask'].squeeze() # [64,64]
             # ------------------------------------------------------------------------------------------------------------------
             anormal_position = anomal_mask.flatten().squeeze() # [64*64]
-            normal_position = 1 - torch.where((anormal_position + background_position) > 0, 1, 0)
+            normal_position = 1 - anormal_position
             # ------------------------------------------------------------------------------------------------------------------
 
             for trg_layer in args.trg_layer_list:
