@@ -68,6 +68,7 @@ def main(args):
         good_img_pil = Image.open(good_img_dir)
         good_img_np = np.array(good_img_pil)
         h, w = good_img_pil.size
+        print(f"image size: {h}, {w}")
         dtype = good_img_np.dtype
 
         object_mask_dir = os.path.join(good_object_mask_dir, image)
