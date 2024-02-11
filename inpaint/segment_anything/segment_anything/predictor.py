@@ -1,7 +1,9 @@
 import numpy as np
 import torch
 import sys, os
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+parent_path = os.path.abspath(os.path.dirname(__file__))
+print(f'parent_path: {parent_path}')
+sys.path.append(parent_path)
 from segment_anything.modeling import Sam
 from typing import Optional, Tuple
 from segment_anything.utils.transforms import ResizeLongestSide
