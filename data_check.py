@@ -58,10 +58,10 @@ def main(args):
         pil_anomaly_mask = (np_anomaly_mask * 255).astype(np.uint8)
         pil_anomaly_mask = Image.fromarray(pil_anomaly_mask)
         pil_anomaly_mask.save(os.path.join(check_base_dir, f'{image_name}_anomaly_mask.png'))
-        """        
 
-        masked_image = sample['masked_image']
-        pil_masked_image = to_pil_image(masked_image)
+        masked_image = sample['masked_image'].squeeze()
+        np_masked_image = np.array(((masked_image + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
+        pil_masked_image = Image.fromarray(np_masked_image)
         pil_masked_image.save(os.path.join(check_base_dir, f'{image_name}_masked_image.png'))
 
         masked_image_mask = sample['masked_image_mask']
@@ -69,11 +69,7 @@ def main(args):
         pil_masked_image_mask = (np_masked_image_mask * 255).astype(np.uint8)
         pil_masked_image_mask = Image.fromarray(pil_masked_image_mask)
         pil_masked_image_mask.save(os.path.join(check_base_dir, f'{image_name}_masked_image_mask.png'))
-
-
-        print(f'image : {image.shape}')
-        print(f'object_mask : {object_mask.shape}')
-        print(f'augmented_image : {augmented_image.shape}')
+        """        
         """
         time.sleep(10000)
 

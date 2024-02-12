@@ -240,39 +240,36 @@ class MVTecDRAEMTrainDataset(Dataset):
                     anomal_img, anomal_mask_np = self.augment_image(img,self.anomaly_source_paths[anomal_src_idx])
                     anomal_mask_np = anomal_mask_np * object_mask_np_aug # [512,512]
                     anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1) # [512,512]
-
                     anomal_mask_np_ = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
                     anomal_img = (anomal_mask_np_) * anomal_img + (1 - anomal_mask_np_) * img
-
                     anomal_mask_pil = Image.fromarray((anomal_mask_np * 255).astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res)).convert('L')
                     anomal_mask_torch = torch.tensor(np.array(anomal_mask_pil))
                     anomal_mask_torch = torch.where(anomal_mask_torch > 0, 1, 0)  # strict anomal
                     if anomal_mask_torch.sum() > 0:
                         break
-
                 anomal_img_pil = Image.fromarray(anomal_img.astype(np.uint8))
                 anomal_img = np.array(anomal_img_pil, np.uint8)
-
-
                 while True:
-                    hold_mask_np = self.make_random_gaussian_mask()
-                    hold_mask_np = hold_mask_np * object_mask_np_aug  # 1 = hole, 0 = normal
-                    hold_mask_np = np.where(hold_mask_np == 0, 0, 1)
-                    hole_mask_pil = Image.fromarray((hold_mask_np * 255).astype(np.uint8)).resize(
+                    hole_mask_np = self.make_random_gaussian_mask()
+                    hole_mask_np = hole_mask_np * object_mask_np_aug  # 1 = hole, 0 = normal
+                    hole_mask_np = np.where(hole_mask_np == 0, 0, 1)
+                    hole_mask_np_ = np.repeat(np.expand_dims(hole_mask_np, axis=2), 3, axis=2).astype(dtype)
+                    hole_img = (1 - hole_mask_np_) * img + hole_mask_np_ * background_img
+                    hole_mask_pil = Image.fromarray((hole_mask_np * 255).astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res)).convert('L')
                     hole_mask_torch = torch.tensor(np.array(hole_mask_pil))
-                    hole_mask_torch = torch.where(hole_mask_torch > 0, 1, 0)
+                    hole_mask_torch = torch.where(hole_mask_torch > 0, 1, 0)  # strict anomal
                     if hole_mask_torch.sum() > 0:
                         break
-                hole_mask = np.repeat(np.expand_dims(hold_mask_np, axis=2), 3, axis=2).astype(dtype)
-                hole_mask = np.where(hole_mask == 0, 0, 1)
-                hole_img = (1 - hole_mask) * img + hole_mask * background_img # [512,512]
+                hole_img_pil = Image.fromarray(hole_img.astype(np.uint8))
+                hole_img = np.array(hole_img_pil, np.uint8)
 
                 if anomal_mask_torch.sum() == 0:
                     raise Exception(f"no anomal on {final_name} image, check mask again")
-                if hole_mask.sum().item() == 0:
+                if hole_mask_torch.sum() == 0:
                     raise Exception(f"no hole on {final_name} image, check mask again")
+
         else :
             anomal_img = img
             anomal_mask = object_mask # [64,64]
@@ -284,9 +281,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                 "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]
                 'augmented_image': self.transform(anomal_img),
                 "anomaly_mask": anomal_mask_torch.unsqueeze(0),   # [1, 64, 64] ################################
-                #'masked_image': self.transform(hole_img),   # masked image
-                #  'masked_image_mask': hole_mask_torch.unsqueeze(0),# hold position
-                  'idx': idx,
-                  'input_ids': input_ids.squeeze(0),
-                  'caption': self.caption,
-                  'image_name' : final_name}
+                'masked_image': self.transform(hole_img),   # masked image
+                'masked_image_mask': hole_mask_torch.unsqueeze(0),# hold position
+                'idx': idx,
+                'input_ids': input_ids.squeeze(0),
+                'caption': self.caption,
+                'image_name' : final_name}
