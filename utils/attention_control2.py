@@ -55,10 +55,11 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 controller.save_query(query, layer_name)
 
-            if layer_name == position_embedding_layer and do_concat :
-                hidden_states = torch.cat([hidden_states, hidden_states], dim=0)
-
             context = context if context is not None else hidden_states
+            context_b = context.shape[0]
+            query_b = query.shape[0]
+            if context_b != query_b:
+                context = torch.cat([context, context], dim=0)
             key = self.to_k(context)
             value = self.to_v(context)
 
