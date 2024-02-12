@@ -225,17 +225,22 @@ def main(args):
 
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
-            attn_score = attn_dict[args.position_embedder_layer][0]      # head, pix_num, 2
+            attn_score = attn_dict[args.position_embedding_layer][0]      # head, pix_num, 2
             #attn_score = torch.chunk(attn_score, 2, dim=0)[0].squeeze()  # head, pix_num, 2
             cls_score, trigger_score = attn_score.chunk(2, dim=-1)
             cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
             object_position = object_position.unsqueeze(0).expand(cls_score.size(0), -1)  # head, pix_num
+            background_position = 1 - object_position  # head, pix_num
+
             object_trigger_score_map = (trigger_score * object_position).mean(dim=0)  # head, pix_num
             object_cls_score_map = (cls_score * object_position).mean(dim=0)  # head, pix_num
             total_score = torch.ones_like(object_cls_score_map)  # head, pix_num
 
             object_trigger_loss = (1-(object_trigger_score_map/total_score)) ** 2
             object_cls_loss = (object_cls_score_map/total_score) ** 2
+
+            if args.do_object_detect :
+                attn_loss += object_trigger_loss + object_cls_loss
 
             # ---------------------------------------- Masked Sample Learning --------------------------------------- #
             with torch.no_grad():
@@ -345,6 +350,8 @@ def main(args):
                 attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
                 if args.do_cls_train:
                     attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
+
+
 
             # ----------------------------------------------------------------------------------------------------------
             if args.do_dist_loss:
@@ -515,8 +522,7 @@ if __name__ == "__main__":
         if type(v) is not list:
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
-
-
+    parser.add_argument("--do_object_detect", action='store_true')
     parser.add_argument("--trg_layer_list", type=arg_as_list, default=[])
     parser.add_argument("--gradient_checkpointing", action="store_true", help="enable gradient checkpointing")
     # step 7. inference check
