@@ -252,7 +252,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                         break
 
                     anomal_img_pil = Image.fromarray(anomal_img)
-                    anomal_img_pil.save('anomal_img_pil.png')
+                    anomal_img_pil.save(f'/home/dreamyou070/data_check/anomal_img_pil.png')
 
                 while True:
                     hold_mask_np = self.make_random_gaussian_mask()
