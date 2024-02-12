@@ -75,6 +75,7 @@ def main(args):
         print(f'object_mask : {object_mask.shape}')
         print(f'augmented_image : {augmented_image.shape}')
         """
+        time.sleep(10000)
 
 
 if __name__ == "__main__":

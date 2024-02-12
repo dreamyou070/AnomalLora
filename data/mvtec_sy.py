@@ -246,6 +246,13 @@ class MVTecDRAEMTrainDataset(Dataset):
                     anomal_mask_torch = torch.where(anomal_mask_torch > 0, 1, 0)  # strict anomal
                     if anomal_mask_torch.sum() > 0:
                         break
+                augment_pil = Image.fromarray(augmented_image.astype(np.uint8))
+                source_np = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0], self.resize_shape[1], type='RGB')
+                source_pil = Image.fromarray(source_np.astype(np.uint8))
+                augment_pil.save('augment_pil.png')
+                source_pil.save('source_pil.png')
+
+
                 mask_np = np.random.rand(self.resize_shape[0], self.resize_shape[1], 3)
                 mask_np[:, :, 0] = anomal_mask_np
                 mask_np[:, :, 1] = anomal_mask_np
