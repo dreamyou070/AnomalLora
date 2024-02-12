@@ -47,10 +47,7 @@ def main(args):
     obj_dir = os.path.join(args.data_path, args.obj_name)
     train_dir = os.path.join(obj_dir, "train")
     root_dir = os.path.join(train_dir, "good/rgb")
-    if args.anomal_src_more:
-        args.anomaly_source_path = os.path.join(args.data_path, "anomal_source_more")
-    else:
-        args.anomaly_source_path = os.path.join(args.data_path, "anomal_source")
+    args.anomaly_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}")
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
@@ -132,20 +129,7 @@ def main(args):
         unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler, position_embedder = accelerator.prepare(
             unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler, position_embedder)
         text_encoders = [text_encoder]
-    """
-    elif train_unet:
-        unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
-                                                                                       train_dataloader, lr_scheduler)
-        text_encoder.to(accelerator.device)
-    elif train_text_encoder:
-        text_encoder, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            text_encoder, network, optimizer, train_dataloader, lr_scheduler)
-        text_encoders = [text_encoder]
-        unet.to(accelerator.device, dtype=weight_dtype)  # move to device because unet is not prepared by accelerator
-    else:
-        network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(network, optimizer,
-                                                                                 train_dataloader, lr_scheduler)
-    """
+
     text_encoders = transform_models_if_DDP(text_encoders)
     unet, network = transform_models_if_DDP([unet, network])
     if args.gradient_checkpointing:
@@ -211,6 +195,7 @@ def main(args):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
                 enc_out = text_encoder(input_ids)  # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
+
             # ---------------------------------------- normal sample --------------------------------------- #
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
@@ -220,36 +205,39 @@ def main(args):
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder)
 
-            object_mask = batch['object_mask'].squeeze()  # [64,64]
-            object_position = object_mask.flatten().squeeze()  # [64*64]
-
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
-            attn_score = attn_dict[args.position_embedding_layer][0]      # head, pix_num, 2
-            #attn_score = torch.chunk(attn_score, 2, dim=0)[0].squeeze()  # head, pix_num, 2
-            cls_score, trigger_score = attn_score.chunk(2, dim=-1)
-            cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-            object_position = object_position.unsqueeze(0).expand(cls_score.size(0), -1)  # head, pix_num
-            background_position = 1 - object_position  # head, pix_num
+            for trg_layer in args.trg_layer_list:
 
-            object_trigger_score_map = (trigger_score * object_position).mean(dim=0)  # head, pix_num
-            object_cls_score_map = (cls_score * object_position).mean(dim=0)  # head, pix_num
-            total_score = torch.ones_like(object_cls_score_map)  # head, pix_num
+                # [1] query
+                query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
+                pix_num = query.shape[0]
+                for pix_idx in range(pix_num):
+                    feat = query[pix_idx].squeeze(0)
+                    normal_feat_list.append(feat.unsqueeze(0))
+                # [2] attn score
+                attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                cls_score, trigger_score = attn_score.chunk(2, dim=-1)
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
 
-            object_trigger_loss = (1-(object_trigger_score_map/total_score)) ** 2
-            object_cls_loss = (object_cls_score_map/total_score) ** 2
+                normal_cls_score = (cls_score).mean(dim=0)  # pix_num
+                normal_trigger_score = (trigger_score ).mean(dim=0)
 
-            if args.do_object_detect :
-                attn_loss += object_trigger_loss + object_cls_loss
+                value_dict[trg_layer] = {}
+                if 'normal_cls_score' not in value_dict[trg_layer].keys():
+                    value_dict[trg_layer]['normal_cls_score'] = []
+                value_dict[trg_layer]['normal_cls_score'].append(normal_cls_score)
+                if 'normal_trigger_score' not in value_dict[trg_layer].keys():
+                    value_dict[trg_layer]['normal_trigger_score'] = []
+                value_dict[trg_layer]['normal_trigger_score'].append(normal_trigger_score)
+
 
             # ---------------------------------------- Masked Sample Learning --------------------------------------- #
             with torch.no_grad():
                 latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
                 latents = latents * vae_scale_factor  # [1,4,64,64]
             noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                                                   latents,
-                                                                                   min_timestep=args.min_timestep,
-                                                                                   max_timestep=args.max_timestep, )
+                                            latents,min_timestep=args.min_timestep, max_timestep=args.max_timestep, )
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder)
             anomal_position = batch["masked_image_mask"].squeeze()  # [64,64]
@@ -260,6 +248,7 @@ def main(args):
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+
                 anomal_position = anomal_position.unsqueeze(0).repeat(cls_score.shape[0], 1)
 
                 anormal_cls_score = (cls_score * anomal_position).mean(dim=0)
@@ -268,22 +257,20 @@ def main(args):
                 normal_cls_score = (cls_score * (1 - anomal_position)).mean(dim=0)  # pix_num
                 normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
 
-                value_dict[trg_layer] = {}
-                value_dict[trg_layer]['anormal_cls_score'] = []
+                if 'anormal_cls_score' not in value_dict[trg_layer].keys():
+                    value_dict[trg_layer]['anormal_cls_score'] = []
                 value_dict[trg_layer]['anormal_cls_score'].append(anormal_cls_score)
-                value_dict[trg_layer]['anormal_trigger_score'] = []
+                if 'anormal_trigger_score' not in value_dict[trg_layer].keys():
+                    value_dict[trg_layer]['anormal_trigger_score'] = []
                 value_dict[trg_layer]['anormal_trigger_score'].append(anormal_trigger_score)
-                value_dict[trg_layer]['normal_cls_score'] = []
+
                 value_dict[trg_layer]['normal_cls_score'].append(normal_cls_score)
-                value_dict[trg_layer]['normal_trigger_score'] = []
                 value_dict[trg_layer]['normal_trigger_score'].append(normal_trigger_score)
 
             # ---------------------------------------- Anormal Sample Learning --------------------------------------- #
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = anomal_latents * vae_scale_factor
-                if args.d_dim == 4:
-                    anomal_latents = position_embedder(anomal_latents)
             noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                                                           anomal_latents)
             with accelerator.autocast():
@@ -303,16 +290,14 @@ def main(args):
                     anomal_flag = anormal_position[pix_idx].item()
                     if anomal_flag == 1:
                         anormal_feat_list.append(feat.unsqueeze(0))
-                    else:
-                        normal_feat_list.append(feat.unsqueeze(0))
+
                 # ----------------------------------------- 3. attn loss --------------------------------------------- #
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
 
                 # (1) get position
-                head_num = cls_score.shape[0]
-                anormal_position = anormal_position.unsqueeze(0).repeat(head_num, 1)
+                anormal_position = anormal_position.unsqueeze(0).repeat(cls_score.shape[0], 1)
                 anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
                 anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
                 normal_cls_score = (cls_score * (1 - anormal_position)).mean(dim=0)  # pix_num
@@ -350,7 +335,6 @@ def main(args):
                 attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
                 if args.do_cls_train:
                     attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
-
 
 
             # ----------------------------------------------------------------------------------------------------------
