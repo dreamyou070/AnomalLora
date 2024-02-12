@@ -333,6 +333,13 @@ if __name__ == '__main__':
     from model.unet import unet_passing_argument
     parser.add_argument("--unet_inchannels", type=int, default=4)
     parser.add_argument("--back_token_separating", action = 'store_true')
+    parser.add_argument("--unet_inchannels", type=int, default=4)
+    parser.add_argument("--back_token_separating", action='store_true')
+    parser.add_argument("--position_embedding_layer", type=str)
+    parser.add_argument("--use_position_embedder", action='store_true')
+    parser.add_argument("--use_pe_pooling", action='store_true')
+    parser.add_argument("--d_dim", default=320, type=int)
+    parser.add_argument("--do_concat", action='store_true')
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
