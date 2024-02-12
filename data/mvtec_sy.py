@@ -258,7 +258,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                 hole_mask = np.where(hole_mask == 0, 0, 1)
                 hole_img = (1 - hole_mask) * img + hole_mask * background_img # [512,512]
 
-                if anomal_mask.sum().item() == 0:
+                if mask_np.sum() == 0:
                     raise Exception(f"no anomal on {final_name} image, check mask again")
                 if hole_mask.sum().item() == 0:
                     raise Exception(f"no hole on {final_name} image, check mask again")
