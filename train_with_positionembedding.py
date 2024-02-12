@@ -297,6 +297,7 @@ def main(args):
                 if 'anormal_trigger_score' not in value_dict.keys():
                     value_dict['anormal_trigger_score'] = []
                 value_dict['anormal_trigger_score'].append(anormal_trigger_score)
+
                 value_dict['normal_cls_score'].append(normal_cls_score)
                 value_dict['normal_trigger_score'].append(normal_trigger_score)
 
@@ -333,10 +334,10 @@ def main(args):
                 normal_cls_score = (cls_score * (1 - anormal_position)).mean(dim=0)  # pix_num
                 normal_trigger_score = (trigger_score * (1 - anormal_position)).mean(dim=0)
 
-                value_dict[trg_layer]['anormal_cls_score'].append(anormal_cls_score)
-                value_dict[trg_layer]['anormal_trigger_score'].append(anormal_trigger_score)
-                value_dict[trg_layer]['normal_cls_score'].append(normal_cls_score)
-                value_dict[trg_layer]['normal_trigger_score'].append(normal_trigger_score)
+                value_dict['anormal_cls_score'].append(anormal_cls_score)
+                value_dict['anormal_trigger_score'].append(anormal_trigger_score)
+                value_dict['normal_cls_score'].append(normal_cls_score)
+                value_dict['normal_trigger_score'].append(normal_trigger_score)
 
 
             # [4.1] total loss
