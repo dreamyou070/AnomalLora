@@ -38,7 +38,7 @@ def main(args):
 
         image_name = sample['image_name']
 
-        image = sample['image'].unsqueeze(0) # torch, [1,3,512,512]
+        image = sample['image'] # torch, [1,3,512,512]
         pil_image = to_pil_image(image)
         pil_image.save(os.path.join(check_base_dir, f'{image_name}.png'))
 
@@ -47,7 +47,7 @@ def main(args):
         pil_object_mask = Image.fromarray((np_object_mask * 255).astype(np.uint8))
         pil_object_mask.save(os.path.join(check_base_dir, f'{image_name}_object_mask.png'))
 
-        augmented_image = sample['augmented_image'].unsqueeze(0)
+        augmented_image = sample['augmented_image']
         pil_augmented_image = to_pil_image(augmented_image)
         pil_augmented_image.save(os.path.join(check_base_dir, f'{image_name}_augmented_image.png'))
 
