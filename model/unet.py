@@ -1413,7 +1413,9 @@ class UNet2DConditionModel(nn.Module):
 
         # ------------------------------------------------------------------------------------------
         # 2. pre-process : sample(4,4,64,64)
-        sample = self.conv_in(sample)
+        sample = self.conv_in(sample) #
+
+        print(f'sample.shape (1, 320, 64,64) : {sample.shape}')
 
         # ------------------------------------------------------------------------------------------
         # 3. down

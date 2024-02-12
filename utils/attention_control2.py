@@ -63,7 +63,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             key = self.to_k(context)
             value = self.to_v(context)
 
-            query = self.reshape_heads_to_batch_dim(query)
+            query = self.reshape_heads_to_batch_dim(query) # 2, pix_num, dim
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
 
