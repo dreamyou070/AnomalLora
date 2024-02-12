@@ -1424,8 +1424,8 @@ class UNet2DConditionModel(nn.Module):
         # ------------------------------------------------------------------------------------------------------------ #
         if noise_type is not None:
             position_emb = noise_type(sample) # 1, 320, 64, 64
-            sample = torch.cat([sample, (sample + position_emb)], dim=1)
-            encoder_hidden_states = torch.cat([encoder_hidden_states, position_emb], dim=0)
+            sample = torch.cat([sample, (sample + position_emb)], dim=0)
+            encoder_hidden_states = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
         # ------------------------------------------------------------------------------------------------------------ #
 
 
