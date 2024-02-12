@@ -29,7 +29,6 @@ def main(args):
     vae_dtype = weight_dtype
     text_encoder, vae, unet, _ = load_target_model(args, weight_dtype, accelerator)
     text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
-    from model.pe import PositionalEmbedding, PE_Pooling
 
     from model.pe import PositionalEmbedding, PE_Pooling
     if args.use_position_embedder:
@@ -225,14 +224,11 @@ if __name__ == '__main__':
     parser.add_argument("--truncating", action='store_true')
     # step 8. test
     import ast
-
-
     def arg_as_list(arg):
         v = ast.literal_eval(arg)
         if type(v) is not list:
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
-
     parser.add_argument("--latent_res", type=int, default=64)
     parser.add_argument("--trg_layer_list", type=arg_as_list)
     parser.add_argument("--more_generalize", action='store_true')
