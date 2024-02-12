@@ -45,7 +45,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             query = self.to_q(hidden_states)
 
             """ Position Embedding right after Down Block 1 """
-            if layer_name == position_embedding_layer  : #'down_blocks_0_attentions_0_transformer_blocks_0_attn1' :
+            if layer_name == position_embedding_layer : #'down_blocks_0_attentions_0_transformer_blocks_0_attn1' :
                 query_pos = noise_type(query)
                 query = torch.cat([query, query_pos], dim=0)
 

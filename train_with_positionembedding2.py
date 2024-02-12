@@ -16,7 +16,7 @@ from utils.optimizer_utils import get_optimizer, get_scheduler_fix
 from utils.model_utils import get_hidden_states, get_noise_noisy_latents_and_timesteps, \
     prepare_scheduler_for_custom_training, get_noise_noisy_latents_partial_time
 from model.unet import unet_passing_argument
-from utils.attention_control import passing_argument
+from utils.attention_control2 import passing_argument
 
 vae_scale_factor = 0.18215
 
