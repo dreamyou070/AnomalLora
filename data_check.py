@@ -69,7 +69,7 @@ def main(args):
         pil_masked_image_mask = (np_masked_image_mask * 255).astype(np.uint8)
         pil_masked_image_mask = Image.fromarray(pil_masked_image_mask)
         pil_masked_image_mask.save(os.path.join(check_base_dir, f'{image_name}_masked_image_mask.png'))
-        
+
         time.sleep(10000)
 
 

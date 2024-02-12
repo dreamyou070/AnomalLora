@@ -250,10 +250,11 @@ class MVTecDRAEMTrainDataset(Dataset):
                         break
                 anomal_img_pil = Image.fromarray(anomal_img.astype(np.uint8))
                 anomal_img = np.array(anomal_img_pil, np.uint8)
+
                 while True:
-                    hole_mask_np = self.make_random_gaussian_mask()
-                    hole_mask_np = hole_mask_np * object_mask_np_aug  # 1 = hole, 0 = normal
-                    hole_mask_np = np.where(hole_mask_np == 0, 0, 1)
+                    hole_mask_np = self.make_random_gaussian_mask()   # 512,512
+                    hole_mask_np = hole_mask_np * object_mask_np_aug  # 1 = hole, 0 = normal, [512,512]
+                    hole_mask_np = np.where(hole_mask_np == 0, 0, 1)  # [512,512]
                     hole_mask_np_ = np.repeat(np.expand_dims(hole_mask_np, axis=2), 3, axis=2).astype(dtype)
                     hole_img = (1 - hole_mask_np_) * img + hole_mask_np_ * background_img
                     hole_mask_pil = Image.fromarray((hole_mask_np * 255).astype(np.uint8)).resize(
@@ -262,6 +263,12 @@ class MVTecDRAEMTrainDataset(Dataset):
                     hole_mask_torch = torch.where(hole_mask_torch > 0, 1, 0)  # strict anomal
                     if hole_mask_torch.sum() > 0:
                         break
+
+                hole_mask_pil = Image.fromarray((hole_mask_np * 255).astype(np.uint8))
+                hole_mask_pil.save(f'/home/dreamyou070/data_check/hole_mask.png')
+
+
+
                 hole_img_pil = Image.fromarray(hole_img.astype(np.uint8))
                 hole_img = np.array(hole_img_pil, np.uint8)
 
