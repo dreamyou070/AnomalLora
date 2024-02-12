@@ -6,6 +6,7 @@ import numpy as np
 from model.unet import unet_passing_argument
 from utils.attention_control2 import passing_argument
 import os
+from PIL import Image
 
 def main(args):
 
@@ -39,34 +40,38 @@ def main(args):
         image = sample['image']
         np_image = image.squeeze(0).numpy()
         np_image = np_image.transpose(1, 2, 0)
-        pil_image = (np_image * 255).astype(np.uint8)
+        pil_image = Image.fromarray((np_image * 255).astype(np.uint8))
         pil_image.save(os.path.join(check_base_dir, f'{image_name}.png'))
 
         object_mask = sample['object_mask']
         np_object_mask = object_mask.squeeze().numpy()
-        pil_object_mask = (np_object_mask * 255).astype(np.uint8)
+        pil_object_mask = Image.fromarray((np_object_mask * 255).astype(np.uint8))
         pil_object_mask.save(os.path.join(check_base_dir, f'{image_name}_object_mask.png'))
 
         augmented_image = sample['augmented_image']
         np_augmented_image = augmented_image.squeeze(0).numpy()
         np_augmented_image = np_augmented_image.transpose(1, 2, 0)
         pil_augmented_image = (np_augmented_image * 255).astype(np.uint8)
+        pil_augmented_image = Image.fromarray(pil_augmented_image)
         pil_augmented_image.save(os.path.join(check_base_dir, f'{image_name}_augmented_image.png'))
 
         anomaly_mask = sample['anomaly_mask']
         np_anomaly_mask = anomaly_mask.squeeze().numpy()
         pil_anomaly_mask = (np_anomaly_mask * 255).astype(np.uint8)
+        pil_anomaly_mask = Image.fromarray(pil_anomaly_mask)
         pil_anomaly_mask.save(os.path.join(check_base_dir, f'{image_name}_anomaly_mask.png'))
 
         masked_image = sample['masked_image']
         np_masked_image = masked_image.squeeze(0).numpy()
         np_masked_image = np_masked_image.transpose(1, 2, 0)
         pil_masked_image = (np_masked_image * 255).astype(np.uint8)
+        pil_masked_image = Image.fromarray(pil_masked_image)
         pil_masked_image.save(os.path.join(check_base_dir, f'{image_name}_masked_image.png'))
 
         masked_image_mask = sample['masked_image_mask']
         np_masked_image_mask = masked_image_mask.squeeze().numpy()
         pil_masked_image_mask = (np_masked_image_mask * 255).astype(np.uint8)
+        pil_masked_image_mask = Image.fromarray(pil_masked_image_mask)
         pil_masked_image_mask.save(os.path.join(check_base_dir, f'{image_name}_masked_image_mask.png'))
 
 
