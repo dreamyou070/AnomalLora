@@ -39,6 +39,8 @@ def main(args):
         image_name = sample['image_name']
 
         image = sample['image'] # torch, [1,3,512,512]
+        print(f'image shape: {image.shape}')
+        """
         pil_image = to_pil_image(image)
         pil_image.save(os.path.join(check_base_dir, f'{image_name}.png'))
 
@@ -71,6 +73,7 @@ def main(args):
         print(f'image : {image.shape}')
         print(f'object_mask : {object_mask.shape}')
         print(f'augmented_image : {augmented_image.shape}')
+        """
         time.sleep(10)
 
 
