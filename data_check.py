@@ -37,9 +37,8 @@ def main(args):
 
         image_name = sample['image_name']
 
-        image = sample['image']
+        image = sample['image'] # 1,3,512,512
         np_image = image.squeeze(0).numpy()
-        np_image = np_image.transpose(1, 2, 0)
         pil_image = Image.fromarray((np_image * 255).astype(np.uint8))
         pil_image.save(os.path.join(check_base_dir, f'{image_name}.png'))
 
