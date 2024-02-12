@@ -1420,15 +1420,6 @@ class UNet2DConditionModel(nn.Module):
         #    sample = sample.chunk(2, dim=0)[0]
         sample = self.conv_in(sample)     # 1, 320, 64, 64
 
-        # ------------------------------------------------------------------------------------------------------------ #
-        # ------------------------------------------------------------------------------------------------------------ #
-        if noise_type is not None:
-            position_emb = noise_type(sample) # 1, 320, 64, 64
-            #sample = torch.cat([sample, (sample + position_emb)], dim=0)
-            #encoder_hidden_states = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
-        # ------------------------------------------------------------------------------------------------------------ #
-        sample = sample + position_emb
-        # ------------------------------------------------------------------------------------------
         # 3. down
         # encoder_hidden_states = [4,277,768]
         down_block_res_samples = (sample,)
