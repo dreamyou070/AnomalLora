@@ -230,14 +230,19 @@ class MVTecDRAEMTrainDataset(Dataset):
                 while True:
                     augmented_image, anomal_mask_np = self.augment_image(img,self.anomaly_source_paths[anomal_src_idx])
                     anomal_mask_np = anomal_mask_np * object_mask_np_aug # [512,512]
+                    anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1) # background = 0
                     anomal_mask_pil = Image.fromarray((anomal_mask_np * 255).astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res)).convert('L')
                     anomal_mask_torch = torch.tensor(np.array(anomal_mask_pil))
                     anomal_mask_torch = torch.where(anomal_mask_torch > 0, 1, 0)  # strict anomal
                     if anomal_mask_torch.sum() > 0:
                         break
-                anomal_mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
-                anomal_img = (1 - anomal_mask) * img + anomal_mask * augmented_image  # [512,512,3]
+
+                mask_np = np.random.rand(self.resize_shape[0], self.resize_shape[1], 3)
+                mask_np[:, :, 0] = anomal_mask_np
+                mask_np[:, :, 1] = anomal_mask_np
+                mask_np[:, :, 2] = anomal_mask_np
+                anomal_img = (1 - mask_np) * img + mask_np * augmented_image  # [512,512,3]
 
                 while True:
                     hold_mask_np = self.make_random_gaussian_mask()
