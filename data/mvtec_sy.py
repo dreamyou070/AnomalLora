@@ -251,6 +251,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                     if anomal_mask_torch.sum() > 0:
                         break
 
+                    anomal_img_pil = Image.fromarray(anomal_img)
+                    anomal_img_pil.save('anomal_img_pil.png')
+
                 while True:
                     hold_mask_np = self.make_random_gaussian_mask()
                     hold_mask_np = hold_mask_np * object_mask_np_aug  # 1 = hole, 0 = normal
