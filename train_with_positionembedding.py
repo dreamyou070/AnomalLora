@@ -281,6 +281,8 @@ def main(args):
                     anomal_flag = anomal_position[pix_idx].item()
                     if anomal_flag != 0 :
                         anormal_feat_list.append(feat.unsqueeze(0))
+                    else :
+                        normal_feat_list.append(feat.unsqueeze(0))
                 # [2] attn score
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
@@ -330,6 +332,8 @@ def main(args):
                     anomal_flag = anormal_position[pix_idx].item()
                     if anomal_flag == 1:
                         anormal_feat_list.append(feat.unsqueeze(0))
+                    else :
+                        normal_feat_list.append(feat.unsqueeze(0))
 
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
