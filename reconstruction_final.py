@@ -333,7 +333,6 @@ if __name__ == '__main__':
     from model.unet import unet_passing_argument
     parser.add_argument("--unet_inchannels", type=int, default=4)
     parser.add_argument("--back_token_separating", action = 'store_true')
-    parser.add_argument("--unet_inchannels", type=int, default=4)
     parser.add_argument("--back_token_separating", action='store_true')
     parser.add_argument("--position_embedding_layer", type=str)
     parser.add_argument("--use_position_embedder", action='store_true')
