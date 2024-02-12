@@ -285,10 +285,14 @@ def main(args):
                 normal_cls_score = (cls_score * (1 - anomal_position)).mean(dim=0) # pix_num
                 normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
 
-                value_dict[trg_layer]['anormal_cls_score'] = anormal_cls_score
-                value_dict[trg_layer]['anormal_trigger_score'] = anormal_trigger_score
-                value_dict[trg_layer]['normal_cls_score'] = normal_cls_score
-                value_dict[trg_layer]['normal_trigger_score'] = normal_trigger_score
+                value_dict[trg_layer]['anormal_cls_score'] = []
+                value_dict[trg_layer]['anormal_cls_score'].append(anormal_cls_score)
+                value_dict[trg_layer]['anormal_trigger_score'] = []
+                value_dict[trg_layer]['anormal_trigger_score'].append(anormal_trigger_score)
+                value_dict[trg_layer]['normal_cls_score'] = []
+                value_dict[trg_layer]['normal_cls_score'].append(normal_cls_score)
+                value_dict[trg_layer]['normal_trigger_score'] = []
+                value_dict[trg_layer]['normal_trigger_score'].append(normal_trigger_score)
 
 
             # ---------------------------------------- Anormal Sample Learning --------------------------------------- #
@@ -331,10 +335,10 @@ def main(args):
                 normal_cls_score = (cls_score * (1 - anormal_position)).mean(dim=0)  # pix_num
                 normal_trigger_score = (trigger_score * (1 - anormal_position)).mean(dim=0)
 
-                value_dict[trg_layer]['anormal_cls_score'] += anormal_cls_score
-                value_dict[trg_layer]['anormal_trigger_score'] += anormal_trigger_score
-                value_dict[trg_layer]['normal_cls_score'] += normal_cls_score
-                value_dict[trg_layer]['normal_trigger_score'] += normal_trigger_score
+                value_dict[trg_layer]['anormal_cls_score'].append(anormal_cls_score)
+                value_dict[trg_layer]['anormal_trigger_score'].append(anormal_trigger_score)
+                value_dict[trg_layer]['normal_cls_score'].append(normal_cls_score)
+                value_dict[trg_layer]['normal_trigger_score'].append(normal_trigger_score)
 
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
@@ -351,18 +355,19 @@ def main(args):
             normal_dist_loss = normal_dist_loss * args.dist_loss_weight
             dist_loss += normal_dist_loss.requires_grad_()
 
-            anormal_cls_score = value_dict[trg_layer]['anormal_cls_score'] / 2
-            anormal_trigger_score = value_dict[trg_layer]['anormal_trigger_score'] / 2
-            normal_cls_score = value_dict[trg_layer]['normal_cls_score'] / 2
-            normal_trigger_score = value_dict[trg_layer]['normal_trigger_score'] / 2
-            total_score = torch.ones_like(normal_cls_score)
-            normal_cls_loss = (normal_cls_score / total_score) ** 2  # [pix_num]
-            normal_trigger_loss = (1 - (normal_trigger_score / total_score)) ** 2
-            anormal_cls_loss = (1 - (anormal_cls_score / total_score)) ** 2  # [pix_num]
-            anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
-            attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
-            if args.do_cls_train:
-                attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
+            for trg_layer in args.trg_layer_list:
+                anormal_cls_score = torch.stack(value_dict[trg_layer]['anormal_cls_score'], dim=0).mean(dim=0)
+                anormal_trigger_score = torch.stack(value_dict[trg_layer]['anormal_trigger_score'], dim=0).mean(dim=0)
+                normal_cls_score = torch.stack(value_dict[trg_layer]['normal_cls_score'], dim=0).mean(dim=0)
+                normal_trigger_score = torch.stack(value_dict[trg_layer]['normal_trigger_score'], dim=0).mean(dim=0)
+                total_score = torch.ones_like(normal_cls_score)
+                normal_cls_loss = (normal_cls_score / total_score) ** 2  # [pix_num]
+                normal_trigger_loss = (1 - (normal_trigger_score / total_score)) ** 2
+                anormal_cls_loss = (1 - (anormal_cls_score / total_score)) ** 2  # [pix_num]
+                anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
+                attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
+                if args.do_cls_train:
+                    attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
 
             # ----------------------------------------------------------------------------------------------------------
             if args.do_dist_loss:
