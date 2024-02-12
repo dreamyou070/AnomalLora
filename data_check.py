@@ -38,8 +38,9 @@ def main(args):
 
         image_name = sample['image_name']
 
-        image = sample['image'].squeeze() # torch, [1,3,512,512]
-        pil_image = to_pil_image(image)
+        image = sample['image'].squeeze() # [3,512,512]
+        np_img = np.array(((image + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
+        pil_image = Image.fromarray(np_img)
         pil_image.save(os.path.join(check_base_dir, f'{image_name}.png'))
 
         object_mask = sample['object_mask']
@@ -48,7 +49,8 @@ def main(args):
         pil_object_mask.save(os.path.join(check_base_dir, f'{image_name}_object_mask.png'))
 
         augmented_image = sample['augmented_image'].squeeze()
-        pil_augmented_image = to_pil_image(augmented_image)
+        np_augmented_image = np.array(((augmented_image + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
+        pil_augmented_image = Image.fromarray(np_augmented_image)
         pil_augmented_image.save(os.path.join(check_base_dir, f'{image_name}_augmented_image.png'))
 
         anomaly_mask = sample['anomaly_mask']
@@ -56,12 +58,7 @@ def main(args):
         pil_anomaly_mask = (np_anomaly_mask * 255).astype(np.uint8)
         pil_anomaly_mask = Image.fromarray(pil_anomaly_mask)
         pil_anomaly_mask.save(os.path.join(check_base_dir, f'{image_name}_anomaly_mask.png'))
-        """
-        
-
-        
-
-        
+        """        
 
         masked_image = sample['masked_image']
         pil_masked_image = to_pil_image(masked_image)
