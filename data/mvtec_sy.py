@@ -230,38 +230,26 @@ class MVTecDRAEMTrainDataset(Dataset):
             anomal_src_idx = idx % len(self.anomaly_source_paths)
 
             if not self.anomal_only_on_object:
-                augmented_image, anomal_mask_np = self.augment_image(img, self.anomaly_source_paths[anomal_src_idx])  # [512,512,3]
+                anomal_img, anomal_mask_np = self.augment_image(img, self.anomaly_source_paths[anomal_src_idx])  # [512,512,3]
 
             if self.anomal_only_on_object:
                 object_img_aug = self.load_image(object_mask_dir,
                                                  self.resize_shape[0], self.resize_shape[1], type='L') # [64,64]
                 object_mask_np_aug = np.where((np.array(object_img_aug)) == 0, 0, 1)             # [512,512]
                 while True:
-                    augmented_image, anomal_mask_np = self.augment_image(img,
-                                                                         self.anomaly_source_paths[anomal_src_idx])
+                    anomal_img, anomal_mask_np = self.augment_image(img,self.anomaly_source_paths[anomal_src_idx])
                     anomal_mask_np = anomal_mask_np * object_mask_np_aug # [512,512]
-                    anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1) # background = 0
+                    anomal_mask_np = np.where(anomal_mask_np == 0, 0, 1) # [512,512]
+
+                    anomal_mask_np_ = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
+                    anomal_img = (anomal_mask_np_) * anomal_img + (1 - anomal_mask_np_) * img
+
                     anomal_mask_pil = Image.fromarray((anomal_mask_np * 255).astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res)).convert('L')
                     anomal_mask_torch = torch.tensor(np.array(anomal_mask_pil))
                     anomal_mask_torch = torch.where(anomal_mask_torch > 0, 1, 0)  # strict anomal
                     if anomal_mask_torch.sum() > 0:
                         break
-                augment_pil = Image.fromarray(augmented_image.astype(np.uint8))
-                source_np = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0], self.resize_shape[1], type='RGB')
-                source_pil = Image.fromarray(source_np.astype(np.uint8))
-                augment_pil.save('augment_pil.png')
-                source_pil.save('source_pil.png')
-
-
-                mask_np = np.random.rand(self.resize_shape[0], self.resize_shape[1], 3)
-                mask_np[:, :, 0] = anomal_mask_np
-                mask_np[:, :, 1] = anomal_mask_np
-                mask_np[:, :, 2] = anomal_mask_np
-                anomal_img = (1 - mask_np) * img + mask_np * augmented_image  # [512,512,3]
-                first_element = anomal_img[0,0,:]
-                print(f'first_element (0,0,0) = {first_element}')
-
 
                 while True:
                     hold_mask_np = self.make_random_gaussian_mask()
@@ -277,7 +265,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                 hole_mask = np.where(hole_mask == 0, 0, 1)
                 hole_img = (1 - hole_mask) * img + hole_mask * background_img # [512,512]
 
-                if mask_np.sum() == 0:
+                if anomal_mask_torch.sum() == 0:
                     raise Exception(f"no anomal on {final_name} image, check mask again")
                 if hole_mask.sum().item() == 0:
                     raise Exception(f"no hole on {final_name} image, check mask again")
