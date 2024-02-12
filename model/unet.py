@@ -1408,27 +1408,26 @@ class UNet2DConditionModel(nn.Module):
         # ------------------------------------------------------------------------------------------
         # 1. batch number of time steps
         timesteps = timestep
-        if noise_type is not None:
-            sample = torch.cat([sample, sample], dim=0)
+        #if noise_type is not None:
+        #    sample = torch.cat([sample, sample], dim=0)
         timesteps = self.handle_unusual_timesteps(sample, timesteps)  # 変な時だけ処理
         t_emb = self.time_proj(timesteps)
         t_emb = t_emb.to(dtype=self.dtype)
         emb = self.time_embedding(t_emb) # 1280 dim
 
         # 2. pre-process : sample(4,4,64,64)
-        if noise_type is not None:
-            sample = sample.chunk(2, dim=0)[0]
+        #if noise_type is not None:
+        #    sample = sample.chunk(2, dim=0)[0]
         sample = self.conv_in(sample)     # 1, 320, 64, 64
 
         # ------------------------------------------------------------------------------------------------------------ #
         # ------------------------------------------------------------------------------------------------------------ #
         if noise_type is not None:
             position_emb = noise_type(sample) # 1, 320, 64, 64
-            sample = torch.cat([sample, (sample + position_emb)], dim=0)
-            encoder_hidden_states = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
+            #sample = torch.cat([sample, (sample + position_emb)], dim=0)
+            #encoder_hidden_states = torch.cat([encoder_hidden_states,encoder_hidden_states], dim=0)
         # ------------------------------------------------------------------------------------------------------------ #
-
-
+        sample = sample + position_emb
         # ------------------------------------------------------------------------------------------
         # 3. down
         # encoder_hidden_states = [4,277,768]

@@ -211,6 +211,31 @@ def main(args):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
                 enc_out = text_encoder(input_ids)  # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
+            # ---------------------------------------- normal sample --------------------------------------- #
+            with torch.no_grad():
+                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
+                latents = latents * vae_scale_factor  # [1,4,64,64]
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
+                                                 latents,min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                 noise_type=position_embedder)
+
+            object_mask = batch['object_mask'].squeeze()  # [64,64]
+            object_position = object_mask.flatten().squeeze()  # [64*64]
+
+            query_dict, attn_dict = controller.query_dict, controller.step_store
+            controller.reset()
+            attn_score = attn_dict[args.position_embedder_layer][0]      # head, pix_num, 2
+            #attn_score = torch.chunk(attn_score, 2, dim=0)[0].squeeze()  # head, pix_num, 2
+            cls_score, trigger_score = attn_score.chunk(2, dim=-1)
+            cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+            object_position = object_position.unsqueeze(0).expand(cls_score.size(0), -1)  # head, pix_num
+            object_trigger_score_map = (trigger_score * object_position).mean(dim=0)  # head, pix_num
+            object_cls_score_map = (cls_score * object_position).mean(dim=0)  # head, pix_num
+            total_score = torch.ones_like(object_cls_score_map)  # head, pix_num
+
+            object_trigger_loss = (1-(object_trigger_score_map/total_score)) ** 2
+            object_cls_loss = (object_cls_score_map/total_score) ** 2
 
             # ---------------------------------------- Masked Sample Learning --------------------------------------- #
             with torch.no_grad():
@@ -228,8 +253,6 @@ def main(args):
             controller.reset()
             for trg_layer in args.trg_layer_list:
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
-                score, positioned_score = attention_score.chunk(2, dim=0)
-                attention_score = score + positioned_score
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
                 anomal_position = anomal_position.unsqueeze(0).repeat(cls_score.shape[0], 1)

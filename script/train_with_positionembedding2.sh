@@ -17,4 +17,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --max_timestep 1000 --total_normal_thred 1 \
  --latent_res 64 --d_dim 320 \
  --do_concat \
- --use_position_embedder --position_embedding_layer 'down_blocks_0_attentions_0_transformer_blocks_0_attn1'
+ --use_position_embedder --position_embedding_layer 'down_blocks_0_attentions_1_transformer_blocks_0_attn2'
