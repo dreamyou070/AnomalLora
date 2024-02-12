@@ -285,6 +285,7 @@ def main(args):
                 normal_cls_score = (cls_score * (1 - anomal_position)).mean(dim=0) # pix_num
                 normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
 
+                value_dict[trg_layer] = {}
                 value_dict[trg_layer]['anormal_cls_score'] = []
                 value_dict[trg_layer]['anormal_cls_score'].append(anormal_cls_score)
                 value_dict[trg_layer]['anormal_trigger_score'] = []
