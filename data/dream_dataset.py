@@ -153,13 +153,6 @@ class MVTecDRAEMTrainDataset(Dataset):
 
 
         augmented_image, anomaly_mask, has_anomaly = self.augment_image(image, anomaly_source_path)
-
-
-
-
-
-
-
         augmented_image = np.transpose(augmented_image, (2, 0, 1))
         image = np.transpose(image, (2, 0, 1))
         anomaly_mask = np.transpose(anomaly_mask, (2, 0, 1))

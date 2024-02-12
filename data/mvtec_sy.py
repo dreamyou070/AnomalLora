@@ -93,8 +93,8 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         self.caption = caption
         self.tokenizer = tokenizer
-        self.transform = transforms.Compose([transforms.ToTensor(),
-                                             transforms.Normalize([0.5], [0.5]),])
+        self.transform = transform = transforms.Compose([transforms.ToTensor()])
+            #transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5]),])
         self.use_perlin = use_perlin
         self.num_repeat = num_repeat
 
@@ -209,7 +209,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         parent, name = os.path.split(img_path)
         parent, _ = os.path.split(parent)
         background_dir = os.path.join(parent, f"background/{name}")
-        background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1])
+        background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1], type='RGB')
 
         # [3] object mask
         object_mask_dir = self.get_object_mask_dir(img_path)
@@ -224,8 +224,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                 augmented_image, anomal_mask_np = self.augment_image(img, self.anomaly_source_paths[anomal_src_idx])  # [512,512,3]
 
             if self.anomal_only_on_object:
-                object_img_aug = self.load_image(object_mask_dir,self.resize_shape[0], self.resize_shape[1], type='L') # [512,512]
-                object_mask_np_aug = np.where((np.array(object_img_aug) / 255) == 0, 0, 1)             # [512,512]
+                object_img_aug = self.load_image(object_mask_dir,
+                                                 self.resize_shape[0], self.resize_shape[1], type='L') # [64,64]
+                object_mask_np_aug = np.where((np.array(object_img_aug)) == 0, 0, 1)             # [512,512]
                 while True:
                     augmented_image, anomal_mask_np = self.augment_image(img,self.anomaly_source_paths[anomal_src_idx])
                     anomal_mask_np = anomal_mask_np * object_mask_np_aug # [512,512]
@@ -249,6 +250,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                     if hole_mask_torch.sum() > 0:
                         break
                 hole_mask = np.repeat(np.expand_dims(hold_mask_np, axis=2), 3, axis=2).astype(dtype)
+                hole_mask = np.where(hole_mask == 0, 0, 1)
                 hole_img = (1 - hole_mask) * img + hole_mask * background_img # [512,512]
 
                 if anomal_mask.sum().item() == 0:
@@ -262,10 +264,10 @@ class MVTecDRAEMTrainDataset(Dataset):
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
 
         return {'image': self.transform(img),               # original image
-                  "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]
-                  'augmented_image': self.transform(anomal_img),
-                  "anomaly_mask": anomal_mask_torch.unsqueeze(0),   # [1, 64, 64] ################################
-                  'masked_image': self.transform(hole_img),   # masked image
+                "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]
+                'augmented_image': self.transform(anomal_img),
+                "anomaly_mask": anomal_mask_torch.unsqueeze(0),   # [1, 64, 64] ################################
+                'masked_image': self.transform(hole_img),   # masked image
                   'masked_image_mask': hole_mask_torch.unsqueeze(0),# hold position
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),
