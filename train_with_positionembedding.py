@@ -231,6 +231,7 @@ def main(args):
                 encoder_hidden_states = enc_out["last_hidden_state"]
 
             # [1] normal sample
+            """
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
                 latents = latents * vae_scale_factor  # [1,4,64,64]
@@ -261,7 +262,7 @@ def main(args):
                 if 'normal_trigger_score' not in value_dict.keys():
                     value_dict['normal_trigger_score'] = []
                 value_dict['normal_trigger_score'].append(normal_trigger_score)
-
+            """
             # [2] Masked Sample Learning
             with torch.no_grad():
                 latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
@@ -291,6 +292,13 @@ def main(args):
                 normal_cls_score = (cls_score * (1 - anomal_position)).mean(dim=0)  # pix_num
                 normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
 
+                if 'normal_cls_score' not in value_dict.keys():
+                    value_dict['normal_cls_score'] = []
+                value_dict['normal_cls_score'].append(normal_cls_score)
+                if 'normal_trigger_score' not in value_dict.keys():
+                    value_dict['normal_trigger_score'] = []
+                value_dict['normal_trigger_score'].append(normal_trigger_score)
+
                 if 'anormal_cls_score' not in value_dict.keys():
                     value_dict['anormal_cls_score'] = []
                 value_dict['anormal_cls_score'].append(anormal_cls_score)
@@ -298,8 +306,8 @@ def main(args):
                     value_dict['anormal_trigger_score'] = []
                 value_dict['anormal_trigger_score'].append(anormal_trigger_score)
 
-                value_dict['normal_cls_score'].append(normal_cls_score)
-                value_dict['normal_trigger_score'].append(normal_trigger_score)
+                #value_dict['normal_cls_score'].append(normal_cls_score)
+                #value_dict['normal_trigger_score'].append(normal_trigger_score)
 
             # [3] Anormal Sample Learning
             with torch.no_grad():
