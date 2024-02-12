@@ -228,7 +228,7 @@ def main(args):
             controller.reset()
             for trg_layer in args.trg_layer_list:
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
-                score, positioned_score = attention_score.chunk(2, dim=-1)
+                score, positioned_score = attention_score.chunk(2, dim=0)
                 attention_score = score + positioned_score
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
