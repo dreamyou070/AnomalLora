@@ -220,6 +220,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             anomal_src_idx = idx % len(self.anomaly_source_paths)
             if not self.anomal_only_on_object:
                 augmented_image, anomal_mask_np = self.augment_image(img, self.anomaly_source_paths[anomal_src_idx])  # [512,512,3]
+
             if self.anomal_only_on_object:
                 object_img_aug = self.load_image(object_mask_dir, self.resize_shape[0], self.resize_shape[1], type='L') # [512,512]
                 object_mask_np_aug = np.where((np.array(object_img_aug) / 255) == 0, 0, 1)                              # [512,512]
@@ -239,6 +240,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
             anomal_mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype) # 1 = anomal, 0 = normal
             anomal_img = (1 - anomal_mask) * img + anomal_mask * augmented_image # [512,512,3]
+
             hole_mask = np.repeat(np.expand_dims(hold_mask_np, axis=2), 3, axis=2).astype(dtype) # 1 = hole, 0 = normal
             hole_img = (1 - hole_mask) * img + hole_mask * background_img # [512,512]
             # [3] final

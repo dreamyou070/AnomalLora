@@ -18,12 +18,12 @@ def main(args):
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
-                                     caption=args.trigger_word,
+                                     caption='cable',
                                      use_perlin=True,
-                                     num_repeat=args.num_repeat,
-                                     anomal_only_on_object=args.anomal_only_on_object,
+                                     num_repeat=1,
+                                     anomal_only_on_object=True,
                                      anomal_training=True,
-                                     latent_res=args.latent_res,
+                                     latent_res=64,
                                      perlin_max_scale=args.perlin_max_scale,
                                      kernel_size=args.kernel_size, )
 
