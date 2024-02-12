@@ -271,12 +271,9 @@ def main(args):
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder)
             anomal_position = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
-            anomal_num = anomal_position.sum().item()
-            print(f'anomal_num: {anomal_num}')
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
-                # [1] mahal distance
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 for pix_idx in range(query.shape[0]):
                     feat = query[pix_idx].squeeze(0)
@@ -302,8 +299,8 @@ def main(args):
                 value_dict['anormal_trigger_score'].append(anormal_trigger_score)
                 value_dict['normal_cls_score'].append(normal_cls_score)
                 value_dict['normal_trigger_score'].append(normal_trigger_score)
-            """
-            # ---------------------------------------- Anormal Sample Learning --------------------------------------- #
+
+            # [3] Anormal Sample Learning
             with torch.no_grad():
                 anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                 anomal_latents = anomal_latents * vae_scale_factor
@@ -315,9 +312,7 @@ def main(args):
 
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
-            anomal_mask = batch['anomaly_mask'].squeeze()  # [64,64]
-            anormal_position = anomal_mask.flatten().squeeze()  # [64*64]
-
+            anormal_position = batch['anomaly_mask'].squeeze().flatten().squeeze()  # [64*64]
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 pix_num = query.shape[0]
@@ -327,7 +322,6 @@ def main(args):
                     if anomal_flag == 1:
                         anormal_feat_list.append(feat.unsqueeze(0))
 
-                # ----------------------------------------- 3. attn loss --------------------------------------------- #
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
@@ -343,9 +337,8 @@ def main(args):
                 value_dict[trg_layer]['anormal_trigger_score'].append(anormal_trigger_score)
                 value_dict[trg_layer]['normal_cls_score'].append(normal_cls_score)
                 value_dict[trg_layer]['normal_trigger_score'].append(normal_trigger_score)
-            """
 
-            # ----------------------------------------------------------------------------------------------------------
+
             # [4.1] total loss
             normal_dist_loss = gen_mahal_loss(anormal_feat_list, normal_feat_list)
             dist_loss += normal_dist_loss.requires_grad_()
@@ -355,7 +348,6 @@ def main(args):
             if args.do_cls_train:
                 attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
 
-            # ----------------------------------------------------------------------------------------------------------
             # [5] backprop
             if args.do_dist_loss:
                 loss += dist_loss
@@ -393,10 +385,11 @@ def main(args):
             if is_main_process and saving:
                 ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
                 save_model(args, ckpt_name, accelerator.unwrap_model(network), save_dtype)
-                position_embedder_base_save_dir = os.path.join(args.output_dir, 'position_embedder')
-                os.makedirs(position_embedder_base_save_dir, exist_ok=True)
-                p_save_dir = os.path.join(position_embedder_base_save_dir, f'position_embedder_{epoch + 1}.safetensors')
-                model_save(accelerator.unwrap_model(position_embedder), save_dtype, p_save_dir)
+                if position_embedder is not None:
+                    position_embedder_base_save_dir = os.path.join(args.output_dir, 'position_embedder')
+                    os.makedirs(position_embedder_base_save_dir, exist_ok=True)
+                    p_save_dir = os.path.join(position_embedder_base_save_dir, f'position_embedder_{epoch + 1}.safetensors')
+                    model_save(accelerator.unwrap_model(position_embedder), save_dtype, p_save_dir)
 
     accelerator.end_training()
 
