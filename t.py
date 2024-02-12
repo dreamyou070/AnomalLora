@@ -3,8 +3,10 @@ import torch
 import einops
 
 
-
-
+query = torch.randn(1, 4, 64)
+query_pos = torch.randn(1, 4, 64)
+query = torch.cat([query, query_pos], dim=-1)
+print(query.shape) # torch.Size([1, 4, 128])
 class PE_Pooling(nn.Module):
     def __init__(self,
                  max_len: int = 64 * 64,
