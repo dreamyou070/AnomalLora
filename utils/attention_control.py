@@ -70,9 +70,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 key = key.float()
                 if layer_name == position_embedding_layer and do_concat:
                     query_pos = query_pos.float()
-
-            print(f'layer name : {layer_name} | query shape: {query.shape}')
-            print(f'layer name : {layer_name} | key shape: {key.shape}')
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
                                                          dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )

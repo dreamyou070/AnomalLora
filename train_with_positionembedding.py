@@ -202,6 +202,7 @@ def main(args):
             dist_loss = 0.0
             attn_loss = 0.0
             normal_feat_list = []
+            anormal_feat_list = []
             value_dict = {}
 
             # -------------------------------------------- Holed Sample --------------------------------------------- #
@@ -209,6 +210,7 @@ def main(args):
                 input_ids = batch["input_ids"].to(accelerator.device)  # batch, 77 sen len
                 enc_out = text_encoder(input_ids)  # batch, 77, 768
                 encoder_hidden_states = enc_out["last_hidden_state"]
+            """
             # ---------------------------------------- normal sample --------------------------------------- #
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
@@ -231,20 +233,21 @@ def main(args):
                 mu = torch.mean(normal_feats, dim=0)
                 cov = torch.cov(normal_feats.transpose(0, 1))
                 normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
-                """ 
+                 
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
 
                 normal_cls_score = cls_score.mean(dim=0)  # pix_num
                 normal_trigger_score = trigger_score.mean(dim=0)
-                """
+                
                 value_dict[trg_layer] = {}
                 value_dict[trg_layer]['mu'] = mu
                 value_dict[trg_layer]['cov'] = cov
                 value_dict[trg_layer]['normal_mahalanobis_dists'] = normal_mahalanobis_dists
                 #value_dict[trg_layer]['normal_cls_score'] = normal_cls_score
                 #value_dict[trg_layer]['normal_trigger_score'] = normal_trigger_score
+            """
 
             # ---------------------------------------- Masked Sample Learning --------------------------------------- #
             with torch.no_grad():
@@ -260,7 +263,6 @@ def main(args):
             anomal_position = anomal_position.flatten().squeeze()  # [64*64]
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
-            anormal_feat_list = []
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 pix_num = query.shape[0]
@@ -269,6 +271,8 @@ def main(args):
                     anomal_flag = anomal_position[pix_idx].item()
                     if anomal_flag == 1:
                         anormal_feat_list.append(feat.unsqueeze(0))
+                    else:
+                        normal_feat_list.append(feat.unsqueeze(0))
 
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
@@ -312,24 +316,8 @@ def main(args):
                     anomal_flag = anormal_position[pix_idx].item()
                     if anomal_flag == 1 :
                         anormal_feat_list.append(feat.unsqueeze(0))
-
-                anormal_feats = torch.cat(anormal_feat_list, dim=0)
-
-                mu = value_dict[trg_layer]['mu']
-                cov = value_dict[trg_layer]['cov']
-
-                anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
-                anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
-
-                normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
-                normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
-
-                total_dist = normal_dist_mean + anormal_dist_mean
-
-                normal_dist_loss = normal_dist_mean / total_dist
-                normal_dist_loss = normal_dist_loss * args.dist_loss_weight
-                dist_loss += normal_dist_loss.requires_grad_()
-
+                    else:
+                        normal_feat_list.append(feat.unsqueeze(0))
                 # ----------------------------------------- 3. attn loss --------------------------------------------- #
                 attention_score = attn_dict[trg_layer][0] # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
@@ -343,24 +331,40 @@ def main(args):
                 normal_cls_score = (cls_score * (1 - anormal_position)).mean(dim=0)  # pix_num
                 normal_trigger_score = (trigger_score * (1 - anormal_position)).mean(dim=0)
 
-                anormal_cls_score = (anormal_cls_score + value_dict[trg_layer]['anormal_cls_score']) / 2
-                anormal_trigger_score = (anormal_trigger_score + value_dict[trg_layer]['anormal_trigger_score']) / 2
-                normal_cls_score = (normal_cls_score + value_dict[trg_layer]['normal_cls_score']) / 2
-                normal_trigger_score = (normal_trigger_score + value_dict[trg_layer]['normal_trigger_score']) / 2
+                value_dict[trg_layer]['anormal_cls_score'] += anormal_cls_score
+                value_dict[trg_layer]['anormal_trigger_score'] += anormal_trigger_score
+                value_dict[trg_layer]['normal_cls_score'] += normal_cls_score
+                value_dict[trg_layer]['normal_trigger_score'] += normal_trigger_score
 
-                #normal_cls_score = value_dict[trg_layer]['normal_cls_score']
-                #normal_trigger_score = value_dict[trg_layer]['normal_trigger_score']
-
-                total_score = torch.ones_like(normal_cls_score)
-                normal_cls_loss = (normal_cls_score / total_score) ** 2 # [pix_num]
-                normal_trigger_loss = (1-(normal_trigger_score / total_score)) ** 2
-                anormal_cls_loss = (1-(anormal_cls_score / total_score)) ** 2 # [pix_num]
-                anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
-                attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
-                if args.do_cls_train :
-                    attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
 
             # --------------------------------------------- 4. total loss --------------------------------------------- #
+            anormal_feats = torch.cat(anormal_feat_list, dim=0)
+            normal_feats = torch.cat(normal_feat_list, dim=0)
+            mu = torch.mean(normal_feats, dim=0)
+            cov = torch.cov(normal_feats.transpose(0, 1))
+            anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
+            anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+            normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
+            normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
+            total_dist = normal_dist_mean + anormal_dist_mean
+            normal_dist_loss = normal_dist_mean / total_dist
+            normal_dist_loss = normal_dist_loss * args.dist_loss_weight
+            dist_loss += normal_dist_loss.requires_grad_()
+
+            anormal_cls_score = value_dict[trg_layer]['anormal_cls_score'] / 2
+            anormal_trigger_score = value_dict[trg_layer]['anormal_trigger_score'] / 2
+            normal_cls_score = value_dict[trg_layer]['normal_cls_score'] / 2
+            normal_trigger_score = value_dict[trg_layer]['normal_trigger_score'] / 2
+            total_score = torch.ones_like(normal_cls_score)
+            normal_cls_loss = (normal_cls_score / total_score) ** 2  # [pix_num]
+            normal_trigger_loss = (1 - (normal_trigger_score / total_score)) ** 2
+            anormal_cls_loss = (1 - (anormal_cls_score / total_score)) ** 2  # [pix_num]
+            anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
+            attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
+            if args.do_cls_train:
+                attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
+
+            # ----------------------------------------------------------------------------------------------------------
             if args.do_dist_loss:
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
@@ -368,7 +372,6 @@ def main(args):
                 attn_loss = attn_loss.mean()
                 loss += attn_loss
                 loss_dict['attn_loss'] = attn_loss.mean().item()
-
             current_loss = loss.detach().item()
             if epoch == args.start_epoch :
                 loss_list.append(current_loss)
