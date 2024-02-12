@@ -26,24 +26,24 @@ def main(args):
         object_pil = np.array(Image.open(object_mask_dir).resize((w, h)).convert('L'))
 
         # 3. background
+        devide_num = 4
         background_position = np.where(object_pil > 0, 0, 1)
-        crop_cord = (0, 0, int(h / 10), int(w / 10))
+        crop_cord = (0, 0, int(h /devide_num), int(w /devide_num))
         background_np = np.expand_dims(background_position, axis=2) * base_np
         background_pil = Image.fromarray(background_np.astype(np.uint8))
         croped_np = np.array(background_pil.crop(crop_cord))
         back_np = base_np.copy()
-        for i in range(10):
-            for j in range(10):
-                back_np[i * int(h / 10):(i + 1) * int(h / 10), j * int(w / 10):(j + 1) * int(w / 10)] = croped_np
+        for i in range(devide_num):
+            for j in range(devide_num):
+                back_np[i * int(h / devide_num):(i + 1) * int(h /devide_num), j * int(w /devide_num):(j + 1) * int(w /devide_num)] = croped_np
         back_pil = Image.fromarray(back_np)
         back_dir = os.path.join(background_base_dir, image)
-        print(back_dir)
         back_pil.save(back_dir)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_base_dir', type=str,
                         default=r'/home/dreamyou070/MyData/anomaly_detection/MVTec3D-AD')
-    parser.add_argument('--trg_cat', type=str, default='cable_gland')
+    parser.add_argument('--trg_cat', type=str, default='carrot')
     args = parser.parse_args()
     main(args)
