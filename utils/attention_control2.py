@@ -76,15 +76,15 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
 
 
-            if layer_name in trg_layer_list :
-                import einops
-                mean_pooling_layer = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
-                query = einops.rearrange(query, 'b (h w) c -> b c h w', h=64, w=64)
-                query = mean_pooling_layer(query)
-                query = einops.rearrange(query, 'b c h w -> b (h w) c')
-                attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
-                                                             dtype=query.dtype, device=query.device), query,
-                                                 key.transpose(-1, -2), beta=0, alpha=self.scale, )
+            #if layer_name in trg_layer_list :
+                #import einops
+                #mean_pooling_layer = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
+                #query = einops.rearrange(query, 'b (h w) c -> b c h w', h=64, w=64)
+                #query = mean_pooling_layer(query)
+                #query = einops.rearrange(query, 'b c h w -> b (h w) c')
+                #attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
+                #                                             dtype=query.dtype, device=query.device), query,
+                #                                 key.transpose(-1, -2), beta=0, alpha=self.scale, )
 
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
