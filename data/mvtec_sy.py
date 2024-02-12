@@ -251,6 +251,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                 mask_np[:, :, 1] = anomal_mask_np
                 mask_np[:, :, 2] = anomal_mask_np
                 anomal_img = (1 - mask_np) * img + mask_np * augmented_image  # [512,512,3]
+                first_element = anomal_img[0,0,:]
+                print(f'first_element (0,0,0) = {first_element}')
+
 
                 while True:
                     hold_mask_np = self.make_random_gaussian_mask()
@@ -276,12 +279,13 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
 
+
         return {'image': self.transform(img),               # original image
                 "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]
                 'augmented_image': self.transform(anomal_img),
                 "anomaly_mask": anomal_mask_torch.unsqueeze(0),   # [1, 64, 64] ################################
-                'masked_image': self.transform(hole_img),   # masked image
-                  'masked_image_mask': hole_mask_torch.unsqueeze(0),# hold position
+                #'masked_image': self.transform(hole_img),   # masked image
+                #  'masked_image_mask': hole_mask_torch.unsqueeze(0),# hold position
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),
                   'caption': self.caption,
