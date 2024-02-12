@@ -279,7 +279,7 @@ def main(args):
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 for pix_idx in range(query.shape[0]):
                     feat = query[pix_idx].squeeze(0)
-                    anomal_flag = anomal_position[pix_idx]
+                    anomal_flag = anomal_position[pix_idx].item()
                     if anomal_flag == 1:
                         anormal_feat_list.append(feat.unsqueeze(0))
                 # [2] attn score

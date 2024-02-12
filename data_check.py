@@ -1,29 +1,13 @@
 import importlib, argparse, math, sys, random, time, json
-from tqdm import tqdm
-from accelerate.utils import set_seed
-from diffusers import DDPMScheduler
 import torch
-import os
 from data.mvtec_sy import MVTecDRAEMTrainDataset
-from model.diffusion_model import load_target_model, transform_models_if_DDP
-from model.lora import create_network
-from attention_store import AttentionStore
 from model.tokenizer import load_tokenizer
-from utils import get_epoch_ckpt_name, save_model, prepare_dtype
-from utils.accelerator_utils import prepare_accelerator
-from utils.attention_control2 import register_attention_control
-from utils.optimizer_utils import get_optimizer, get_scheduler_fix
-from utils.model_utils import get_hidden_states, get_noise_noisy_latents_and_timesteps, \
-    prepare_scheduler_for_custom_training, get_noise_noisy_latents_partial_time
+import numpy as np
 from model.unet import unet_passing_argument
 from utils.attention_control2 import passing_argument
-from model.pe import PositionalEmbedding, PE_Pooling
-
-vae_scale_factor = 0.18215
-
+import os
 
 def main(args):
-
 
     print(f'\n step 2. dataset')
 
@@ -45,17 +29,46 @@ def main(args):
 
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 
+    check_base_dir = f'/home/dreamyou070/data_check'
+    os.makedirs(check_base_dir, exist_ok=True)
+
     for sample in train_dataloader :
-        image = sample['image']
-        object_mask = sample['object_mask']
-        augmented_image = sample['augmented_image']
-        anomaly_mask = sample['anomaly_mask']
-        masked_image = sample['masked_image']
-        masked_image_mask = sample['masked_image_mask']
-        idx = sample['idx']
-        input_ids = sample['input_ids']
-        caption = sample['caption']
+
         image_name = sample['image_name']
+
+        image = sample['image']
+        np_image = image.squeeze(0).numpy()
+        np_image = np_image.transpose(1, 2, 0)
+        pil_image = (np_image * 255).astype(np.uint8)
+        pil_image.save(os.path.join(check_base_dir, f'{image_name}.png'))
+
+        object_mask = sample['object_mask']
+        np_object_mask = object_mask.squeeze().numpy()
+        pil_object_mask = (np_object_mask * 255).astype(np.uint8)
+        pil_object_mask.save(os.path.join(check_base_dir, f'{image_name}_object_mask.png'))
+
+        augmented_image = sample['augmented_image']
+        np_augmented_image = augmented_image.squeeze(0).numpy()
+        np_augmented_image = np_augmented_image.transpose(1, 2, 0)
+        pil_augmented_image = (np_augmented_image * 255).astype(np.uint8)
+        pil_augmented_image.save(os.path.join(check_base_dir, f'{image_name}_augmented_image.png'))
+
+        anomaly_mask = sample['anomaly_mask']
+        np_anomaly_mask = anomaly_mask.squeeze().numpy()
+        pil_anomaly_mask = (np_anomaly_mask * 255).astype(np.uint8)
+        pil_anomaly_mask.save(os.path.join(check_base_dir, f'{image_name}_anomaly_mask.png'))
+
+        masked_image = sample['masked_image']
+        np_masked_image = masked_image.squeeze(0).numpy()
+        np_masked_image = np_masked_image.transpose(1, 2, 0)
+        pil_masked_image = (np_masked_image * 255).astype(np.uint8)
+        pil_masked_image.save(os.path.join(check_base_dir, f'{image_name}_masked_image.png'))
+
+        masked_image_mask = sample['masked_image_mask']
+        np_masked_image_mask = masked_image_mask.squeeze().numpy()
+        pil_masked_image_mask = (np_masked_image_mask * 255).astype(np.uint8)
+        pil_masked_image_mask.save(os.path.join(check_base_dir, f'{image_name}_masked_image_mask.png'))
+
 
         print(f'image : {image.shape}')
         print(f'object_mask : {object_mask.shape}')
