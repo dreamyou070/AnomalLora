@@ -47,10 +47,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             """ Position Embedding right after Down Block 1 """
             if layer_name == position_embedding_layer  : #'down_blocks_0_attentions_0_transformer_blocks_0_attn1' :
                 query_pos = noise_type(query)
-                if do_concat :
-                    query = torch.cat([query, query_pos], dim=-1)
-                if not do_concat :
-                    query = query_pos
+                #if do_concat :
+                #    query = torch.cat([query, query_pos], dim=-1)
+                #if not do_concat :
+                query = query_pos
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 controller.save_query(query, layer_name)
@@ -58,28 +58,33 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
-            query = self.reshape_heads_to_batch_dim(query)
-            if layer_name == position_embedding_layer and do_concat :
-                query_pos = self.reshape_heads_to_batch_dim(query_pos)
 
+
+            query = self.reshape_heads_to_batch_dim(query)
+            #if layer_name == position_embedding_layer and do_concat :
+            #    query_pos = self.reshape_heads_to_batch_dim(query_pos)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
 
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
-                if layer_name == position_embedding_layer and do_concat:
-                    query_pos = query_pos.float()
+                #if layer_name == position_embedding_layer and do_concat:
+                #    query_pos = query_pos.float()
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
                                                          dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
 
 
-            if layer_name == position_embedding_layer and do_concat :
-                attention_scores_pos = torch.baddbmm(torch.empty(query_pos.shape[0], query_pos.shape[1], key.shape[1],
-                                                           dtype=query_pos.dtype, device=query_pos.device), query_pos,
-                                          key.transpose(-1, -2), beta=0, alpha=self.scale, ) # batch, pix_num, sen_len
-                attention_scores = attention_scores + attention_scores_pos
+            if layer_name in trg_layer_list :
+                import einops
+                mean_pooling_layer = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
+                query = einops.rearrange(query, 'b (h w) c -> b c h w', h=64, w=64)
+                query = mean_pooling_layer(query)
+                query = einops.rearrange(query, 'b c h w -> b (h w) c')
+                attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
+                                                             dtype=query.dtype, device=query.device), query,
+                                                 key.transpose(-1, -2), beta=0, alpha=self.scale, )
 
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
