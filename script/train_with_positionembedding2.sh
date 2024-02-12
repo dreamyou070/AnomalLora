@@ -1,9 +1,9 @@
 # !/bin/bash
-port_number=50000
+port_number=50002
 obj_name='cable_gland'
 trigger_word='cable'
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --main_process_port $port_number ../train_with_positionembedding2.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
  --output_dir "../../result/${obj_name}/up_2_position_embedder_down_0_concat_test" \
