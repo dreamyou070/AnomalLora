@@ -142,6 +142,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         augmented_image = augmented_image.astype(np.float32)
         mask = (perlin_thr).astype(np.float32) # [512,512,3]
         mask = np.squeeze(mask, axis=2)
+        mask = np.where(mask > 0, 1, 0)
         # augmented_image = msk * augmented_image + (1 - msk) * image
         return augmented_image, mask
 
@@ -227,8 +228,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                 object_mask_np_aug = np.where((np.array(object_img_aug) / 255) == 0, 0, 1)             # [512,512]
                 while True:
                     augmented_image, anomal_mask_np = self.augment_image(img,self.anomaly_source_paths[anomal_src_idx])
-                    anomal_mask_np = anomal_mask_np * object_mask_np_aug
-                    anomal_mask_pil = Image.fromarray((anomal_mask * 255).astype(np.uint8)).resize(
+                    anomal_mask_np = anomal_mask_np * object_mask_np_aug # [512,512]
+                    anomal_mask_pil = Image.fromarray((anomal_mask_np * 255).astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res)).convert('L')
                     anomal_mask_torch = torch.tensor(np.array(anomal_mask_pil))
                     anomal_mask = torch.where(anomal_mask_torch > 0, 1, 0)  # strict anomal
@@ -240,7 +241,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                 while True:
                     hold_mask_np = self.make_random_gaussian_mask()
                     hold_mask_np = hold_mask_np * object_mask_np_aug  # 1 = hole, 0 = normal
-                    hole_mask_pil = Image.fromarray((hole_mask * 255).astype(np.uint8)).resize(
+                    hold_mask_np = np.where(hold_mask_np > 0, 1, 0)
+                    hole_mask_pil = Image.fromarray((hold_mask_np * 255).astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res)).convert('L')
                     hole_mask_torch = torch.tensor(np.array(hole_mask_pil))
                     hole_mask = torch.where(hole_mask_torch > 0, 1, 0)
