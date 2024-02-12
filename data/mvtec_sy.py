@@ -251,7 +251,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                     if anomal_mask_torch.sum() > 0:
                         break
 
-                anomal_img_pil = Image.fromarray(anomal_img)
+                anomal_img_pil = Image.fromarray(anomal_img.astype(np.uint8))
                 anomal_img_pil.save(f'/home/dreamyou070/data_check/anomal_img_pil.png')
 
                 while True:
