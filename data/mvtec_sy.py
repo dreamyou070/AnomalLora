@@ -188,7 +188,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         y_0 = torch.randint(int(end_num / 4), int(3 * end_num / 4), (1,)).item()
 
         # [3] sigma
-        sigma = torch.randint(20, 50, (1,)).item()
+        sigma = torch.randint(25, 60, (1,)).item()
 
         # [4] make kernel
         result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
@@ -218,6 +218,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         if len(self.anomaly_source_paths) > 0:
             anomal_src_idx = idx % len(self.anomaly_source_paths)
+
             if not self.anomal_only_on_object:
                 augmented_image, anomal_mask_np = self.augment_image(img, self.anomaly_source_paths[anomal_src_idx])  # [512,512,3]
 
@@ -236,11 +237,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                 anomal_mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
                 anomal_img = (1 - anomal_mask) * img + anomal_mask * augmented_image  # [512,512,3]
 
-
                 while True:
                     hold_mask_np = self.make_random_gaussian_mask()
                     hold_mask_np = hold_mask_np * object_mask_np_aug  # 1 = hole, 0 = normal
-
                     hole_mask_pil = Image.fromarray((hole_mask * 255).astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res)).convert('L')
                     hole_mask_torch = torch.tensor(np.array(hole_mask_pil))
