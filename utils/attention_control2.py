@@ -41,7 +41,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
-
             query = self.to_q(hidden_states)
 
             """ Position Embedding right after Down Block 1 """
@@ -74,8 +73,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
                                                          dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
-
-
             #if layer_name in trg_layer_list :
                 #import einops
                 #mean_pooling_layer = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
@@ -90,7 +87,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             attention_probs = attention_probs.to(value.dtype)
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
-
                 trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
 

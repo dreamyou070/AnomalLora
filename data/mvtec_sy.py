@@ -168,6 +168,26 @@ class MVTecDRAEMTrainDataset(Dataset):
         object_mask_dir = os.path.join(parent, f"object_mask/{name}")
         return object_mask_dir
 
+    def make_random_gaussian_mask(self):
+
+        end_num = self.resize_shape[0]
+
+        # [1] back
+        x = np.arange(0, end_num, 1, float)
+        y = np.arange(0, end_num, 1, float)[:, np.newaxis]
+
+        # [2] center
+        x_0 = torch.randint(int(end_num / 4), int(3 * end_num / 4), (1,)).item()
+        y_0 = torch.randint(int(end_num / 4), int(3 * end_num / 4), (1,)).item()
+
+        # [3] sigma
+        sigma = torch.randint(20, 50, (1,)).item()
+
+        # [4] make kernel
+        result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
+        return result
+
+
     def __getitem__(self, idx):
 
         # [1] base
@@ -213,10 +233,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                     if anomal_mask_np.sum() > 0:
                         break
                 # [3-2] hole mask
+
                 while True:
-                    hold_mask_np, hold_mask_pil = self.make_random_mask(self.resize_shape[0], self.resize_shape[1],
-                                                                        min_perlin_scale = 4)
-                    hold_mask_np = np.where(hold_mask_np == 0, 0, 1)
+                    hold_mask_np = self.make_random_gaussian_mask()
                     hold_mask_np = hold_mask_np * object_mask_np_aug  # 1 = hole, 0 = normal
                     if hold_mask_np.sum() > 0:
                         break
@@ -247,15 +266,12 @@ class MVTecDRAEMTrainDataset(Dataset):
             raise Exception(f"no anomal on {final_name} image, check mask again")
 
         # [5] return
-        sample = {'image': self.transform(img),
-                  "object_mask": object_mask.unsqueeze(0),   # [1, 64, 64]
-
+        sample = {'image': self.transform(img),               # original image
+                  "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]
                   'augmented_image': self.transform(anomal_img),
-                  "anomaly_mask": anomal_mask.unsqueeze(0),  # [1, 64, 64] ################################
-
-                  'masked_image': self.transform(hole_img),
-                  'masked_image_mask': hole_mask.unsqueeze(0),
-
+                  "anomaly_mask": anomal_mask.unsqueeze(0),   # [1, 64, 64] ################################
+                  'masked_image': self.transform(hole_img),   # masked image
+                  'masked_image_mask': hole_mask.unsqueeze(0),# hold position
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),
                   'caption': self.caption,

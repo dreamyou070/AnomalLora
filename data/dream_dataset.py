@@ -106,12 +106,13 @@ class MVTecDRAEMTrainDataset(Dataset):
 
     def augment_image(self, image, anomaly_source_path):
         aug = self.randAugmenter()
+
         perlin_scale = 6
         min_perlin_scale = 0
         anomaly_source_img = cv2.imread(anomaly_source_path)
         anomaly_source_img = cv2.resize(anomaly_source_img, dsize=(self.resize_shape[1], self.resize_shape[0]))
-
         anomaly_img_augmented = aug(image=anomaly_source_img)
+
         perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
         perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
 
@@ -125,9 +126,8 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         beta = torch.rand(1).numpy()[0] * 0.8
 
-        augmented_image = image * (1 - perlin_thr) + (1 - beta) * img_thr + beta * image * (
-            perlin_thr)
-
+        augmented_image = image * (1 - perlin_thr) + \
+                          (1 - beta) * img_thr + beta * image * (perlin_thr) # anomal and org
         no_anomaly = torch.rand(1).numpy()[0]
         if no_anomaly > 0.5:
             image = image.astype(np.float32)
@@ -150,7 +150,16 @@ class MVTecDRAEMTrainDataset(Dataset):
             image = self.rot(image=image)
 
         image = np.array(image).reshape((image.shape[0], image.shape[1], image.shape[2])).astype(np.float32) / 255.0
+
+
         augmented_image, anomaly_mask, has_anomaly = self.augment_image(image, anomaly_source_path)
+
+
+
+
+
+
+
         augmented_image = np.transpose(augmented_image, (2, 0, 1))
         image = np.transpose(image, (2, 0, 1))
         anomaly_mask = np.transpose(anomaly_mask, (2, 0, 1))
@@ -160,7 +169,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         idx = torch.randint(0, len(self.image_paths), (1,)).item()
         anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
         image, augmented_image, anomaly_mask, has_anomaly = self.transform_image(self.image_paths[idx],
-                                                                           self.anomaly_source_paths[anomaly_source_idx])
+                                                                                 self.anomaly_source_paths[anomaly_source_idx])
         sample = {'image': image, "anomaly_mask": anomaly_mask,
                   'augmented_image': augmented_image, 'has_anomaly': has_anomaly, 'idx': idx}
 
