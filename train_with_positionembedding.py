@@ -271,16 +271,17 @@ def main(args):
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder)
             anomal_position = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
+            anomal_num = anomal_position.sum().item()
+            print(f'anomal_num: {anomal_num}')
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
-
             for trg_layer in args.trg_layer_list:
                 # [1] mahal distance
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 for pix_idx in range(query.shape[0]):
                     feat = query[pix_idx].squeeze(0)
                     anomal_flag = anomal_position[pix_idx].item()
-                    if anomal_flag == 1:
+                    if anomal_flag != 0 :
                         anormal_feat_list.append(feat.unsqueeze(0))
                 # [2] attn score
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
