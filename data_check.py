@@ -41,10 +41,10 @@ def main(args):
         image = sample['image'].squeeze() # torch, [1,3,512,512]
         print(f'image shape: {image.shape}')
         pil_image = to_pil_image(image)
-
+        pil_image.save(os.path.join(check_base_dir, f'{image_name}.png'))
         """
         
-        pil_image.save(os.path.join(check_base_dir, f'{image_name}.png'))
+        
 
         object_mask = sample['object_mask']
         np_object_mask = object_mask.squeeze().numpy()
