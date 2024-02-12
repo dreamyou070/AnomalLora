@@ -147,7 +147,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32)
 
-            augmented_image = image * (1 - perlin_thr) + A * perlin_thr     # [512,512,3]
+        augmented_image = image * (1 - perlin_thr) + A * perlin_thr     # [512,512,3]
         augmented_image = augmented_image.astype(np.float32)
         mask = (perlin_thr).astype(np.float32) # [512,512,3]
         mask = np.squeeze(mask, axis=2)
