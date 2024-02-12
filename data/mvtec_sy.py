@@ -200,8 +200,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [3] sigma
         sigma = torch.randint(25, 60, (1,)).item()
 
-        # [4] make kernel
+        # [4] make kernel ( 0 ~ 1 )
         result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
+        result = np.where(result < 0.5, 0, 1)
         return result
 
 
