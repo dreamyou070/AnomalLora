@@ -141,12 +141,13 @@ class MVTecDRAEMTrainDataset(Dataset):
         perlin_thr = np.expand_dims(perlin_thr, axis=2)  # [512,512,3]
 
         # [3] only 1 = img
-        img_thr = anomaly_source_img.astype(np.float32) * perlin_thr / 255.0
 
         # [4] beta
         beta = torch.rand(1).numpy()[0] * 0.8  # small number
 
-        augmented_image = image * (1 - perlin_thr) + (1 - beta) * img_thr + beta * image * (perlin_thr)  # [512,512,3]
+        A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32)
+
+            augmented_image = image * (1 - perlin_thr) + A * perlin_thr     # [512,512,3]
         augmented_image = augmented_image.astype(np.float32)
         mask = (perlin_thr).astype(np.float32) # [512,512,3]
         mask = np.squeeze(mask, axis=2)
