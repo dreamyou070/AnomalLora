@@ -231,20 +231,20 @@ def main(args):
                 mu = torch.mean(normal_feats, dim=0)
                 cov = torch.cov(normal_feats.transpose(0, 1))
                 normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
-
+                """ 
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
 
                 normal_cls_score = cls_score.mean(dim=0)  # pix_num
                 normal_trigger_score = trigger_score.mean(dim=0)
-
+                """
                 value_dict[trg_layer] = {}
                 value_dict[trg_layer]['mu'] = mu
                 value_dict[trg_layer]['cov'] = cov
                 value_dict[trg_layer]['normal_mahalanobis_dists'] = normal_mahalanobis_dists
-                value_dict[trg_layer]['normal_cls_score'] = normal_cls_score
-                value_dict[trg_layer]['normal_trigger_score'] = normal_trigger_score
+                #value_dict[trg_layer]['normal_cls_score'] = normal_cls_score
+                #value_dict[trg_layer]['normal_trigger_score'] = normal_trigger_score
 
             # ---------------------------------------- Masked Sample Learning --------------------------------------- #
             with torch.no_grad():
@@ -274,11 +274,17 @@ def main(args):
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
                 anomal_position = anomal_position.unsqueeze(0).repeat(cls_score.shape[0], 1)
+
                 anormal_cls_score = (cls_score * anomal_position).mean(dim=0)
                 anormal_trigger_score = (trigger_score * anomal_position).mean(dim=0)
 
+                normal_cls_score = (cls_score * (1 - anomal_position)).mean(dim=0) # pix_num
+                normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
+
                 value_dict[trg_layer]['anormal_cls_score'] = anormal_cls_score
                 value_dict[trg_layer]['anormal_trigger_score'] = anormal_trigger_score
+                value_dict[trg_layer]['normal_cls_score'] = normal_cls_score
+                value_dict[trg_layer]['normal_trigger_score'] = normal_trigger_score
 
 
             # ---------------------------------------- Anormal Sample Learning --------------------------------------- #
@@ -333,12 +339,16 @@ def main(args):
                 anormal_position = anormal_position.unsqueeze(0).repeat(head_num, 1)
                 anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
                 anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
+                normal_cls_score = (cls_score * (1 - anormal_position)).mean(dim=0)  # pix_num
+                normal_trigger_score = (trigger_score * (1 - anormal_position)).mean(dim=0)
 
                 anormal_cls_score = (anormal_cls_score + value_dict[trg_layer]['anormal_cls_score']) / 2
                 anormal_trigger_score = (anormal_trigger_score + value_dict[trg_layer]['anormal_trigger_score']) / 2
+                normal_cls_score = (normal_cls_score + value_dict[trg_layer]['normal_cls_score']) / 2
+                normal_trigger_score = (normal_trigger_score + value_dict[trg_layer]['normal_trigger_score']) / 2
 
-                normal_cls_score = value_dict[trg_layer]['normal_cls_score']
-                normal_trigger_score = value_dict[trg_layer]['normal_trigger_score']
+                #normal_cls_score = value_dict[trg_layer]['normal_cls_score']
+                #normal_trigger_score = value_dict[trg_layer]['normal_trigger_score']
 
                 total_score = torch.ones_like(normal_cls_score)
                 normal_cls_loss = (normal_cls_score / total_score) ** 2 # [pix_num]
