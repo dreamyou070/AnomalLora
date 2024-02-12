@@ -45,21 +45,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             query = self.to_q(hidden_states)
 
             """ Position Embedding right after Down Block 1 """
-            if layer_name == position_embedding_layer : #'down_blocks_0_attentions_0_transformer_blocks_0_attn1' :
-                query_pos = noise_type(query)
-                if do_concat :
-                    query = torch.cat([query, query_pos], dim=0)
-                else :
-                    query = query_pos
-
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 controller.save_query(query, layer_name)
 
             context = context if context is not None else hidden_states
-            context_b = context.shape[0]
-            query_b = query.shape[0]
-            if context_b != query_b:
-                context = torch.cat([context, context], dim=0)
             key = self.to_k(context)
             value = self.to_v(context)
 
@@ -78,11 +67,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             attention_probs = attention_probs.to(value.dtype)
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
-
-                #prob, pos_prob = attention_probs.chunks(2, dim=0)
                 trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
-
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)

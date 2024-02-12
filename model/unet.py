@@ -1381,6 +1381,9 @@ class UNet2DConditionModel(nn.Module):
             print(module.__class__.__name__, module.gradient_checkpointing, "->", value)
             module.gradient_checkpointing = value
 
+    #def set_use_conv1x1(self, value=False):
+
+
     # end region
     def forward(
         self,
@@ -1405,17 +1408,26 @@ class UNet2DConditionModel(nn.Module):
         # ------------------------------------------------------------------------------------------
         # 1. batch number of time steps
         timesteps = timestep
+        if noise_type is not None:
+            sample = torch.cat([sample, sample], dim=0)
         timesteps = self.handle_unusual_timesteps(sample, timesteps)  # 変な時だけ処理
         t_emb = self.time_proj(timesteps)
         t_emb = t_emb.to(dtype=self.dtype)
         emb = self.time_embedding(t_emb) # 1280 dim
 
-
-        # ------------------------------------------------------------------------------------------
         # 2. pre-process : sample(4,4,64,64)
-        sample = self.conv_in(sample) #
+        if noise_type is not None:
+            sample = sample.chunk(2, dim=0)[0]
+        sample = self.conv_in(sample)     # 1, 320, 64, 64
 
-        print(f'sample.shape (1, 320, 64,64) : {sample.shape}')
+        # ------------------------------------------------------------------------------------------------------------ #
+        # ------------------------------------------------------------------------------------------------------------ #
+        if noise_type is not None:
+            position_emb = noise_type(sample) # 1, 320, 64, 64
+            sample = torch.cat([sample, (sample + position_emb)], dim=1)
+            encoder_hidden_states = torch.cat([encoder_hidden_states, position_emb], dim=0)
+        # ------------------------------------------------------------------------------------------------------------ #
+
 
         # ------------------------------------------------------------------------------------------
         # 3. down

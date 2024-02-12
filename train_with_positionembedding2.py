@@ -216,8 +216,6 @@ def main(args):
             with torch.no_grad():
                 latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
                 latents = latents * vae_scale_factor  # [1,4,64,64]
-                if args.d_dim == 4:
-                    latents = position_embedder(latents)
             noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                                                    latents,
                                                                                    min_timestep=args.min_timestep,
