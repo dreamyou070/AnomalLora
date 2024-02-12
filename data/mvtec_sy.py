@@ -232,8 +232,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                     anomal_mask_pil = Image.fromarray((anomal_mask_np * 255).astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res)).convert('L')
                     anomal_mask_torch = torch.tensor(np.array(anomal_mask_pil))
-                    anomal_mask = torch.where(anomal_mask_torch > 0, 1, 0)  # strict anomal
-                    if anomal_mask.sum() > 0:
+                    anomal_mask_torch = torch.where(anomal_mask_torch > 0, 1, 0)  # strict anomal
+                    if anomal_mask_torch.sum() > 0:
                         break
                 anomal_mask = np.repeat(np.expand_dims(anomal_mask_np, axis=2), 3, axis=2).astype(dtype)
                 anomal_img = (1 - anomal_mask) * img + anomal_mask * augmented_image  # [512,512,3]
@@ -245,8 +245,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                     hole_mask_pil = Image.fromarray((hold_mask_np * 255).astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res)).convert('L')
                     hole_mask_torch = torch.tensor(np.array(hole_mask_pil))
-                    hole_mask = torch.where(hole_mask_torch > 0, 1, 0)
-                    if hole_mask.sum() > 0:
+                    hole_mask_torch = torch.where(hole_mask_torch > 0, 1, 0)
+                    if hole_mask_torch.sum() > 0:
                         break
                 hole_mask = np.repeat(np.expand_dims(hold_mask_np, axis=2), 3, axis=2).astype(dtype)
                 hole_img = (1 - hole_mask) * img + hole_mask * background_img # [512,512]
@@ -264,9 +264,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         return {'image': self.transform(img),               # original image
                   "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]
                   'augmented_image': self.transform(anomal_img),
-                  "anomaly_mask": anomal_mask.unsqueeze(0),   # [1, 64, 64] ################################
+                  "anomaly_mask": anomal_mask_torch.unsqueeze(0),   # [1, 64, 64] ################################
                   'masked_image': self.transform(hole_img),   # masked image
-                  'masked_image_mask': hole_mask.unsqueeze(0),# hold position
+                  'masked_image_mask': hole_mask_torch.unsqueeze(0),# hold position
                   'idx': idx,
                   'input_ids': input_ids.squeeze(0),
                   'caption': self.caption,
