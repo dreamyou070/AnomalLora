@@ -70,6 +70,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
             if layer_name == position_embedding_layer:
+                trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
 
             hidden_states = torch.bmm(attention_probs, value)
