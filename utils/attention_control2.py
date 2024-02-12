@@ -56,6 +56,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 hidden_states = torch.cat([hidden_states, hidden_states], dim=0)
 
             context = context if context is not None else hidden_states
+            if layer_name == position_embedding_layer and do_concat :
+                context = torch.cat([context,context], dim=0)
             key = self.to_k(context)
             value = self.to_v(context)
             query = self.reshape_heads_to_batch_dim(query)
