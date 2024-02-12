@@ -47,14 +47,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             """ Position Embedding right after Down Block 1 """
             if layer_name == position_embedding_layer  : #'down_blocks_0_attentions_0_transformer_blocks_0_attn1' :
                 query_pos = noise_type(query)
-
                 #if do_concat :
                 #    query = torch.cat([query, query_pos], dim=-1)
-
                 if not do_concat :
                     query = query_pos
-
-
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 controller.save_query(query, layer_name)
@@ -62,7 +58,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
-
             query = self.reshape_heads_to_batch_dim(query)
             if layer_name == position_embedding_layer and do_concat :
                 query_pos = self.reshape_heads_to_batch_dim(query_pos)
@@ -76,6 +71,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 if layer_name == position_embedding_layer and do_concat:
                     query_pos = query_pos.float()
 
+            print(f'layer name : {layer_name} | query shape: {query.shape}')
+            print(f'layer name : {layer_name} | key shape: {key.shape}')
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
                                                          dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )

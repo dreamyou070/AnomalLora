@@ -296,7 +296,8 @@ def main(args):
             noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                                                            anomal_latents)
             with accelerator.autocast():
-                unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
+                unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                     noise_type=position_embedder)
 
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
