@@ -109,13 +109,19 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                     local_query = local_query.float()
                     local_key = local_key.float()
             if do_add_query:
-                if layer_name == position_embedding_layer :
+
+                #if layer_name == position_embedding_layer :
+                #    controller.save_query_sub(query, layer_name)
+
+                if layer_name in argument.add_query_layer_list :
                     controller.save_query_sub(query, layer_name)
 
             if do_add_query :
                 if layer_name in trg_layer_list :
-                    before_query = controller.query_dict_sub[position_embedding_layer][0]
-                    query = query + before_query
+                    query_dict_sub = controller.query_dict_sub
+                    for k in query_dict_sub.keys():
+                        before_query = query_dict_sub[k][0]
+                        query += before_query
                     controller.query_dict_sub = {}
 
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device), query,

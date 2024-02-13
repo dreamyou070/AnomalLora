@@ -520,6 +520,7 @@ if __name__ == "__main__":
         return v
     parser.add_argument("--do_object_detect", action='store_true')
     parser.add_argument("--trg_layer_list", type=arg_as_list, default=[])
+    parser.add_argument("--add_query_layer_list", type=arg_as_list, default=[])
     parser.add_argument("--gradient_checkpointing", action="store_true", help="enable gradient checkpointing")
     # step 7. inference check
     parser.add_argument("--scheduler_linear_start", type=float, default=0.00085)
@@ -554,6 +555,8 @@ if __name__ == "__main__":
     parser.add_argument("--only_local_self_attn", action='store_true')
     parser.add_argument("--fixed_window_size", action='store_true')
     parser.add_argument("--do_add_query", action='store_true')
+
+
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
