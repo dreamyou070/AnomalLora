@@ -49,7 +49,7 @@ class AttentionStore :
     def store_normal_score(self, score):
         self.normal_score_list.append(score)
 
-    def store_query_sub(self, query, layer_name):
+    def save_query_sub(self, query, layer_name):
         if layer_name not in self.query_dict_sub.keys():
             self.query_dict_sub[layer_name] = []
             self.query_dict_sub[layer_name].append(query)
