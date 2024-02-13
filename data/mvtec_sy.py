@@ -277,7 +277,8 @@ class MVTecDRAEMTrainDataset(Dataset):
 
                 while True:
                     rotated_img = self.rot(image = img)
-                    rotated_mask_np = self.rot(image=object_mask_np_aug)
+                    rotated_mask_np = self.rot(image=object_img_aug)
+                    rotated_mask_np = np.where(rotated_mask_np == 0, 0, 1)
                     anomal_img, anomal_mask_np = self.augment_image(img, rotated_img, beta_scale_factor=0)
                     rotated_mask_np = anomal_mask_np * object_mask_np_aug * rotated_mask_np
                     rotated_mask_np = np.where(rotated_mask_np == 0, 0, 1)
