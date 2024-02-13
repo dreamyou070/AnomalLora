@@ -86,7 +86,7 @@ if __name__ == "__main__":
     parser.add_argument('--wandb_project_name', type=str, default='bagel')
     # step 2. dataset
     parser.add_argument('--data_path', type=str, default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
-    parser.add_argument('--obj_name', type=str, default='bottle')
+    parser.add_argument('--obj_name', type=str, default='cable_gland')
     parser.add_argument('--anomaly_source_path', type=str)
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--num_repeat', type=int, default=1)
