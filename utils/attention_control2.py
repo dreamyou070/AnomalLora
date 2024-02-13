@@ -55,8 +55,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             if do_double_selfattn :
                 if is_cross_attention:
-                    self_key = self.to_self_k(hidden_states)
-                    self_value = self.to_self_v(hidden_states)
+                    self_key = self.to_k(hidden_states)
+                    self_value = self.to_v(hidden_states)
                     self_query = self.reshape_heads_to_batch_dim(query)
                     self_key = self.reshape_heads_to_batch_dim(self_key)
                     self_value = self.reshape_heads_to_batch_dim(self_value)
