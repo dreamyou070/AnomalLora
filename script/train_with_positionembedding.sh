@@ -1,7 +1,7 @@
 # !/bin/bash
-port_number=50012
-obj_name='cable_gland'
-trigger_word='cable'
+port_number=50033
+obj_name='carrot'
+trigger_word='carrot'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_config \
  --main_process_port $port_number ../train_with_positionembedding.py \
