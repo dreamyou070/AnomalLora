@@ -232,7 +232,7 @@ def main(args):
                 encoder_hidden_states = enc_out["last_hidden_state"]
 
             # [1] normal sample
-            
+
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
                 latents = latents * vae_scale_factor  # [1,4,64,64]
@@ -552,6 +552,7 @@ if __name__ == "__main__":
     parser.add_argument("--do_local_self_attn", action='store_true')
     parser.add_argument("--window_size", type=int, default=4)
     parser.add_argument("--only_local_self_attn", action='store_true')
+    parser.add_argument("--fixed_window_size", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)

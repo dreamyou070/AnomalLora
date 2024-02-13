@@ -27,12 +27,15 @@ def passing_argument(args):
     global do_local_self_attn
     global window_size
     global only_local_self_attn
+    global fixed_window_size
 
     down_dim = args.down_dim
     position_embedding_layer = args.position_embedding_layer
     window_size = args.window_size
     do_local_self_attn = args.do_local_self_attn
     only_local_self_attn = args.only_local_self_attn
+    fixed_window_size = args.fixed_window_size
+
 
 
 def add_attn_argument(parser: argparse.ArgumentParser) :
@@ -81,6 +84,11 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 key = key.float()
 
             if not is_cross_attention and do_local_self_attn :
+
+                if not fixed_window_size :
+                    org_size = hidden_states.shape[1]
+                    window_size = int(org_size / 2)
+
                 local_hidden_states = localize_hidden_states(hidden_states, window_size)
                 window_num = int(local_hidden_states.shape[0] / hidden_states.shape[0])
 
