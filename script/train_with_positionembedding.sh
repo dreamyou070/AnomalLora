@@ -1,5 +1,5 @@
 # !/bin/bash
-port_number=50002
+port_number=50003
 obj_name='cable_gland'
 trigger_word='cable'
 
