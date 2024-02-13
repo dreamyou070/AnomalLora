@@ -109,7 +109,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
         #self.rot = iaa.Affine(rotate=(-90, 90))
-        rot = iaa.Affine(rotate=(-30, 30))
+        self.rot = iaa.Affine(rotate=(-30, 30))
 
     def __len__(self):
         if len(self.anomaly_source_paths) > 0 :
