@@ -21,22 +21,6 @@ def make_perlin_noise(shape_row, shape_column):
     perlin_noise = rand_perlin_2d_np((shape_row, shape_column), (perlin_scalex, perlin_scaley))
     return perlin_noise
 
-def passing_argument(args):
-    global down_dim
-    global position_embedding_layer
-    global do_local_self_attn
-    global window_size
-    global only_local_self_attn
-    global fixed_window_size
-    global do_add_query
-
-    down_dim = args.down_dim
-    position_embedding_layer = args.position_embedding_layer
-    window_size = args.window_size
-    do_local_self_attn = args.do_local_self_attn
-    only_local_self_attn = args.only_local_self_attn
-    fixed_window_size = args.fixed_window_size
-    do_add_query = args.do_add_query
 
 
 
@@ -56,6 +40,23 @@ def localize_hidden_states(hidden_states, window_size):
     hidden_states = hidden_states.view(b, res, res, d)
     local_hidden_states = window_partition(hidden_states, window_size).view(-1, window_size * window_size, d)
     return local_hidden_states
+
+def passing_argument(args):
+    global down_dim
+    global position_embedding_layer
+    global do_local_self_attn
+    global only_local_self_attn
+    global fixed_window_size
+    global do_add_query
+    global argument
+
+    down_dim = args.down_dim
+    position_embedding_layer = args.position_embedding_layer
+    do_local_self_attn = args.do_local_self_attn
+    only_local_self_attn = args.only_local_self_attn
+    fixed_window_size = args.fixed_window_size
+    do_add_query = args.do_add_query
+    argument = args
 
 
 def register_attention_control(unet: nn.Module,controller: AttentionStore):
@@ -90,6 +91,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 if not fixed_window_size :
                     H = int(hidden_states.shape[1] ** 0.5)
                     window_size = int(H / 2)
+                else :
+                    window_size = argument.window_size
 
                 local_hidden_states = localize_hidden_states(hidden_states, window_size)
                 window_num = int(local_hidden_states.shape[0] / hidden_states.shape[0])
