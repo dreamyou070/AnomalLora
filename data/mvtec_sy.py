@@ -276,8 +276,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                 hole_img = np.array(hole_img_pil, np.uint8)
 
                 while True:
-                    rotated_img = self.rot(img)
-                    rotated_mask_np = self.rot(object_mask_np_aug)
+                    rotated_img = self.rot(image = img)
+                    rotated_mask_np = self.rot(image=object_mask_np_aug)
                     anomal_img, anomal_mask_np = self.augment_image(img, rotated_img, beta_scale_factor=0)
                     rotated_mask_np = anomal_mask_np * object_mask_np_aug * rotated_mask_np
                     rotated_mask_np = np.where(rotated_mask_np == 0, 0, 1)
