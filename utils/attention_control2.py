@@ -23,17 +23,40 @@ def make_perlin_noise(shape_row, shape_column):
 def passing_argument(args):
     global down_dim
     global position_embedding_layer
-    global do_concat
-    global do_double_selfattn
+    global do_local_self_attn
+    global window_size
 
     down_dim = args.down_dim
     position_embedding_layer = args.position_embedding_layer
-    do_concat = args.do_concat
-    do_double_selfattn = args.do_double_selfattn
+    window_size = args.window_size
+    do_local_self_attn = args.do_local_self_attn
+
 
 def add_attn_argument(parser: argparse.ArgumentParser) :
     parser.add_argument("--down_dim", type=int, default=160)
 
+
+def window_partition(x, window_size):
+    """
+    Args:
+        x: (B, H, W, C)
+        window_size (int): window size
+
+    Returns:
+        windows: (num_windows*B, window_size, window_size, C)
+    """
+    B, H, W, C = x.shape
+    x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
+    windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
+    return windows
+
+
+def localize_hidden_states(hidden_states, window_size):
+    b, p, d = hidden_states.shape
+    res = int(p ** 0.5)
+    hidden_states = hidden_states.view(b, res, res, d)
+    local_hidden_states = window_partition(hidden_states, window_size).view(-1, window_size * window_size, d)
+    return local_hidden_states
 
 def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
@@ -44,57 +67,55 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             if context is not None:
                 is_cross_attention = True
 
-            if layer_name == position_embedding_layer:  # 'down_blocks_0_attentions_0_transformer_blocks_0_attn1' : """ Position Embedding right after Down Block 1 """
+            if layer_name == position_embedding_layer :
                 hidden_states_pos = noise_type(hidden_states)
                 hidden_states = hidden_states_pos
 
             query = self.to_q(hidden_states)
-
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 controller.save_query(query, layer_name)
 
-            if do_double_selfattn :
-                if is_cross_attention:
-
-                    print(f'hidden_states.shape : {hidden_states.shape}')
-                    print(f'context.shape : {context.shape}')
-                    print(f'self.to_q.weight : {self.to_q.weight.values().shape}')
-                    print(f'self.to_k.weight : {self.to_k.weight.values().shape}')
-
-
-                    self_key = self.to_k(hidden_states)
-                    self_value = self.to_v(hidden_states)
-                    self_query = self.reshape_heads_to_batch_dim(query)
-                    self_key = self.reshape_heads_to_batch_dim(self_key)
-                    self_value = self.reshape_heads_to_batch_dim(self_value)
-                    self_attention_scores = torch.baddbmm(torch.empty(self_query.shape[0], self_query.shape[1], self_key.shape[1],dtype=query.dtype, device=query.device),
-                                                          self_query, self_key.transpose(-1, -2),
-                                                          beta=0, alpha=self.scale, )
-                    self_attention_probs = self_attention_scores.softmax(dim=-1).to(query.dtype)
-                    self_hidden_states = torch.bmm(self_attention_probs, self_value)
-                    self_hidden_states = self.reshape_batch_dim_to_heads(self_hidden_states)
-                    hidden_states = self.reshape_batch_dim_to_heads(self_hidden_states)
-
-            query = self.to_q(hidden_states)
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
+
             query = self.reshape_heads_to_batch_dim(query)
-            # if layer_name == position_embedding_layer and do_concat :
-            #    query_pos = self.reshape_heads_to_batch_dim(query_pos)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
-
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
-                self_key = self_key.float()
+
+            if not is_cross_attention and do_local_self_attn :
+                local_hidden_states = localize_hidden_states(hidden_states, window_size)
+                local_query = self.to_q(local_hidden_states)
+                local_key = self.to_k(local_hidden_states)
+                local_value = self.to_v(local_hidden_states)
+                local_query = self.reshape_heads_to_batch_dim(local_query)
+                local_key = self.reshape_heads_to_batch_dim(local_key)
+                local_value = self.reshape_heads_to_batch_dim(local_value)
+                if self.upcast_attention:
+                    local_query = local_query.float()
+                    local_key = local_key.float()
+
 
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
                                                          dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
+
+            if not is_cross_attention and do_local_self_attn :
+                local_attention_scores = torch.baddbmm(torch.empty(local_query.shape[0], local_query.shape[1], local_key.shape[1],
+                                                         dtype=local_query.dtype, device=local_query.device), local_query,
+                                             local_key.transpose(-1, -2), beta=0, alpha=self.scale, )
+                local_attention_probs = local_attention_scores.softmax(dim=-1)
+                local_attention_probs = local_attention_probs.to(local_value.dtype)
+                local_hidden_states = torch.bmm(local_attention_probs, local_value)
+                local_hidden_states = self.reshape_batch_dim_to_heads(local_hidden_states)
+                local_hidden_states = self.to_out[0](local_hidden_states)
+                local_hidden_states = local_hidden_states.view(hidden_states.shape[0], hidden_states.shape[1], hidden_states.shape[2], hidden_states.shape[3])
+
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 trg_map = attention_probs[:, :, :2]
@@ -103,7 +124,14 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
+
+            if not is_cross_attention and do_local_self_attn :
+                global_hidden_states = hidden_states
+                b,c = global_hidden_states.shape[0], global_hidden_states.shape[-1]
+                local_hidden_states = local_hidden_states.view(b, -1, c)
+                hidden_states = global_hidden_states + local_hidden_states
             return hidden_states
+
         return forward
 
     def register_recr(net_, count, layer_name):

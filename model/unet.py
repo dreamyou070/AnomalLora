@@ -443,10 +443,9 @@ class CrossAttention(nn.Module):
         self.scale = dim_head**-0.5
         self.heads = heads
 
-        self.to_q = nn.Linear(query_dim, inner_dim, bias=False)
-        self.to_k = nn.Linear(cross_attention_dim, inner_dim, bias=False)
-        self.to_v = nn.Linear(cross_attention_dim, inner_dim, bias=False)
-
+        self.to_q = nn.Linear(query_dim, inner_dim, bias=False)                   # (320, 320)
+        self.to_k = nn.Linear(cross_attention_dim, inner_dim, bias=False)         # (768, 320)
+        self.to_v = nn.Linear(cross_attention_dim, inner_dim, bias=False)         # (768, 320)
         self.to_out = nn.ModuleList([])
         self.to_out.append(nn.Linear(inner_dim, query_dim))
         # no dropout here
