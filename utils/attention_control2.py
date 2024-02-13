@@ -105,9 +105,9 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             if not is_cross_attention and do_local_self_attn :
                 for window_index in range(window_num):
-                    l_query = local_query[window_index * self.head: (window_index + 1) * self.head, :, :]
-                    l_key = local_key[window_index * self.head: (window_index + 1) * self.head, :, :]
-                    l_value = local_value[window_index * self.head: (window_index + 1) * self.head, :, :]
+                    l_query = local_query[window_index * self.heads : (window_index + 1) * self.heads, :, :]
+                    l_key = local_key[window_index * self.heads: (window_index + 1) * self.heads, :, :]
+                    l_value = local_value[window_index * self.heads: (window_index + 1) * self.heads, :, :]
                     if l_query.dim() == 2:
                         l_query = l_query.unsqueeze(0)
                         l_key = l_key.unsqueeze(0)
