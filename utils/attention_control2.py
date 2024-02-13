@@ -3,6 +3,7 @@ from data.perlin import rand_perlin_2d_np
 import torch
 from attention_store import AttentionStore
 import argparse
+import einops
 
 def mahal(u, v, cov):
     delta = u - v
@@ -58,6 +59,7 @@ def localize_hidden_states(hidden_states, window_size):
     local_hidden_states = window_partition(hidden_states, window_size).view(-1, window_size * window_size, d)
     return local_hidden_states
 
+
 def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
     def ca_forward(self, layer_name):
@@ -88,48 +90,42 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             if not is_cross_attention and do_local_self_attn :
                 local_hidden_states = localize_hidden_states(hidden_states, window_size)
+                window_num = int(local_hidden_states.shape[0] / hidden_states.shape[0])
                 local_query = self.to_q(local_hidden_states)
                 local_key = self.to_k(local_hidden_states)
                 local_value = self.to_v(local_hidden_states)
+
                 local_query = self.reshape_heads_to_batch_dim(local_query)
                 local_key = self.reshape_heads_to_batch_dim(local_key)
                 local_value = self.reshape_heads_to_batch_dim(local_value)
+
                 if self.upcast_attention:
                     local_query = local_query.float()
                     local_key = local_key.float()
-
-
-            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
-                                                         dtype=query.dtype, device=query.device), query,
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
-
-            if not is_cross_attention and do_local_self_attn :
-                local_attention_scores = torch.baddbmm(torch.empty(local_query.shape[0], local_query.shape[1], local_key.shape[1],
-                                                         dtype=local_query.dtype, device=local_query.device), local_query,
-                                             local_key.transpose(-1, -2), beta=0, alpha=self.scale, )
-                local_attention_probs = local_attention_scores.softmax(dim=-1)
-                local_attention_probs = local_attention_probs.to(local_value.dtype)
-                local_hidden_states = torch.bmm(local_attention_probs, local_value)
-                local_hidden_states = self.reshape_batch_dim_to_heads(local_hidden_states)
-                local_hidden_states = self.to_out[0](local_hidden_states)
-                local_hidden_states = local_hidden_states.view(hidden_states.shape[0], hidden_states.shape[1], hidden_states.shape[2], hidden_states.shape[3])
-
-
-            if trg_layer_list is not None and layer_name in trg_layer_list :
-                trg_map = attention_probs[:, :, :2]
-                controller.store(trg_map, layer_name)
-
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
 
             if not is_cross_attention and do_local_self_attn :
-                global_hidden_states = hidden_states
-                b,c = global_hidden_states.shape[0], global_hidden_states.shape[-1]
-                local_hidden_states = local_hidden_states.view(b, -1, c)
-                hidden_states = global_hidden_states + local_hidden_states
+                local_attention_scores = torch.baddbmm(torch.empty(local_query.shape[0], local_query.shape[1], local_key.shape[1],
+                                             dtype=local_query.dtype, device=local_query.device), local_query,
+                                             local_key.transpose(-1, -2), beta=0, alpha=self.scale, )
+                local_attention_probs = local_attention_scores.softmax(dim=-1)
+                local_attention_probs = local_attention_probs.to(local_value.dtype)
+                local_hidden_states = torch.bmm(local_attention_probs, local_value)
+                local_hidden_states = einops.rearrange(local_hidden_states, '(h w) p d -> h (p w) d',
+                                                       h=int(self.heads), w=window_num)
+
+            if trg_layer_list is not None and layer_name in trg_layer_list :
+                trg_map = attention_probs[:, :, :2]
+                controller.store(trg_map, layer_name)
+
+            if not is_cross_attention and do_local_self_attn :
+                hidden_states = hidden_states + local_hidden_states
             return hidden_states
 
         return forward
