@@ -24,10 +24,12 @@ def passing_argument(args):
     global down_dim
     global position_embedding_layer
     global do_concat
+    global do_double_selfattn
 
     down_dim = args.down_dim
     position_embedding_layer = args.position_embedding_layer
     do_concat = args.do_concat
+    do_double_selfattn = args.do_double_selfattn
 
 def add_attn_argument(parser: argparse.ArgumentParser) :
     parser.add_argument("--down_dim", type=int, default=160)
@@ -51,19 +53,20 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 controller.save_query(query, layer_name)
 
-            if is_cross_attention:
-                self_key = self.to_self_k(hidden_states)
-                self_value = self.to_self_v(hidden_states)
-                self_query = self.reshape_heads_to_batch_dim(query)
-                self_key = self.reshape_heads_to_batch_dim(self_key)
-                self_value = self.reshape_heads_to_batch_dim(self_value)
-                self_attention_scores = torch.baddbmm(torch.empty(self_query.shape[0], self_query.shape[1], self_key.shape[1],dtype=query.dtype, device=query.device),
-                                                      self_query, self_key.transpose(-1, -2),
-                                                      beta=0, alpha=self.scale, )
-                self_attention_probs = self_attention_scores.softmax(dim=-1).to(query.dtype)
-                self_hidden_states = torch.bmm(self_attention_probs, self_value)
-                self_hidden_states = self.reshape_batch_dim_to_heads(self_hidden_states)
-                hidden_states = self.reshape_batch_dim_to_heads(self_hidden_states)
+            if do_double_selfattn :
+                if is_cross_attention:
+                    self_key = self.to_self_k(hidden_states)
+                    self_value = self.to_self_v(hidden_states)
+                    self_query = self.reshape_heads_to_batch_dim(query)
+                    self_key = self.reshape_heads_to_batch_dim(self_key)
+                    self_value = self.reshape_heads_to_batch_dim(self_value)
+                    self_attention_scores = torch.baddbmm(torch.empty(self_query.shape[0], self_query.shape[1], self_key.shape[1],dtype=query.dtype, device=query.device),
+                                                          self_query, self_key.transpose(-1, -2),
+                                                          beta=0, alpha=self.scale, )
+                    self_attention_probs = self_attention_scores.softmax(dim=-1).to(query.dtype)
+                    self_hidden_states = torch.bmm(self_attention_probs, self_value)
+                    self_hidden_states = self.reshape_batch_dim_to_heads(self_hidden_states)
+                    hidden_states = self.reshape_batch_dim_to_heads(self_hidden_states)
 
             query = self.to_q(hidden_states)
             context = context if context is not None else hidden_states

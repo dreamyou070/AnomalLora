@@ -549,6 +549,7 @@ if __name__ == "__main__":
     parser.add_argument("--d_dim", default=320, type=int)
     parser.add_argument("--do_concat", action='store_true')
     parser.add_argument("--beta_scale_factor", type=float, default=0.4)
+    parser.add_argument("--do_double_selfattn", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
