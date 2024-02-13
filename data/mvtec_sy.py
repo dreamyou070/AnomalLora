@@ -108,7 +108,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.perlin_max_scale = perlin_max_scale
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
-        self.rot = rot = iaa.Sequential([iaa.Affine(rotate=(-90, 90))])
+        self.rot = iaa.Sequential([iaa.Affine(rotate=(-90, 90))])
 
     def __len__(self):
         if len(self.anomaly_source_paths) > 0 :
