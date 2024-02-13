@@ -1,5 +1,5 @@
 # !/bin/bash
-port_number=51129
+port_number=51121
 obj_name='cable_gland'
 trigger_word='cable'
 # --do_local_self_attn --only_local_self_attn --fixed_window_size --window_size 8
