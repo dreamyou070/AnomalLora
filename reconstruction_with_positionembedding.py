@@ -242,6 +242,8 @@ if __name__ == '__main__':
     parser.add_argument("--use_pe_pooling", action='store_true')
     parser.add_argument("--d_dim", default=320, type=int)
     parser.add_argument("--do_concat", action='store_true')
+    parser.add_argument("--do_add_query", action='store_true')
+    parser.add_argument("--add_query_list", type=arg_as_list)
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
