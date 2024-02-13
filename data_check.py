@@ -97,69 +97,10 @@ if __name__ == "__main__":
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--latent_res", type=int, default=64)
     # step 3. preparing accelerator')
-    parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"], )
-    parser.add_argument("--save_precision", type=str, default=None, choices=[None, "float", "fp16", "bf16"], )
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=1, )
-    parser.add_argument("--log_with", type=str, default=None, choices=["tensorboard", "wandb", "all"], )
-    parser.add_argument("--log_prefix", type=str, default=None)
 
     # step 4. model
-    parser.add_argument("--beta_scale_factor", type=float, default=0.1 )
-    parser.add_argument("--network_dropout", type=float, default=None,
-                        help="Drops neurons out of training every step", )
-    parser.add_argument("--network_args", type=str, default=None, nargs="*",
-                        help="additional argmuments for network (key=value)")
-    parser.add_argument("--dim_from_weights", action="store_true",
-                        help="automatically determine dim (rank) from network_weights / dim ", )
-    parser.add_argument("--scale_weight_norms", type=float, default=None,
-                        help="Scale the weight of each key pair to help prevent overtraing via exploding gradients. ", )
-    parser.add_argument("--base_weights", type=str, default=None, nargs="*",
-                        help="network weights to merge into the model before training", )
-    parser.add_argument("--base_weights_multiplier", type=float, default=None, nargs="*",
-                        help="multiplier for network weights to merge into the model before training ", )
-    # step 5. optimizer
-    parser.add_argument("--optimizer_type", type=str, default="AdamW",
-                        help="AdamW , AdamW8bit, PagedAdamW8bit, PagedAdamW32bit, Lion8bit, PagedLion8bit, Lion, SGDNesterov, "
-                             "SGDNesterov8bit, DAdaptation(DAdaptAdamPreprint), DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptAdanIP, "
-                             "DAdaptLion, DAdaptSGD, AdaFactor", )
-    parser.add_argument("--use_8bit_adam", action="store_true",
-                        help="use 8bit AdamW optimizer (requires bitsandbytes)", )
-    parser.add_argument("--use_lion_optimizer", action="store_true",
-                        help="use Lion optimizer (requires lion-pytorch)", )
-    parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm, 0 for no clipping")
-    parser.add_argument("--optimizer_args", type=str, default=None, nargs="*",
-                        help='additional arguments for optimizer (like "weight_decay=0.01 betas=0.9,0.999 ...") ', )
+    parser.add_argument("--beta_scale_factor", type=float, default=0.4)
     # lr
-    parser.add_argument("--lr_scheduler_type", type=str, default="", help="custom scheduler module")
-    parser.add_argument("--lr_scheduler_args", type=str, default=None, nargs="*",
-                        help='additional arguments for scheduler (like "T_max=100") / スケジューラの追加引数（例： "T_max100"）', )
-    parser.add_argument("--lr_scheduler", type=str, default="cosine_with_restarts", help="scheduler to use for lr")
-    parser.add_argument("--lr_warmup_steps", type=int, default=0,
-                        help="Number of steps for the warmup in the lr scheduler (default is 0)", )
-    parser.add_argument("--lr_scheduler_num_cycles", type=int, default=1,
-                        help="Number of restarts for cosine scheduler with restarts / cosine with restarts", )
-    parser.add_argument("--lr_scheduler_power", type=float, default=1,
-                        help="Polynomial power for polynomial scheduler / polynomial", )
-    parser.add_argument('--text_encoder_lr', type=float, default=1e-5)
-    parser.add_argument('--unet_lr', type=float, default=1e-5)
-    parser.add_argument('--learning_rate', type=float, default=1e-5)
-    parser.add_argument('--train_unet', action='store_true')
-    parser.add_argument('--train_text_encoder', action='store_true')
-    # training
-    parser.add_argument("--total_normal_thred", type=float, default=0.5)
-    parser.add_argument("--lowram", action="store_true", )
-    parser.add_argument("--sample_every_n_steps", type=int, default=None,
-                        help="generate sample images every N steps ")
-    parser.add_argument("--sample_every_n_epochs", type=int, default=None,
-                        help="generate sample images every N epochs (overwrites n_steps)", )
-    parser.add_argument("--output_name", type=str, default=None, help="base name of trained model file ")
-    parser.add_argument("--save_model_as", type=str, default="safetensors",
-                        choices=[None, "ckpt", "pt", "safetensors"],
-                        help="format to save the model (default is .safetensors)", )
-    parser.add_argument("--training_comment", type=str, default=None,
-                        help="arbitrary comment string stored in metadata / メタデータに記録する任意のコメント文字列")
-    parser.add_argument("--no_half_vae", action="store_true",
-                        help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precision", )
     parser.add_argument("--start_epoch", type=int, default=0)
     parser.add_argument("--max_train_steps", type=int, default=1600, help="training steps / 学習ステップ数")
     parser.add_argument("--max_train_epochs", type=int, default=None, )
