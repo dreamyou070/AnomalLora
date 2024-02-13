@@ -163,7 +163,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         anomaly_source_idx = torch.randint(0, len(self.anomaly_source_paths), (1,)).item()
         image, augmented_image, anomaly_mask, has_anomaly = self.transform_image(self.image_paths[idx],
                                                                                  self.anomaly_source_paths[anomaly_source_idx])
-        sample = {'image': image, "anomaly_mask": anomaly_mask,
-                  'augmented_image': augmented_image, 'has_anomaly': has_anomaly, 'idx': idx}
+        sample = {'image': image,
+                  "anomaly_mask": anomaly_mask,
+                  'augmented_image': augmented_image,
+                  'has_anomaly': has_anomaly, 'idx': idx}
 
         return sample
