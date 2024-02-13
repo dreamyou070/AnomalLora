@@ -41,26 +41,36 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
-            query = self.to_q(hidden_states)
 
-            """ Position Embedding right after Down Block 1 """
-            if layer_name == position_embedding_layer  : #'down_blocks_0_attentions_0_transformer_blocks_0_attn1' :
-                query_pos = noise_type(query)
-                #if do_concat :
-                #    query = torch.cat([query, query_pos], dim=-1)
-                #if not do_concat :
-                query = query_pos
+            if layer_name == position_embedding_layer:  # 'down_blocks_0_attentions_0_transformer_blocks_0_attn1' : """ Position Embedding right after Down Block 1 """
+                hidden_states_pos = noise_type(hidden_states)
+                hidden_states = hidden_states_pos
+
+            query = self.to_q(hidden_states)
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 controller.save_query(query, layer_name)
 
+            if is_cross_attention:
+                self_key = self.to_self_k(hidden_states)
+                self_value = self.to_self_v(hidden_states)
+                self_query = self.reshape_heads_to_batch_dim(query)
+                self_key = self.reshape_heads_to_batch_dim(self_key)
+                self_value = self.reshape_heads_to_batch_dim(self_value)
+                self_attention_scores = torch.baddbmm(torch.empty(self_query.shape[0], self_query.shape[1], self_key.shape[1],dtype=query.dtype, device=query.device),
+                                                      self_query, self_key.transpose(-1, -2),
+                                                      beta=0, alpha=self.scale, )
+                self_attention_probs = self_attention_scores.softmax(dim=-1).to(query.dtype)
+                self_hidden_states = torch.bmm(self_attention_probs, self_value)
+                self_hidden_states = self.reshape_batch_dim_to_heads(self_hidden_states)
+                hidden_states = self.reshape_batch_dim_to_heads(self_hidden_states)
+
+            query = self.to_q(hidden_states)
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
-
-
             query = self.reshape_heads_to_batch_dim(query)
-            #if layer_name == position_embedding_layer and do_concat :
+            # if layer_name == position_embedding_layer and do_concat :
             #    query_pos = self.reshape_heads_to_batch_dim(query_pos)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
@@ -68,21 +78,11 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
-                #if layer_name == position_embedding_layer and do_concat:
-                #    query_pos = query_pos.float()
+                self_key = self_key.float()
+
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
                                                          dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
-            #if layer_name in trg_layer_list :
-                #import einops
-                #mean_pooling_layer = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
-                #query = einops.rearrange(query, 'b (h w) c -> b c h w', h=64, w=64)
-                #query = mean_pooling_layer(query)
-                #query = einops.rearrange(query, 'b c h w -> b (h w) c')
-                #attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
-                #                                             dtype=query.dtype, device=query.device), query,
-                #                                 key.transpose(-1, -2), beta=0, alpha=self.scale, )
-
             attention_probs = attention_scores.softmax(dim=-1)
             attention_probs = attention_probs.to(value.dtype)
 
