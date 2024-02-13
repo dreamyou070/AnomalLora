@@ -108,8 +108,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.perlin_max_scale = perlin_max_scale
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
-        #self.rot = iaa.Affine(rotate=(-90, 90))
-        self.rot = iaa.Affine(rotate=(-30, 30))
+        self.augmenters = [iaa.Affine(rotate=(180, 180)),
+                           iaa.Affine(rotate=(90, 90)),
+                           iaa.Affine(rotate=(270, 270))]
 
     def __len__(self):
         if len(self.anomaly_source_paths) > 0 :
@@ -122,6 +123,11 @@ class MVTecDRAEMTrainDataset(Dataset):
         # torch_img = [3, H, W], from -1 to 1
         np_img = np.array(((torch_img + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
         pil = Image.fromarray(np_img)
+
+    def randAugmenter(self):
+        aug_ind = np.random.choice(np.arange(len(self.augmenters)), 1, replace=False)
+        aug = self.augmenters[aug_ind[0]]
+        return aug
 
 
     def get_input_ids(self, caption):
@@ -211,10 +217,13 @@ class MVTecDRAEMTrainDataset(Dataset):
 
     def __getitem__(self, idx):
 
+        aug = self.randAugmenter()
+
         # [1] base
         img_idx = idx % len(self.image_paths)
         img_path = self.image_paths[img_idx]
         img = self.load_image(img_path, self.resize_shape[0], self.resize_shape[1]) # np.array,
+        img = aug(image=img)
         dtype = img.dtype
         final_name = self.get_img_name(img_path)
 
@@ -227,6 +236,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [3] object mask
         object_mask_dir = self.get_object_mask_dir(img_path)
         object_img = self.load_image(object_mask_dir, self.latent_res, self.latent_res, type='L')
+        object_img = aug(image=object_img)
         object_mask_np = np.where((np.array(object_img, np.uint8) / 255) == 0, 0, 1)
         object_mask = torch.tensor(object_mask_np) # shape = [64,64], 0 = background, 1 = object
 
@@ -241,8 +251,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                 anomal_img, anomal_mask_np = self.augment_image(img, anomaly_source_img)
 
             if self.anomal_only_on_object:
-                object_img_aug = self.load_image(object_mask_dir,
-                                                 self.resize_shape[0], self.resize_shape[1], type='L') # [64,64]
+                object_img_aug = aug(image=self.load_image(object_mask_dir,
+                                                           self.resize_shape[0], self.resize_shape[1], type='L') )
                 object_mask_np_aug = np.where((np.array(object_img_aug)) == 0, 0, 1)             # [512,512]
                 while True:
                     anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0],
@@ -276,6 +286,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                 hole_img_pil = Image.fromarray(hole_img.astype(np.uint8))
                 hole_img = np.array(hole_img_pil, np.uint8)
 
+                """
                 while True:
                     rotated_img = self.rot(image = img)
                     rotated_mask_np = self.rot(image=object_img_aug)
@@ -293,7 +304,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                         break
                 self_aug_img_pil = Image.fromarray(self_aug_img.astype(np.uint8))
                 self_aug_img = np.array(self_aug_img_pil, np.uint8)
-
+                """
 
                 if anomal_mask_torch.sum() == 0:
                     raise Exception(f"no anomal on {final_name} image, check mask again")
@@ -316,9 +327,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                 'masked_image': self.transform(hole_img),   # masked image
                 'masked_image_mask': hole_mask_torch.unsqueeze(0),# hold position
 
-                'self_augmented_image': self.transform(self_aug_img), # self augmented image
-                'self_augmented_mask': self_aug_mask_torch.unsqueeze(0), # self augmented mask
-
+                #'self_augmented_image': self.transform(self_aug_img), # self augmented image
+                #'self_augmented_mask': self_aug_mask_torch.unsqueeze(0), # self augmented mask
                 'idx': idx,
                 'input_ids': input_ids.squeeze(0),
                 'caption': self.caption,
