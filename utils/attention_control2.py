@@ -108,15 +108,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 if self.upcast_attention:
                     local_query = local_query.float()
                     local_key = local_key.float()
+
             if do_add_query:
-
-                #if layer_name == position_embedding_layer :
-                #    controller.save_query_sub(query, layer_name)
-
                 if layer_name in argument.add_query_layer_list :
                     controller.save_query_sub(query, layer_name)
-
-            if do_add_query :
                 if layer_name in trg_layer_list :
                     query_dict_sub = controller.query_dict_sub
                     for k in query_dict_sub.keys():
@@ -128,9 +123,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)
             global_hidden_states = torch.bmm(attention_probs, value)
-
-
-
 
             local_hidden_states = torch.zeros_like(global_hidden_states)
             if not is_cross_attention and do_local_self_attn :
@@ -149,7 +141,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                     local_pix_num = l_hidden_states.shape[1]
                     local_hidden_states[:, window_index * local_pix_num: (window_index + 1) * local_pix_num, :] = l_hidden_states
                     # -------------------------------------------------------------------------------------------------------- #
-
                     #l_hidden_states = self.reshape_batch_dim_to_heads(local_hidden_states)
                     #l_hidden_states = self.to_out[0](l_hidden_states)
                     #local_pix_num = l_hidden_states.shape[1]
@@ -160,10 +151,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 controller.store(trg_map, layer_name)
 
             if not is_cross_attention and do_local_self_attn :
+
                 if only_local_self_attn :
                     hidden_states = self.reshape_batch_dim_to_heads(local_hidden_states)
                     hidden_states = self.to_out[0](hidden_states)
-
                 else :
                     total_hidden_states = global_hidden_states + local_hidden_states
                     hidden_states = self.reshape_batch_dim_to_heads(total_hidden_states)
