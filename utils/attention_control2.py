@@ -117,8 +117,9 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 local_attention_probs = local_attention_scores.softmax(dim=-1)
                 local_attention_probs = local_attention_probs.to(local_value.dtype)
                 local_hidden_states = torch.bmm(local_attention_probs, local_value)
-                local_hidden_states = einops.rearrange(local_hidden_states, '(h w) p d -> h (p w) d',
-                                                       h=int(self.heads), w=window_num)
+                local_hidden_states = einops.rearrange(local_hidden_states, '(h w) p d -> h (p w) d', h=int(self.heads), w=window_num)
+                local_hidden_states = self.reshape_batch_dim_to_heads(local_hidden_states)
+                local_hidden_states = self.to_out[0](local_hidden_states)
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 trg_map = attention_probs[:, :, :2]
