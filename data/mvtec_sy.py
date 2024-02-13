@@ -108,7 +108,8 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.perlin_max_scale = perlin_max_scale
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
-        self.rot = iaa.Affine(rotate=(-90, 90))
+        #self.rot = iaa.Affine(rotate=(-90, 90))
+        rot = iaa.Affine(rotate=(-30, 30))
 
     def __len__(self):
         if len(self.anomaly_source_paths) > 0 :
@@ -279,26 +280,25 @@ class MVTecDRAEMTrainDataset(Dataset):
                     rotated_img = self.rot(image = img)
                     rotated_mask_np = self.rot(image=object_img_aug)
                     rotated_mask_np = np.where(rotated_mask_np == 0, 0, 1)
-                    _, anomal_mask_np = self.augment_image(img, rotated_img, beta_scale_factor=0)
-                    rotated_mask_np = anomal_mask_np * object_mask_np_aug * rotated_mask_np
-                    rotated_mask_np = np.where(rotated_mask_np == 0, 0, 1)
-                    rotated_mask_np_ = np.repeat(np.expand_dims(rotated_mask_np, axis=2), 3, axis=2).astype(dtype)
-                    self_aug_img = (rotated_mask_np_) * rotated_img + (1 - rotated_mask_np_) * img
-                    rotated_mask_pil = Image.fromarray(rotated_mask_np.astype(np.uint8)).resize(
+                    self_aug_img, self_aug_mask_np = self.augment_image(img, rotated_img, beta_scale_factor=self.beta_scale_factor)
+                    self_aug_mask_np = self_aug_mask_np * object_mask_np_aug * rotated_mask_np
+                    self_aug_mask_np = np.where(self_aug_mask_np == 0, 0, 1)
+                    self_aug_mask_np_ = np.repeat(np.expand_dims(self_aug_mask_np, axis=2), 3, axis=2).astype(dtype)
+                    self_aug_img = (self_aug_mask_np_) * rotated_img + (1 - self_aug_mask_np_) * img
+                    self_aug_mask_pil = Image.fromarray(self_aug_mask_np.astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res))
-                    rotated_mask_torch = torch.tensor(np.array(rotated_mask_pil))
-                    rotated_mask_torch = torch.where(rotated_mask_torch > 0, 1, 0)  # strict anomal
-                    if rotated_mask_torch.sum() > 0:
+                    self_aug_mask_torch = torch.tensor(np.array(self_aug_mask_pil))
+                    self_aug_mask_torch = torch.where(self_aug_mask_torch > 0, 1, 0)  # strict anomal
+                    if self_aug_mask_torch.sum() > 0:
                         break
-                self_aug_pil = Image.fromarray(self_aug_img.astype(np.uint8))
-                self_aug = np.array(self_aug_pil, np.uint8)
+                self_aug_img_pil = Image.fromarray(self_aug_img.astype(np.uint8))
+                self_aug_img = np.array(self_aug_img_pil, np.uint8)
+
 
                 if anomal_mask_torch.sum() == 0:
                     raise Exception(f"no anomal on {final_name} image, check mask again")
                 if hole_mask_torch.sum() == 0:
                     raise Exception(f"no hole on {final_name} image, check mask again")
-                if rotated_mask_torch.sum() == 0:
-                    raise Exception(f"no rotated on {final_name} image, check mask again")
 
         else :
             anomal_img = img
@@ -316,8 +316,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                 'masked_image': self.transform(hole_img),   # masked image
                 'masked_image_mask': hole_mask_torch.unsqueeze(0),# hold position
 
-                'self_augmented_image': self.transform(self_aug), # self augmented image
-                'self_augmented_mask': rotated_mask_torch.unsqueeze(0), # self augmented mask
+                'self_augmented_image': self.transform(self_aug_img), # self augmented image
+                'self_augmented_mask': self_aug_mask_torch.unsqueeze(0), # self augmented mask
 
                 'idx': idx,
                 'input_ids': input_ids.squeeze(0),

@@ -108,7 +108,7 @@ if __name__ == "__main__":
     # step 3. preparing accelerator')
 
     # step 4. model
-    parser.add_argument("--beta_scale_factor", type=float, default=0.4)
+    parser.add_argument("--beta_scale_factor", type=float, default=0.8)
     # lr
     parser.add_argument("--start_epoch", type=int, default=0)
     parser.add_argument("--max_train_steps", type=int, default=1600, help="training steps / 学習ステップ数")
