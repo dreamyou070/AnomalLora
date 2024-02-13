@@ -102,7 +102,8 @@ def main(args):
                                      anomal_training=True,
                                      latent_res=args.latent_res,
                                      perlin_max_scale=args.perlin_max_scale,
-                                     kernel_size=args.kernel_size, )
+                                     kernel_size=args.kernel_size,
+                                     beta_scale_factor=args.beta_scale_factor,)
 
     print(f'\n step 3. preparing accelerator')
     accelerator = prepare_accelerator(args)
@@ -547,7 +548,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_pe_pooling", action='store_true')
     parser.add_argument("--d_dim", default=320, type=int)
     parser.add_argument("--do_concat", action='store_true')
-
+    parser.add_argument("--beta_scale_factor", type=float, default=0.4)
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
