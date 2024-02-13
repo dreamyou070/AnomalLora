@@ -15,4 +15,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --start_epoch 0 --max_train_epochs 300 --num_repeat 1 --anomal_only_on_object --unet_inchannels 4 --min_timestep 0 \
  --max_timestep 1000 --latent_res 64 \
  --d_dim 320 --use_position_embedder --position_embedding_layer 'down_blocks_0_attentions_0_transformer_blocks_0_attn1' \
- --beta_scale_factor 0.6 --do_local_self_attn
+ --beta_scale_factor 0.6 --do_local_self_attn --window_size 4

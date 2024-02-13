@@ -550,6 +550,7 @@ if __name__ == "__main__":
     parser.add_argument("--do_concat", action='store_true')
     parser.add_argument("--beta_scale_factor", type=float, default=0.4)
     parser.add_argument("--do_local_self_attn", action='store_true')
+    parser.add_argument("--window_size", type=int, default=4)
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
