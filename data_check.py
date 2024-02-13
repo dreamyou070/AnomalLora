@@ -29,11 +29,12 @@ def main(args):
                                      anomal_training=True,
                                      latent_res=64,
                                      perlin_max_scale=args.perlin_max_scale,
-                                     kernel_size=args.kernel_size, )
+                                     kernel_size=args.kernel_size,
+                                     beta_scale_factor=args.beta_scale_factor)
 
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
-
-    check_base_dir = f'/home/dreamyou070/data_check/{obj_name}'
+    beta_scale_factor = args.beta_scale_factor
+    check_base_dir = f'/home/dreamyou070/data_check/{obj_name}/beta_scale_factor_{beta_scale_factor}'
     os.makedirs(check_base_dir, exist_ok=True)
 
     for sample in train_dataloader :
@@ -101,18 +102,9 @@ if __name__ == "__main__":
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1, )
     parser.add_argument("--log_with", type=str, default=None, choices=["tensorboard", "wandb", "all"], )
     parser.add_argument("--log_prefix", type=str, default=None)
-    parser.add_argument("--full_fp16", action="store_true",
-                        help="fp16 training including gradients / 勾配も含めてfp16で学習する")
-    parser.add_argument("--full_bf16", action="store_true", help="bf16 training including gradients")
+
     # step 4. model
-    parser.add_argument('--pretrained_model_name_or_path', type=str, default='facebook/diffusion-dalle')
-    parser.add_argument("--clip_skip", type=int, default=None,
-                        help="use output of nth layer from back of text encoder (n>=1)")
-    parser.add_argument("--max_token_length", type=int, default=None, choices=[None, 150, 225],
-                        help="max token length of text encoder (default for 75, 150 or 225) / text encoder", )
-    parser.add_argument("--network_weights", type=str, default=None, help="pretrained weights for network")
-    parser.add_argument("--network_dim", type=int, default=64, help="network dimensions (depends on each network) ")
-    parser.add_argument("--network_alpha", type=float, default=4, help="alpha for LoRA weight scaling, default 1 ", )
+    parser.add_argument("--beta_scale_factor", type=float, default=0.1 )
     parser.add_argument("--network_dropout", type=float, default=None,
                         help="Drops neurons out of training every step", )
     parser.add_argument("--network_args", type=str, default=None, nargs="*",

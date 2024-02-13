@@ -79,7 +79,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                  anomal_training : bool = False,
                  latent_res : int = 64,
                  perlin_max_scale : int = 8,
-                 kernel_size : int = 5):
+                 kernel_size : int = 5,
+                 beta_scale_factor : float = 0.8):
 
         self.root_dir = root_dir
         self.resize_shape=resize_shape
@@ -105,6 +106,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.latent_res = latent_res
         self.perlin_max_scale = perlin_max_scale
         self.kernel_size = kernel_size
+        self.beta_scale_factor = beta_scale_factor
 
     def __len__(self):
         if len(self.anomaly_source_paths) > 0 :
@@ -143,7 +145,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         # [3] only 1 = img
 
         # [4] beta
-        beta = torch.rand(1).numpy()[0] * 0.8  # small number
+        beta = torch.rand(1).numpy()[0] * self.beta_scale_factor  # small number
 
         A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32)
 
