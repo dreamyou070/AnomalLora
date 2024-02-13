@@ -86,8 +86,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             if not is_cross_attention and do_local_self_attn :
 
                 if not fixed_window_size :
-                    org_size = hidden_states.shape[1]
-                    window_size = int(org_size / 2)
+                    H = int(hidden_states.shape[1] ** 0.5)
+                    window_size = int(H / 2)
 
                 local_hidden_states = localize_hidden_states(hidden_states, window_size)
                 window_num = int(local_hidden_states.shape[0] / hidden_states.shape[0])
