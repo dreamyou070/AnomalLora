@@ -12,9 +12,9 @@ from torchvision.transforms.functional import to_pil_image
 def main(args):
 
     print(f'\n step 2. dataset')
-
-    root_dir = f'/home/dreamyou070/MyData/anomaly_detection/MVTec3D-AD/cable_gland/train/good/rgb'
-    args.anomaly_source_path = f'/home/dreamyou070/MyData/anomaly_detection/MVTec3D-AD/anomal_source_cable_gland'
+    obj_name = args.obj_name
+    root_dir = f'/home/dreamyou070/MyData/anomaly_detection/MVTec3D-AD/{obj_name}/train_1/good/rgb'
+    args.anomaly_source_path = f'/home/dreamyou070/MyData/anomaly_detection/MVTec3D-AD/anomal_source_{obj_name}'
     tokenizer = load_tokenizer(args)
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
                                      anomaly_source_path=args.anomaly_source_path,
@@ -31,12 +31,13 @@ def main(args):
 
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
 
-    check_base_dir = f'/home/dreamyou070/data_check'
+    check_base_dir = f'/home/dreamyou070/data_check/{obj_name}'
     os.makedirs(check_base_dir, exist_ok=True)
 
     for sample in train_dataloader :
 
-        image_name = sample['image_name']
+        name = sample['image_name'][0]
+        image_name = sample['anomal_name'][0]
 
         image = sample['image'].squeeze() # [3,512,512]
         np_img = np.array(((image + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
@@ -69,6 +70,8 @@ def main(args):
         pil_masked_image_mask = (np_masked_image_mask * 255).astype(np.uint8)
         pil_masked_image_mask = Image.fromarray(pil_masked_image_mask)
         pil_masked_image_mask.save(os.path.join(check_base_dir, f'{image_name}_masked_image_mask.png'))
+
+
 
 
 if __name__ == "__main__":

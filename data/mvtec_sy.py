@@ -229,9 +229,11 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         if len(self.anomaly_source_paths) > 0:
             anomal_src_idx = idx % len(self.anomaly_source_paths)
+            anomal_src_path = self.anomaly_source_paths[anomal_src_idx]
+            anomal_name = self.get_img_name(anomal_src_path)
 
             if not self.anomal_only_on_object:
-                anomal_img, anomal_mask_np = self.augment_image(img, self.anomaly_source_paths[anomal_src_idx])  # [512,512,3]
+                anomal_img, anomal_mask_np = self.augment_image(img, anomal_src_path)  # [512,512,3]
 
             if self.anomal_only_on_object:
                 object_img_aug = self.load_image(object_mask_dir,
@@ -288,4 +290,5 @@ class MVTecDRAEMTrainDataset(Dataset):
                 'idx': idx,
                 'input_ids': input_ids.squeeze(0),
                 'caption': self.caption,
-                'image_name' : final_name}
+                'image_name' : final_name,
+                'anomaly_name' : anomal_name,}
