@@ -279,14 +279,14 @@ class MVTecDRAEMTrainDataset(Dataset):
                     rotated_img = self.rot(image = img)
                     rotated_mask_np = self.rot(image=object_img_aug)
                     rotated_mask_np = np.where(rotated_mask_np == 0, 0, 1)
-                    anomal_img, anomal_mask_np = self.augment_image(img, rotated_img, beta_scale_factor=0)
+                    _, anomal_mask_np = self.augment_image(img, rotated_img, beta_scale_factor=0)
                     rotated_mask_np = anomal_mask_np * object_mask_np_aug * rotated_mask_np
                     rotated_mask_np = np.where(rotated_mask_np == 0, 0, 1)
                     rotated_mask_np_ = np.repeat(np.expand_dims(rotated_mask_np, axis=2), 3, axis=2).astype(dtype)
-                    self_aug_img = (rotated_mask_np_) * anomal_img + (1 - rotated_mask_np_) * img
-                    self_aug_img_pil = Image.fromarray(self_aug_img.astype(np.uint8)).resize(
+                    self_aug_img = (rotated_mask_np_) * rotated_img + (1 - rotated_mask_np_) * img
+                    rotated_mask_pil = Image.fromarray(rotated_mask_np.astype(np.uint8)).resize(
                         (self.latent_res, self.latent_res))
-                    rotated_mask_torch = torch.tensor(np.array(rotated_mask_np))
+                    rotated_mask_torch = torch.tensor(np.array(rotated_mask_pil))
                     rotated_mask_torch = torch.where(rotated_mask_torch > 0, 1, 0)  # strict anomal
                     if rotated_mask_torch.sum() > 0:
                         break
