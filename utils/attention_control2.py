@@ -28,6 +28,7 @@ def passing_argument(args):
     global window_size
     global only_local_self_attn
     global fixed_window_size
+    global do_add_query
 
     down_dim = args.down_dim
     position_embedding_layer = args.position_embedding_layer
@@ -35,6 +36,7 @@ def passing_argument(args):
     do_local_self_attn = args.do_local_self_attn
     only_local_self_attn = args.only_local_self_attn
     fixed_window_size = args.fixed_window_size
+    do_add_query = args.do_add_query
 
 
 
@@ -103,6 +105,16 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 if self.upcast_attention:
                     local_query = local_query.float()
                     local_key = local_key.float()
+            if do_add_query:
+                if layer_name == position_embedding_layer :
+                    controller.save_query_sub(query, layer_name)
+
+            if do_add_query :
+                if layer_name in trg_layer_list :
+                    before_query = controller.query_dict_sub[position_embedding_layer][0]
+                    query = query + before_query
+                    controller.query_dict_sub = {}
+
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)

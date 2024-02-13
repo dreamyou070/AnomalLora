@@ -553,6 +553,7 @@ if __name__ == "__main__":
     parser.add_argument("--window_size", type=int, default=4)
     parser.add_argument("--only_local_self_attn", action='store_true')
     parser.add_argument("--fixed_window_size", action='store_true')
+    parser.add_argument("--do_add_query", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)

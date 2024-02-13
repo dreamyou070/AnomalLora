@@ -20,6 +20,7 @@ class AttentionStore :
         self.repeat = 0
         self.normal_score_list = []
         self.map_dict = {}
+        self.query_dict_sub = {}
     def get_empty_store(self):
         return {}
 
@@ -47,6 +48,13 @@ class AttentionStore :
 
     def store_normal_score(self, score):
         self.normal_score_list.append(score)
+
+    def store_query_sub(self, query, layer_name):
+        if layer_name not in self.query_dict_sub.keys():
+            self.query_dict_sub[layer_name] = []
+            self.query_dict_sub[layer_name].append(query)
+        else:
+            self.query_dict_sub[layer_name].append(query)
 
     def store(self, attn, layer_name):
         if layer_name not in self.step_store.keys() :
@@ -108,3 +116,4 @@ class AttentionStore :
         self.repeat = 0
         self.normal_score_list = []
         self.map_dict = {}
+        self.query_dict_sub = {}
