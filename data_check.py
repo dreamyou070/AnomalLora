@@ -34,7 +34,7 @@ def main(args):
 
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
     beta_scale_factor = args.beta_scale_factor
-    check_base_dir = f'/home/dreamyou070/data_check/{obj_name}/beta_scale_factor_{beta_scale_factor}'
+    check_base_dir = f'/home/dreamyou070/data_check/{obj_name}/beta_scale_factor_{beta_scale_factor}_self_aug'
     os.makedirs(check_base_dir, exist_ok=True)
 
     for sample in train_dataloader :
@@ -74,6 +74,16 @@ def main(args):
         pil_masked_image_mask = Image.fromarray(pil_masked_image_mask)
         pil_masked_image_mask.save(os.path.join(check_base_dir, f'{image_name}_masked_image_mask.png'))
 
+        self_aug_img = sample['self_augmented_image'].squeeze()
+        np_self_aug_img = np.array(((self_aug_img + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
+        pil_self_aug_img = Image.fromarray(np_self_aug_img)
+        pil_self_aug_img.save(os.path.join(check_base_dir, f'{image_name}_self_aug_img.png'))
+
+        self_aug_img_mask = sample['self_augmented_mask']
+        np_self_aug_img_mask = self_aug_img_mask.squeeze().numpy()
+        pil_self_aug_img_mask = (np_self_aug_img_mask * 255).astype(np.uint8)
+        pil_self_aug_img_mask = Image.fromarray(pil_self_aug_img_mask)
+        pil_self_aug_img_mask.save(os.path.join(check_base_dir, f'{image_name}_self_aug_img_mask.png'))
 
 
 
