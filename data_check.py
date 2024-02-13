@@ -7,7 +7,6 @@ from model.unet import unet_passing_argument
 from utils.attention_control2 import passing_argument
 import os
 from PIL import Image
-from torchvision.transforms.functional import to_pil_image
 
 def main(args):
 
@@ -159,8 +158,5 @@ if __name__ == "__main__":
     parser.add_argument("--use_pe_pooling", action='store_true')
     parser.add_argument("--d_dim", default=320, type=int)
     parser.add_argument("--do_concat", action='store_true')
-
     args = parser.parse_args()
-    unet_passing_argument(args)
-    passing_argument(args)
     main(args)
