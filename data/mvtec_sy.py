@@ -108,7 +108,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.perlin_max_scale = perlin_max_scale
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
-        self.rot = iaa.Sequential([iaa.Affine(rotate=(-90, 90))])
+        self.rot = iaa.Affine(rotate=(-90, 90))
 
     def __len__(self):
         if len(self.anomaly_source_paths) > 0 :
@@ -130,8 +130,6 @@ class MVTecDRAEMTrainDataset(Dataset):
         return input_ids, attention_mask
 
     def augment_image(self, image, anomaly_source_img, beta_scale_factor):
-
-        # [1] org image
 
 
         # [2] perlin noise
