@@ -23,6 +23,17 @@ from utils.model_utils import pe_model_save
 from utils.utils_loss import gen_attn_loss, FocalLoss
 import einops
 
+
+def gen_value_dict(value_dict, cls_score_loss, trigger_score_loss):
+    if 'cls_loss' not in value_dict.keys():
+        value_dict['cls_loss'] = []
+    value_dict['cls_loss'].append(cls_score_loss)
+    if 'trigger_loss' not in value_dict.keys():
+        value_dict['trigger_loss'] = []
+    value_dict['trigger_loss'].append(trigger_score_loss)
+    return value_dict
+
+
 def main(args):
 
     print(f'\n step 1. setting')
@@ -174,18 +185,15 @@ def main(args):
             with torch.set_grad_enabled(True):
                 enc_out = text_encoder(batch["input_ids"].to(accelerator.device))
                 encoder_hidden_states = enc_out["last_hidden_state"]
-            # --------------------------------------------------------------------------------------------------------- #
             # [1] normal sample
             with torch.no_grad():
-                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
-                latents = latents * args.vae_scale_factor  # [1,4,64,64]
+                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                  latents,min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                                                                                            noise_type=position_embedder)
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
-
             if 'mid' in args.image_classification_layer :
                 classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [8,8*8]
                 classification_map = classification_map.mean(dim=0)
@@ -197,11 +205,6 @@ def main(args):
             anomal_score = torch.min(classification_map)
             classification_loss += abs(1-anomal_score).requires_grad_(True)
 
-
-
-
-
-
             for trg_layer in args.trg_layer_list:
                 # (1)
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
@@ -212,20 +215,13 @@ def main(args):
                 # (2)
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
-                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-                normal_cls_score = cls_score.mean(dim=0)  # pix_num
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()     # head, pix_num
+                cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0) # pix_num
+                cls_target, trigger_target = torch.zeros_like(cls_score), torch.zeros_ones(trigger_score)
+                cls_score_loss = loss_l2(cls_score ** 2, cls_target)
+                trigger_score_loss = loss_l2(trigger_score ** 2 , trigger_target)
+                value_dict = gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
 
-                total_score = torch.ones_like(normal_cls_score)
-
-                normal_cls_score_loss = (normal_cls_score / total_score).mean()
-                normal_trigger_score = trigger_score.mean(dim=0)
-                normal_trigger_score_loss = (1- (normal_trigger_score / total_score)).mean()
-                if 'normal_cls_score_loss' not in value_dict.keys():
-                    value_dict['normal_cls_score_loss'] = []
-                value_dict['normal_cls_score_loss'].append(normal_cls_score_loss)
-                if 'normal_trigger_score_loss' not in value_dict.keys():
-                    value_dict['normal_trigger_score_loss'] = []
-                value_dict['normal_trigger_score_loss'].append(normal_trigger_score_loss)
                 # (3)
                 normal_map = trigger_score.mean(dim=0).squeeze()
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
@@ -271,29 +267,12 @@ def main(args):
                 # [2] attn score
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
-                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-                anomal_position = anomal_map.repeat(cls_score.shape[0], 1)
-                anomal_pixel_num = anomal_position.sum()
-                normal_pixel_num = pix_num - anomal_pixel_num
-
-                anormal_cls_score = (cls_score * anomal_position).mean(dim=0) # pix_num
-                anormal_cls_score_loss = (1 - (anormal_cls_score / anomal_pixel_num)).mean()
-                anormal_trigger_score = (trigger_score * anomal_position).mean(dim=0)
-                anormal_trigger_score_loss = (anormal_trigger_score / anomal_pixel_num).mean()
-
-                normal_cls_score = (cls_score * (1 - anomal_position)).mean(dim=0)  # pix_num
-                normal_cls_score_loss = (normal_cls_score / normal_pixel_num).mean()
-                normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
-                normal_trigger_score_loss = (1 - (normal_trigger_score / normal_pixel_num)).mean()
-
-                value_dict['normal_cls_score_loss'].append(normal_cls_score_loss)
-                value_dict['normal_trigger_score_loss'].append(normal_trigger_score_loss)
-                if 'anormal_cls_score_loss' not in value_dict.keys():
-                    value_dict['anormal_cls_score_loss'] = []
-                value_dict['anormal_cls_score_loss'].append(anormal_cls_score_loss)
-                if 'anormal_trigger_score_loss' not in value_dict.keys():
-                    value_dict['anormal_trigger_score_loss'] = []
-                value_dict['anormal_trigger_score_loss'].append(anormal_trigger_score_loss)
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()     # head, pix_num
+                cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0) # pix_num
+                cls_target, trigger_target = anomal_position, 1-anomal_position
+                cls_score_loss = loss_l2(cls_score ** 2, cls_target)
+                trigger_score_loss = loss_l2(trigger_score ** 2, trigger_target)
+                gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
 
                 # ------------------------------------------------------------------------------------------------------
                 normal_map = trigger_score.mean(dim=0).squeeze()
@@ -342,24 +321,11 @@ def main(args):
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-                anomal_position = anomal_map.repeat(cls_score.shape[0], 1)
-                anomal_pixel_num = anomal_position.sum()
-                normal_pixel_num = pix_num - anomal_pixel_num
-
-                anormal_cls_score = (cls_score * anomal_position).mean(dim=0)  # pix_num
-                anormal_cls_score_loss = (1 - (anormal_cls_score / anomal_pixel_num)).mean()
-                anormal_trigger_score = (trigger_score * anomal_position).mean(dim=0)
-                anormal_trigger_score_loss = (anormal_trigger_score / anomal_pixel_num).mean()
-
-                normal_cls_score = (cls_score * (1 - anomal_position)).mean(dim=0)  # pix_num
-                normal_cls_score_loss = (normal_cls_score / normal_pixel_num).mean()
-                normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
-                normal_trigger_score_loss = (1 - (normal_trigger_score / normal_pixel_num)).mean()
-
-                value_dict['normal_cls_score_loss'].append(normal_cls_score_loss)
-                value_dict['normal_trigger_score_loss'].append(normal_trigger_score_loss)
-                value_dict['anormal_cls_score_loss'].append(anormal_cls_score_loss)
-                value_dict['anormal_trigger_score_loss'].append(anormal_trigger_score_loss)
+                cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
+                cls_target, trigger_target = anomal_position, 1 - anomal_position
+                cls_score_loss = loss_l2(cls_score ** 2, cls_target)
+                trigger_score_loss = loss_l2(trigger_score ** 2, trigger_target)
+                gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
 
                 # [3] map
                 normal_map = trigger_score.mean(dim=0).squeeze()
