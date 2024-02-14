@@ -96,22 +96,25 @@ def create_window(window_size, channel=1):
     return window
 
 def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False, val_range=None):
+
     if val_range is None:
+
         if torch.max(img1) > 128:
             max_val = 255
         else:
             max_val = 1
-
         if torch.min(img1) < -0.5:
             min_val = -1
         else:
             min_val = 0
-        l = max_val - min_val
+        l = max_val - min_val # decide value range
     else:
         l = val_range
 
     padd = window_size//2
+
     (_, channel, height, width) = img1.size()
+
     if window is None:
         real_size = min(window_size, height, width)
         window = create_window(real_size, channel=channel).to(img1.device)
@@ -121,6 +124,7 @@ def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False,
 
     mu1_sq = mu1.pow(2)
     mu2_sq = mu2.pow(2)
+
     mu1_mu2 = mu1 * mu2
 
     sigma1_sq = F.conv2d(img1 * img1, window, padding=padd, groups=channel) - mu1_sq
@@ -135,7 +139,6 @@ def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False,
     cs = torch.mean(v1 / v2)  # contrast sensitivity
 
     ssim_map = ((2 * mu1_mu2 + c1) * v1) / ((mu1_sq + mu2_sq + c1) * v2)
-
     if size_average:
         ret = ssim_map.mean()
     else:
@@ -158,14 +161,18 @@ class SSIM(torch.nn.Module):
         self.window = create_window(window_size).cuda()
 
     def forward(self, img1, img2):
+
         (_, channel, _, _) = img1.size()
 
         if channel == self.channel and self.window.dtype == img1.dtype:
-            window = self.window
+            window = self.window    # if channel == 1, window  = self.window
         else:
             window = create_window(self.window_size, channel).to(img1.device).type(img1.dtype)
             self.window = window
             self.channel = channel
 
-        s_score, ssim_map = ssim(img1, img2, window=window, window_size=self.window_size, size_average=self.size_average)
+        s_score, ssim_map = ssim(img1, img2,
+                                 window=window,
+                                 window_size=self.window_size,
+                                 size_average=self.size_average)
         return 1.0 - s_score
