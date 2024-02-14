@@ -332,7 +332,7 @@ def main(args):
 
             # --------------------------------------------------------------------------------------------------------- #
             # [4.1] total loss
-            normal_dist_loss = gen_mahal_loss(anormal_feat_list, normal_feat_list)
+            normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
             dist_loss += normal_dist_loss.requires_grad_()
             # [4.2] attn loss
             normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss = gen_attn_loss(value_dict)
