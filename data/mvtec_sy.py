@@ -271,10 +271,9 @@ class MVTecDRAEMTrainDataset(Dataset):
 
 
                     # resize anomal_mask_np to 64,64
-                    anomal_mask_torch = torch.tensor(anomal_mask_np)
-
-                    down_sizer = transforms.Resize(size = (self.latent_res, self.latent_res))
-                    anomal_mask_torch = down_sizer(anomal_mask_torch)
+                    anomal_mask_torch = torch.tensor(anomal_mask_np).unsqueeze(0)
+                    down_sizer = transforms.Resize(size = (64,64),antialias=True)
+                    anomal_mask_torch = down_sizer(anomal_mask_torch) # [1,64,64]
 
                     #anomal_mask_pil = Image.fromarray((anomal_mask_np * 255).astype(np.uint8)).resize(
                     #    (self.latent_res, self.latent_res)).convert('L')
@@ -314,7 +313,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                 'merged_src' : self.transform(merged_src), # original image + object
 
                 'augmented_image': self.transform(anomal_img),
-                "anomaly_mask": anomal_mask_torch.unsqueeze(0),   # [1, 64, 64] ################################
+                "anomaly_mask": anomal_mask_torch,   # [1, 64, 64] ################################
 
                 'masked_image': self.transform(hole_img),   # masked image
                 'masked_image_mask': hole_mask_torch.unsqueeze(0),# hold position
