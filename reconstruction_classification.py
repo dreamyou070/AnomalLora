@@ -80,52 +80,24 @@ def main(args):
         os.makedirs(recon_base_folder, exist_ok=True)
         score_save_file = os.path.join(recon_base_folder, f'score_lora_{lora_epoch}.txt')
         contents = []
-
-        lora_base_folder = os.path.join(recon_base_folder, f'lora_epoch_{lora_epoch}')
-        os.makedirs(lora_base_folder, exist_ok=True)
-
-
-
-        check_base_folder = os.path.join(lora_base_folder, f'my_check')
-        os.makedirs(check_base_folder, exist_ok=True)
-        answer_base_folder = os.path.join(lora_base_folder, f'scoring/{args.obj_name}/test')
-        os.makedirs(answer_base_folder, exist_ok=True)
-
         anomal_detecting_state_dict = load_file(network_model_dir)
 
         test_img_folder = args.data_path
         anomal_folders = os.listdir(test_img_folder)
         for anomal_folder in anomal_folders:
-
-            answer_anomal_folder = os.path.join(answer_base_folder, anomal_folder)
-            os.makedirs(answer_anomal_folder, exist_ok=True)
-
-            save_base_folder = os.path.join(check_base_folder, anomal_folder)
-            os.makedirs(save_base_folder, exist_ok=True)
             anomal_folder_dir = os.path.join(test_img_folder, anomal_folder)
             rgb_folder = os.path.join(anomal_folder_dir, 'rgb')
-            gt_folder = os.path.join(anomal_folder_dir, 'gt')
             rgb_imgs = os.listdir(rgb_folder)
             for rgb_img in rgb_imgs:
-                name, ext = os.path.splitext(rgb_img)
                 rgb_img_dir = os.path.join(rgb_folder, rgb_img)
-                org_h, org_w = Image.open(rgb_img_dir).size
-
-                img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
-                Image.open(rgb_img_dir).resize((org_h, org_w)).save(img_dir)
-
-                gt_img_dir = os.path.join(gt_folder, f'{name}.png')
-
                 # --------------------------------- gen cross attn map ---------------------------------------------- #
                 if accelerator.is_main_process:
                     with torch.no_grad():
                         img = load_image(rgb_img_dir, 512, 512)
                         vae_latent = image2latent(img, vae, weight_dtype)
                         input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
-
                         controller = AttentionStore()
                         register_attention_control(unet, controller)
-
                         # [1] anomal detection  --------------------------------------------------------------------- #
                         for k in anomal_detecting_state_dict.keys():
                             raw_state_dict[k] = anomal_detecting_state_dict[k]
@@ -135,8 +107,6 @@ def main(args):
                         unet(vae_latent, 0, encoder_hidden_states,
                              trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
                         attn_dict = controller.step_store
-                        query_dict = controller.query_dict
-
                         image_classification_layer = args.image_classification_layer
                         classification_map = attn_dict[image_classification_layer][0] # head, pix_num
                         import einops

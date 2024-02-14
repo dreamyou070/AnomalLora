@@ -196,8 +196,7 @@ def main(args):
             controller.reset()
 
             if args.image_classification_layer is not None:
-                classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
-                print(f'classification_map shape : {classification_map.shape}')
+                classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [8,8*8]
 
                 if 'mid' in args.image_classification_layer :
                     classification_map = classification_map.mean(dim=0)
