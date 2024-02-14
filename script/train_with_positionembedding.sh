@@ -2,13 +2,13 @@
 
 port_number=53333
 
-obj_name='cable_gland'
-trigger_word='cable_gland'
+obj_name='carrot'
+trigger_word='carrot'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train_with_positionembedding.py \
  --log_with wandb \
- --output_dir "../../result/${obj_name}/up_2_basic_pe_beta_scale_0.8_map_loss_mse_change_attn_loss_code" \
+ --output_dir "../../result/${obj_name}/up_2_map_loss" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' --beta_scale_factor 0.8 \
  --use_position_embedder --d_dim 320 --latent_res 64 \
