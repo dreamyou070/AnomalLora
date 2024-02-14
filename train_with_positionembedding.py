@@ -257,14 +257,14 @@ def main(args):
                 normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
                 normal_trigger_score_loss = (1 - (normal_trigger_score / normal_pixel_num)).mean()
 
-                value_dict['normal_cls_score'].append(normal_cls_score_loss)
-                value_dict['normal_trigger_score'].append(normal_trigger_score_loss)
-                if 'anormal_cls_score' not in value_dict.keys():
-                    value_dict['anormal_cls_score'] = []
-                value_dict['anormal_cls_score'].append(anormal_cls_score_loss)
-                if 'anormal_trigger_score' not in value_dict.keys():
-                    value_dict['anormal_trigger_score'] = []
-                value_dict['anormal_trigger_score'].append(anormal_trigger_score_loss)
+                value_dict['normal_cls_score_loss'].append(normal_cls_score_loss)
+                value_dict['normal_trigger_score_loss'].append(normal_trigger_score_loss)
+                if 'anormal_cls_score_loss' not in value_dict.keys():
+                    value_dict['anormal_cls_score_loss'] = []
+                value_dict['anormal_cls_score_loss'].append(anormal_cls_score_loss)
+                if 'anormal_trigger_score_loss' not in value_dict.keys():
+                    value_dict['anormal_trigger_score_loss'] = []
+                value_dict['anormal_trigger_score_loss'].append(anormal_trigger_score_loss)
 
                 # ------------------------------------------------------------------------------------------------------
                 normal_map = trigger_score.mean(dim=0).squeeze()
@@ -318,10 +318,10 @@ def main(args):
                 normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
                 normal_trigger_score_loss = (1 - (normal_trigger_score / normal_pixel_num)).mean()
 
-                value_dict['normal_cls_score'].append(normal_cls_score_loss)
-                value_dict['normal_trigger_score'].append(normal_trigger_score_loss)
-                value_dict['anormal_cls_score'].append(anormal_cls_score_loss)
-                value_dict['anormal_trigger_score'].append(anormal_trigger_score_loss)
+                value_dict['normal_cls_score_loss'].append(normal_cls_score_loss)
+                value_dict['normal_trigger_score_loss'].append(normal_trigger_score_loss)
+                value_dict['anormal_cls_score_loss'].append(anormal_cls_score_loss)
+                value_dict['anormal_trigger_score_loss'].append(anormal_trigger_score_loss)
 
                 # [3] map
                 normal_map = trigger_score.mean(dim=0).squeeze()
