@@ -196,13 +196,18 @@ def main(args):
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
                 normal_cls_score = cls_score.mean(dim=0)  # pix_num
+
+                total_score = torch.ons_like(normal_cls_score, 1)
+
+                normal_cls_score_loss = (normal_cls_score / total_score).mean()
                 normal_trigger_score = trigger_score.mean(dim=0)
-                if 'normal_cls_score' not in value_dict.keys():
-                    value_dict['normal_cls_score'] = []
-                value_dict['normal_cls_score'].append(normal_cls_score)
-                if 'normal_trigger_score' not in value_dict.keys():
-                    value_dict['normal_trigger_score'] = []
-                value_dict['normal_trigger_score'].append(normal_trigger_score)
+                normal_trigger_score_loss = (1- (normal_trigger_score / total_score)).mean()
+                if 'normal_cls_score_loss' not in value_dict.keys():
+                    value_dict['normal_cls_score_loss'] = []
+                value_dict['normal_cls_score_loss'].append(normal_cls_score_loss)
+                if 'normal_trigger_score_loss' not in value_dict.keys():
+                    value_dict['normal_trigger_score_loss'] = []
+                value_dict['normal_trigger_score_loss'].append(normal_trigger_score_loss)
                 # (3)
                 normal_map = trigger_score.mean(dim=0).squeeze()
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
@@ -238,19 +243,27 @@ def main(args):
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
                 anomal_position = anomal_map.repeat(cls_score.shape[0], 1)
-                anormal_cls_score = (cls_score * anomal_position).mean(dim=0)
-                anormal_trigger_score = (trigger_score * anomal_position).mean(dim=0)
-                normal_cls_score = (cls_score * (1 - anomal_position)).mean(dim=0)  # pix_num
-                normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
+                anomal_pixel_num = anomal_position.sum()
+                normal_pixel_num = pix_num - anomal_pixel_num
 
-                value_dict['normal_cls_score'].append(normal_cls_score)
-                value_dict['normal_trigger_score'].append(normal_trigger_score)
+                anormal_cls_score = (cls_score * anomal_position).mean(dim=0) # pix_num
+                anormal_cls_score_loss = (1 - (anormal_cls_score / anomal_pixel_num)).mean()
+                anormal_trigger_score = (trigger_score * anomal_position).mean(dim=0)
+                anormal_trigger_score_loss = (anormal_trigger_score / anomal_pixel_num).mean()
+
+                normal_cls_score = (cls_score * (1 - anomal_position)).mean(dim=0)  # pix_num
+                normal_cls_score_loss = (normal_cls_score / normal_pixel_num).mean()
+                normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
+                normal_trigger_score_loss = (1 - (normal_trigger_score / normal_pixel_num)).mean()
+
+                value_dict['normal_cls_score'].append(normal_cls_score_loss)
+                value_dict['normal_trigger_score'].append(normal_trigger_score_loss)
                 if 'anormal_cls_score' not in value_dict.keys():
                     value_dict['anormal_cls_score'] = []
-                value_dict['anormal_cls_score'].append(anormal_cls_score)
+                value_dict['anormal_cls_score'].append(anormal_cls_score_loss)
                 if 'anormal_trigger_score' not in value_dict.keys():
                     value_dict['anormal_trigger_score'] = []
-                value_dict['anormal_trigger_score'].append(anormal_trigger_score)
+                value_dict['anormal_trigger_score'].append(anormal_trigger_score_loss)
 
                 # ------------------------------------------------------------------------------------------------------
                 normal_map = trigger_score.mean(dim=0).squeeze()
@@ -284,19 +297,29 @@ def main(args):
                         anormal_feat_list.append(feat.unsqueeze(0))
                     else :
                         normal_feat_list.append(feat.unsqueeze(0))
-                # [2] attn
+
+                # [2] attn score
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-                anormal_position = anomal_position.repeat(cls_score.shape[0], 1)
-                anormal_cls_score = (cls_score * anormal_position).mean(dim=0)
-                anormal_trigger_score = (trigger_score * anormal_position).mean(dim=0)
-                normal_cls_score = (cls_score * (1 - anormal_position)).mean(dim=0)  # pix_num
-                normal_trigger_score = (trigger_score * (1 - anormal_position)).mean(dim=0)
-                value_dict['anormal_cls_score'].append(anormal_cls_score)
-                value_dict['anormal_trigger_score'].append(anormal_trigger_score)
-                value_dict['normal_cls_score'].append(normal_cls_score)
-                value_dict['normal_trigger_score'].append(normal_trigger_score)
+                anomal_position = anomal_map.repeat(cls_score.shape[0], 1)
+                anomal_pixel_num = anomal_position.sum()
+                normal_pixel_num = pix_num - anomal_pixel_num
+
+                anormal_cls_score = (cls_score * anomal_position).mean(dim=0)  # pix_num
+                anormal_cls_score_loss = (1 - (anormal_cls_score / anomal_pixel_num)).mean()
+                anormal_trigger_score = (trigger_score * anomal_position).mean(dim=0)
+                anormal_trigger_score_loss = (anormal_trigger_score / anomal_pixel_num).mean()
+
+                normal_cls_score = (cls_score * (1 - anomal_position)).mean(dim=0)  # pix_num
+                normal_cls_score_loss = (normal_cls_score / normal_pixel_num).mean()
+                normal_trigger_score = (trigger_score * (1 - anomal_position)).mean(dim=0)
+                normal_trigger_score_loss = (1 - (normal_trigger_score / normal_pixel_num)).mean()
+
+                value_dict['normal_cls_score'].append(normal_cls_score_loss)
+                value_dict['normal_trigger_score'].append(normal_trigger_score_loss)
+                value_dict['anormal_cls_score'].append(anormal_cls_score_loss)
+                value_dict['anormal_trigger_score'].append(anormal_trigger_score_loss)
 
                 # [3] map
                 normal_map = trigger_score.mean(dim=0).squeeze()

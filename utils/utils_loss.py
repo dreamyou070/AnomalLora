@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
-
+"""
 def gen_attn_loss(value_dict):
     anormal_cls_score = torch.stack(value_dict['anormal_cls_score'], dim=0).mean(dim=0)
     anormal_trigger_score = torch.stack(value_dict['anormal_trigger_score'], dim=0).mean(dim=0)
@@ -14,6 +14,13 @@ def gen_attn_loss(value_dict):
     normal_trigger_loss = (1 - (normal_trigger_score / total_score)) ** 2
     anormal_cls_loss = (1 - (anormal_cls_score / total_score)) ** 2  # [pix_num]
     anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
+    return normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss
+"""
+def gen_attn_loss(value_dict):
+    anormal_cls_loss = torch.tensor(value_dict['anormal_cls_score_loss']).mean()
+    anormal_trigger_loss = torch.tensor(value_dict['anormal_trigger_score_loss']).mean()
+    normal_cls_loss = torch.tensor(value_dict['normal_cls_score_loss']).mean()
+    normal_trigger_loss = torch.tensor(value_dict['normal_trigger_score_loss']).mean()
     return normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss
 
 class FocalLoss(nn.Module):
@@ -47,7 +54,6 @@ class FocalLoss(nn.Module):
         if self.apply_nonlin is not None:
             logit = self.apply_nonlin(logit)
         num_class = logit.shape[1]
-
         if logit.dim() > 2:
             # N,C,d1,d2 -> N,C,m (m=d1*d2*...)
             logit = logit.view(logit.size(0), logit.size(1), -1)
@@ -86,13 +92,10 @@ class FocalLoss(nn.Module):
                 one_hot_key, self.smooth / (num_class - 1), 1.0 - self.smooth)
         pt = (one_hot_key * logit).sum(1) + self.smooth
         logpt = pt.log()
-
         gamma = self.gamma
-
         alpha = alpha[idx]
         alpha = torch.squeeze(alpha)
         loss = -1 * alpha * torch.pow((1 - pt), gamma) * logpt
-
         if self.size_average:
             loss = loss.mean()
         return loss
