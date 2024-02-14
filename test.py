@@ -1,8 +1,6 @@
 import torch
 from torch import nn
 
-atorch = torch.randn(64)
-a_list = [atorch, atorch, atorch]
-
-b = torch.stack(a_list, dim=0).mean(dim=0)
-print(b.shape)
+classification_map = torch.randn(8, 64*64,1)
+classification_map = torch.max(classification_map, dim=0).values.squeeze()
+print(classification_map.shape)

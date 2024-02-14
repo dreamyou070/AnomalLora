@@ -202,7 +202,7 @@ def main(args):
                     classification_map = classification_map.mean(dim=0)
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
                 else :
-                    classification_map = torch.max(classification_map, dim=0).values
+                    classification_map = torch.max(classification_map, dim=0).values.squeeze()
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
                 anomal_score = torch.min(classification_map)
                 classification_loss += abs(1-anomal_score).requires_grad_(True)
@@ -251,7 +251,7 @@ def main(args):
                     classification_map = classification_map.mean(dim=0)
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
                 else :
-                    classification_map = torch.max(classification_map, dim=0).values
+                    classification_map = torch.max(classification_map, dim=0).values.squeeze()
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
             anomal_score = torch.min(classification_map)
             classification_loss += abs(anomal_score).requires_grad_(True)
@@ -304,7 +304,7 @@ def main(args):
                     classification_map = classification_map.mean(dim=0)
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
                 else :
-                    classification_map = torch.max(classification_map, dim=0).values
+                    classification_map = torch.max(classification_map, dim=0).values.squeeze()
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
                 anomal_score = torch.min(classification_map)
                 classification_loss += abs(anomal_score).requires_grad_(True)
