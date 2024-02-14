@@ -187,10 +187,12 @@ def main(args):
             controller.reset()
 
             classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [64, 1]
-            classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
+            classification_map = einops.rearrange(classification_map, 'h (p w) -> h p w', w=8)
             kernel_size = 7
-            avg_map = torch.nn.functional.avg_pool2d(classification_map,kernel_size=kernel_size,
-                                                     stride=1, padding=kernel_size // 2)
+            avg_map = torch.nn.functional.avg_pool2d(classification_map,
+                                                     kernel_size=kernel_size,
+                                                     stride=1,
+                                                     padding=kernel_size // 2)
             anomal_score = torch.min(avg_map)
             print(f'normal sample anomal_score: {anomal_score}')
             classification_loss += abs(1-anomal_score).requires_grad_(True)
@@ -241,10 +243,12 @@ def main(args):
             controller.reset()
 
             classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [64, 1]
-            classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
+            classification_map = einops.rearrange(classification_map, 'h (p w) -> h p w', w=8)
             kernel_size = 7
-            avg_map = torch.nn.functional.avg_pool2d(classification_map, kernel_size=kernel_size,
-                                                     stride=1, padding=kernel_size // 2)
+            avg_map = torch.nn.functional.avg_pool2d(classification_map,
+                                                     kernel_size=kernel_size,
+                                                     stride=1,
+                                                     padding=kernel_size // 2)
             anomal_score = torch.min(avg_map)
             print(f'anomal src masked sample anomal_score: {anomal_score}')
             classification_loss += abs(anomal_score).requires_grad_(True)
@@ -309,10 +313,12 @@ def main(args):
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [64, 1]
-            classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
+            classification_map = einops.rearrange(classification_map, 'h (p w) -> h p w', w=8)
             kernel_size = 7
-            avg_map = torch.nn.functional.avg_pool2d(classification_map, kernel_size=kernel_size,
-                                                     stride=1, padding=kernel_size // 2)
+            avg_map = torch.nn.functional.avg_pool2d(classification_map,
+                                                     kernel_size=kernel_size,
+                                                     stride=1,
+                                                     padding=kernel_size // 2)
             anomal_score = torch.min(avg_map)
             print(f'background masked sample anomal_score: {anomal_score}')
             classification_loss += abs(anomal_score).requires_grad_(True)

@@ -52,10 +52,6 @@ def passing_argument(args):
 
     down_dim = args.down_dim
     position_embedding_layer = args.position_embedding_layer
-    do_local_self_attn = args.do_local_self_attn
-    only_local_self_attn = args.only_local_self_attn
-    fixed_window_size = args.fixed_window_size
-    do_add_query = args.do_add_query
     argument = args
 
 
@@ -63,8 +59,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, trg_layer_list=None, noise_type=None):
-            print(f'layer_name: {layer_name}')
-
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
@@ -87,40 +81,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 query = query.float()
                 key = key.float()
 
-            if not is_cross_attention and do_local_self_attn :
-
-                if not fixed_window_size :
-                    H = int(hidden_states.shape[1] ** 0.5)
-                    window_size = int(H / 2)
-                else :
-                    window_size = argument.window_size
-
-                local_hidden_states = localize_hidden_states(hidden_states, window_size)
-                window_num = int(local_hidden_states.shape[0] / hidden_states.shape[0])
-
-                local_query = self.to_q(local_hidden_states)
-                local_key = self.to_k(local_hidden_states)
-                local_value = self.to_v(local_hidden_states)
-
-                local_query = self.reshape_heads_to_batch_dim(local_query)
-                local_key = self.reshape_heads_to_batch_dim(local_key)
-                local_value = self.reshape_heads_to_batch_dim(local_value)
-
-                if self.upcast_attention:
-                    local_query = local_query.float()
-                    local_key = local_key.float()
-
-            if do_add_query:
-                if layer_name in argument.add_query_layer_list :
-                    controller.save_query_sub(query, layer_name)
-                if layer_name in trg_layer_list :
-                    query_dict_sub = controller.query_dict_sub
-                    for k in query_dict_sub.keys():
-                        before_query = query_dict_sub[k][0]
-                        query += before_query
-                    controller.query_dict_sub = {}
-
-            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device), query,
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
+                                                         dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
             attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)
             hidden_states = torch.bmm(attention_probs, value)
