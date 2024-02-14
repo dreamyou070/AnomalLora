@@ -2,7 +2,7 @@ import os
 import argparse, torch
 from model.lora import LoRANetwork
 from attention_store import AttentionStore
-from sub.attention_control import register_attention_control
+from utils.attention_control2 import register_attention_control
 from accelerate import Accelerator
 from model.tokenizer import load_tokenizer
 from utils import prepare_dtype
