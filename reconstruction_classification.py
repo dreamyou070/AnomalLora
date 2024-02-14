@@ -14,7 +14,7 @@ from utils.image_utils import load_image, image2latent
 from utils.attention_control import add_attn_argument, passing_argument
 from model.unet import unet_passing_argument
 from model.diffusion_model import load_target_model
-
+import einops
 
 def main(args):
     print(f'\n step 1. accelerator')
@@ -108,15 +108,12 @@ def main(args):
                              trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
                         attn_dict = controller.step_store
                         image_classification_layer = args.image_classification_layer
-                        classification_map = attn_dict[image_classification_layer][0] # head, pix_num
-                        import einops
-                        if 'mid' in args.image_classification_layer:
-                            classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [8,8*8]
-                            classification_map = classification_map.mean(dim=0)
-                            classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
-                        else:
-                            classification_map = torch.max(classification_map, dim=0).values
-                            classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
+                        classification_map_dict = controller.classification_map_dict
+                        controller.reset()
+                        classification_map = classification_map_dict[args.image_classification_layer][
+                            0].squeeze()  # [8,64*64]
+                        classification_map = torch.max(classification_map, dim=0).values.squeeze()
+                        classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
                         anomal_score = torch.min(classification_map)
                         if anomal_score < 0.5:
                             classified = 'normal'
