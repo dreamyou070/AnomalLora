@@ -175,7 +175,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
             result = np.where(result < 0.5, 0, 1)
             # only on object
-            result_thr = result * object_position
+            result_thr = (result * object_position).astype(np.float32)
             result_thr = cv2.GaussianBlur(result_thr, (3,3), 0)
             if np.sum(result_thr) > 0:
                 break
