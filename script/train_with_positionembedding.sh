@@ -2,7 +2,7 @@
 
 port_number=53333
 
-obj_name='carrot'
+obj_name='cable_gland'
 trigger_word='carrot'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
