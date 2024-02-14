@@ -14,12 +14,13 @@ from attention_store import AttentionStore
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 from tqdm import tqdm
-from utils.attention_control import register_attention_control,add_attn_argument, passing_argument
+from sub.attention_control import register_attention_control,add_attn_argument, passing_argument
 from utils import get_epoch_ckpt_name, save_model
 import time
 import json
 from torch import nn
-import einops
+
+
 class BinaryFocalLoss(nn.Module):
     def __init__(self, alpha=0.5, gamma=4, logits=False, reduce=True):
         super(BinaryFocalLoss, self).__init__()

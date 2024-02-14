@@ -1,20 +1,14 @@
-import importlib, argparse, math, sys, random, time, json
-from tqdm import tqdm
+import argparse, random, json
 from accelerate.utils import set_seed
 from diffusers import DDPMScheduler
 import torch
 import os
 from data.mvtec_sy import MVTecDRAEMTrainDataset
 from model.diffusion_model import load_target_model, transform_models_if_DDP
-from model.lora import create_network
-from attention_store import AttentionStore
 from model.tokenizer import load_tokenizer
-from utils import get_epoch_ckpt_name, save_model, prepare_dtype
+from utils import prepare_dtype
 from utils.accelerator_utils import prepare_accelerator
-from utils.attention_control import register_attention_control
-from utils.optimizer_utils import get_optimizer, get_scheduler_fix
-from utils.model_utils import get_hidden_states, get_noise_noisy_latents_and_timesteps, \
-    prepare_scheduler_for_custom_training, get_noise_noisy_latents_one_time
+from utils.model_utils import prepare_scheduler_for_custom_training
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 
@@ -299,7 +293,7 @@ if __name__ == "__main__":
     parser.add_argument("--truncating", action="store_true")
     args = parser.parse_args()
     from model.unet import unet_passing_argument
-    from utils.attention_control import passing_argument
+    from sub.attention_control import passing_argument
     unet_passing_argument(args)
     passing_argument(args)
     args = parser.parse_args()

@@ -4,14 +4,13 @@ from model.diffusion_model import load_SD_model
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
 from attention_store import AttentionStore
-from utils.attention_control import register_attention_control
+from sub.attention_control import register_attention_control
 from accelerate import Accelerator
 from utils import prepare_dtype
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 from utils.model_utils import get_input_ids
 from PIL import Image
-import shutil
 import numpy as np
 """
 org_latent = torch.randn((1,4,64,64))

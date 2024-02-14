@@ -1,4 +1,4 @@
-import importlib, argparse, math, sys, random, time, json
+import argparse, math, random, time, json
 from tqdm import tqdm
 from accelerate.utils import set_seed
 from diffusers import DDPMScheduler
@@ -11,7 +11,7 @@ from attention_store import AttentionStore
 from model.tokenizer import load_tokenizer
 from utils import get_epoch_ckpt_name, save_model, prepare_dtype
 from utils.accelerator_utils import prepare_accelerator
-from utils.attention_control import register_attention_control
+from sub.attention_control import register_attention_control
 from utils.optimizer_utils import get_optimizer, get_scheduler_fix
 from utils.model_utils import get_hidden_states, get_noise_noisy_latents_and_timesteps, \
     prepare_scheduler_for_custom_training
@@ -527,7 +527,7 @@ if __name__ == "__main__":
     parser.add_argument("--noise_type", type=str)
     args = parser.parse_args()
     from model.unet import unet_passing_argument
-    from utils.attention_control import passing_argument
+    from sub.attention_control import passing_argument
 
     unet_passing_argument(args)
     passing_argument(args)

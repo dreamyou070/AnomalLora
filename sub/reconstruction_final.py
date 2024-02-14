@@ -2,18 +2,18 @@ import os
 import argparse, torch
 from model.lora import LoRANetwork
 from attention_store import AttentionStore
-from utils.attention_control import register_attention_control
+from sub.attention_control import register_attention_control
 from accelerate import Accelerator
 from model.tokenizer import load_tokenizer
 from utils import prepare_dtype
-from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 from utils.model_utils import get_input_ids
 from PIL import Image
 from model.lora import LoRAInfModule
 from utils.image_utils import load_image, image2latent
 import numpy as np
-from model.diffusion_model import load_target_model, transform_models_if_DDP
+from model.diffusion_model import load_target_model
+
 
 def main(args) :
 
@@ -329,7 +329,7 @@ if __name__ == '__main__':
         return v
     parser.add_argument("--trg_layer_list", type=arg_as_list)
     parser.add_argument("--more_generalize", action='store_true')
-    from utils.attention_control import add_attn_argument, passing_argument
+    from sub.attention_control import add_attn_argument, passing_argument
     from model.unet import unet_passing_argument
     parser.add_argument("--unet_inchannels", type=int, default=4)
     parser.add_argument("--back_token_separating", action = 'store_true')

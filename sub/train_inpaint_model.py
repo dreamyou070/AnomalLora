@@ -1,28 +1,18 @@
 import os
 import argparse, torch
-from model.unet import UNet2DConditionModel
 from model.diffusion_model import load_SD_model
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
-from diffusers import StableDiffusionInpaintPipeline
 from utils.inpaint_pipeline import AnomalyDetectionStableDiffusionPipeline_inpaint
-from model.segmentation_model import SegmentationSubNetwork
 from data.mvtec_sy import MVTecDRAEMTrainDataset
 from diffusers.optimization import SchedulerType, TYPE_TO_SCHEDULER_FUNCTION
 from diffusers import DDPMScheduler
-from accelerate import Accelerator
 from utils import prepare_dtype
-from utils.model_utils import get_noise_noisy_latents_and_timesteps
 from attention_store import AttentionStore
-from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
-from tqdm import tqdm
-from utils.attention_control import register_attention_control
-from utils import get_epoch_ckpt_name, save_model
-import time
+from sub.attention_control import register_attention_control
 import json
 from torch import nn
-import einops
 import torch.nn.functional as F
 class BinaryFocalLoss(nn.Module):
     def __init__(self, alpha=0.5, gamma=4, logits=False, reduce=True):

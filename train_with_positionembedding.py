@@ -500,6 +500,7 @@ if __name__ == "__main__":
     parser.add_argument("--d_dim", default=320, type=int)
     parser.add_argument("--beta_scale_factor", type=float, default=0.4)
     parser.add_argument("--do_map_loss", action='store_true')
+    parser.add_argument("--image_classification_layer", type=str, )
     # ---------------------------------------------------------------------------------------------------------------- #
     parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
                                                                                "euler_a", "heun", "dpm_2", "dpm_2_a",

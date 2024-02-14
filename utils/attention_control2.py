@@ -63,6 +63,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, trg_layer_list=None, noise_type=None):
+            print(f'layer_name: {layer_name}')
 
             is_cross_attention = False
             if context is not None:

@@ -2,7 +2,7 @@ import os
 import argparse, torch
 from model.lora import LoRANetwork
 from attention_store import AttentionStore
-from utils.attention_control import register_attention_control
+from sub.attention_control import register_attention_control
 from accelerate import Accelerator
 from model.tokenizer import load_tokenizer
 from utils import prepare_dtype
@@ -228,7 +228,7 @@ if __name__ == '__main__':
     parser.add_argument("--latent_res", type=int, default=64)
     parser.add_argument("--trg_layer_list", type=arg_as_list)
     parser.add_argument("--more_generalize", action='store_true')
-    from utils.attention_control import add_attn_argument, passing_argument
+    from sub.attention_control import add_attn_argument, passing_argument
     from model.unet import unet_passing_argument
 
     parser.add_argument("--unet_inchannels", type=int, default=4)

@@ -92,8 +92,6 @@ def main(args) :
                               beta_start=args.scheduler_linear_start,
                               beta_end=args.scheduler_linear_end,
                               beta_schedule=args.scheduler_schedule)
-    from attention_store import AttentionStore
-    from utils.attention_control import register_attention_control
 
     pipeline = AnomalyDetectionStableDiffusionPipeline(vae=vae,
                                                        text_encoder=text_encoder,
@@ -179,7 +177,7 @@ if __name__ == '__main__':
     parser.add_argument("--prompt_list", type=arg_as_list,)
     args = parser.parse_args()
     from model.unet import unet_passing_argument
-    from utils.attention_control import passing_argument
+    from sub.attention_control import passing_argument
     unet_passing_argument(args)
     passing_argument(args)
     main(args)

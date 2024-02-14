@@ -3,16 +3,10 @@ import argparse, torch
 from model.diffusion_model import load_SD_model
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
-from attention_store import AttentionStore
-from utils.attention_control import register_attention_control
 from accelerate import Accelerator
 from utils import prepare_dtype
-from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
-from utils.model_utils import get_input_ids
-from PIL import Image
-import shutil
-import numpy as np
+
 
 def main(args) :
 
@@ -41,7 +35,6 @@ def main(args) :
     models = os.listdir(args.network_folder)
 
     from model.lora import LoRAInfModule
-    from utils.image_utils import load_image, image2latent
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha,
                           module_class=LoRAInfModule)
     network.apply_to(text_encoder, unet, True, True)
@@ -70,7 +63,6 @@ def main(args) :
                 network.to(accelerator.device, dtype=weight_dtype)
                 # -------------------------------------------------- #
                 from diffusers import StableDiffusionInpaintPipeline
-                from utils.inpaint_pipeline import AnomalyDetectionStableDiffusionPipeline_inpaint
 
                 pipeline = StableDiffusionInpaintPipeline(vae=vae,text_encoder=text_encoder,tokenizer=tokenizer,
                                                           unet=unet,scheduler=scheduler,safety_checker=None,
@@ -139,7 +131,7 @@ if __name__ == '__main__':
         return v
     parser.add_argument("--trg_layer_list", type=arg_as_list)
     parser.add_argument("--more_generalize", action='store_true')
-    from utils.attention_control import add_attn_argument, passing_argument
+    from sub.attention_control import add_attn_argument, passing_argument
     from model.unet import unet_passing_argument
     parser.add_argument("--unet_inchannels", type=int, default=4)
     add_attn_argument(parser)

@@ -3,16 +3,11 @@ import argparse, torch
 from model.diffusion_model import load_SD_model
 from model.tokenizer import load_tokenizer
 from model.lora import LoRANetwork
-from attention_store import AttentionStore
-from utils.attention_control import register_attention_control
 from accelerate import Accelerator
 from utils import prepare_dtype
 from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
-from utils.model_utils import get_input_ids
-from PIL import Image
-import shutil
-import numpy as np
+
 
 def main(args) :
 
@@ -41,7 +36,6 @@ def main(args) :
     models = os.listdir(args.network_folder)
 
     from model.lora import LoRAInfModule
-    from utils.image_utils import load_image, image2latent
     network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha,
                           module_class=LoRAInfModule)
     network.apply_to(text_encoder, unet, True, True)
@@ -137,7 +131,7 @@ if __name__ == '__main__':
     parser.add_argument("--down_dim", type=int)
     args = parser.parse_args()
     from model.unet import unet_passing_argument
-    from utils.attention_control import passing_argument
+    from sub.attention_control import passing_argument
 
     unet_passing_argument(args)
     passing_argument(args)

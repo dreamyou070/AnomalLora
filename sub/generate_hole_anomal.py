@@ -1,18 +1,15 @@
-import importlib, argparse, math, sys, random, time, json
-from tqdm import tqdm
+import argparse, random
 from accelerate.utils import set_seed
 from PIL import Image
 import torch
 import os
-from data.mvtec_sy import MVTecDRAEMTrainDataset
 from model.tokenizer import load_tokenizer
 from model.unet import unet_passing_argument
-from utils.attention_control import passing_argument
+from sub.attention_control import passing_argument
 import numpy as np
 import cv2
 import skimage
 from data.perlin import rand_perlin_2d_np
-from numpy.random import default_rng
 
 perlin_max_scale = 8
 kernel_size = 5
