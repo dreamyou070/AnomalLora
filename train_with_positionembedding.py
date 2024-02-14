@@ -284,9 +284,9 @@ def main(args):
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder)
             anomal_map = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
-            anomal_position = torch.where(anomal_position > 0, 1, anomal_position).to(accelerator.device)
-
-
+            anomal_position = torch.where(anomal_position > 0, 1, 0).to(accelerator.device)
+            # if 0.5 -> anomal
+            # normal
 
 
 
@@ -352,7 +352,7 @@ def main(args):
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             anomal_map = batch['anomaly_mask'].squeeze().flatten().squeeze()  # [64*64]
-            anomal_position = torch.where(anomal_position > 0, 1, anomal_position).to(accelerator.device)
+            anomal_position = torch.where(anomal_position > 0, 1, 0).to(accelerator.device)
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 pix_num = query.shape[0]
