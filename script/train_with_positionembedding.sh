@@ -1,10 +1,10 @@
 # !/bin/bash
 
 # --do_classification --image_classification_layer "up_blocks_3_attentions_2_transformer_blocks_0_attn2"
-port_number=51533
+port_number=51544
 
-obj_name='carrot'
-trigger_word='carrot'
+obj_name='cookie'
+trigger_word='cookie'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_config \
  --main_process_port $port_number ../train_with_positionembedding.py \
