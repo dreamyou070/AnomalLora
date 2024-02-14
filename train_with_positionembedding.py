@@ -221,15 +221,16 @@ def main(args):
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()     # head, pix_num
+
                 cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0) # pix_num
+
                 cls_target, trigger_target = torch.zeros_like(cls_score), torch.ones_like(trigger_score)
                 cls_score_loss = loss_l2(cls_score ** 2, cls_target)
                 trigger_score_loss = loss_l2(trigger_score ** 2 , trigger_target)
                 value_dict = gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
 
                 # (3)
-                normal_map = trigger_score.mean(dim=0).squeeze()
-                normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = torch.ones_like(normal_map)  # [64,64]
                 l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                 map_loss += l2_loss
@@ -282,8 +283,7 @@ def main(args):
                 gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
 
                 # ------------------------------------------------------------------------------------------------------
-                normal_map = trigger_score.mean(dim=0).squeeze()
-                normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = (1-anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                 map_loss += l2_loss #+ segment_loss
@@ -339,8 +339,7 @@ def main(args):
                 gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
 
                 # [3] map
-                normal_map = trigger_score.mean(dim=0).squeeze()
-                normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                 map_loss += l2_loss  # + segment_loss
