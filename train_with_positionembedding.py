@@ -53,6 +53,9 @@ def main(args):
     tokenizer = load_tokenizer(args)
     root_dir = os.path.join(args.data_path, f'{args.obj_name}/train/good/rgb')
     args.anomaly_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}")
+    if args.use_small_anomal :
+        args.anomaly_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}2")
+
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
@@ -518,6 +521,7 @@ if __name__ == "__main__":
     parser.add_argument("--do_map_loss", action='store_true')
     parser.add_argument("--do_classification", action='store_true')
     parser.add_argument("--image_classification_layer", type=str, )
+    parser.add_argument("--use_small_anomal", action='store_true')
     # ---------------------------------------------------------------------------------------------------------------- #
     parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
                                                                                "euler_a", "heun", "dpm_2", "dpm_2_a",
