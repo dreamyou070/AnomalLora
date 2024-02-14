@@ -270,7 +270,7 @@ def main(args):
 
                 trigger_score = trigger_score.mean(dim=0)
                 normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
-                normal_map = normal_map.unsqueeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = torch.ones_like(normal_map)  # [64,64]
 
                 l2_loss = loss_l2(normal_map, trg_normal_map)
@@ -329,7 +329,7 @@ def main(args):
                 # ------------------------------------------------------------------------------------------------------
                 trigger_score = trigger_score.mean(dim=0)
                 normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
-                normal_map = normal_map.unsqueeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = (1-anomal_position).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 l2_loss = loss_l2(normal_map, trg_normal_map)
                 segment_loss = loss_focal(normal_map, trg_normal_map)
@@ -380,7 +380,7 @@ def main(args):
 
                 trigger_score = trigger_score.mean(dim=0)
                 normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
-                normal_map = normal_map.unsqueeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = (1 - anomal_position).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 l2_loss = loss_l2(normal_map, trg_normal_map)
                 segment_loss = loss_focal(normal_map, trg_normal_map)
