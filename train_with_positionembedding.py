@@ -197,7 +197,7 @@ def main(args):
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
                 normal_cls_score = cls_score.mean(dim=0)  # pix_num
 
-                total_score = torch.ons_like(normal_cls_score, 1)
+                total_score = torch.ones_like(normal_cls_score, 1)
 
                 normal_cls_score_loss = (normal_cls_score / total_score).mean()
                 normal_trigger_score = trigger_score.mean(dim=0)
