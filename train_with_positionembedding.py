@@ -387,8 +387,7 @@ def main(args):
                 #segment_loss = loss_focal(normal_map, trg_normal_map)
                 map_loss += l2_loss #+ segment_loss
 
-            map_loss = map_loss.mean()
-            print(f'map_loss: {map_loss}')
+            map_loss = map_loss.mean().to(weight_dtype)
 
             # [4.1] total loss
             normal_dist_loss = gen_mahal_loss(anormal_feat_list, normal_feat_list)
