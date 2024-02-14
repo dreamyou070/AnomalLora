@@ -149,7 +149,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             threshold = 0.5
             #perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
             # 0 and more than 0.5
-            perlin_thr = np.where(perlin_noise > threshold, perlin_noise, 0)
+            perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
             # only on object
             perlin_thr = perlin_thr * object_position
             # smoothing
