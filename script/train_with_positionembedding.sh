@@ -4,7 +4,7 @@ obj_name='cable_gland'
 trigger_word='cable'
 # --do_local_self_attn --only_local_self_attn --fixed_window_size --window_size 8
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train_with_positionembedding.py \
  --log_with wandb --wandb_api_key 3a3bc2f629692fa154b9274a5bbe5881d47245dc \
  --output_dir "../../result/${obj_name}/up_2_pe_beta_scale_0.8_normal_map_loss" \
