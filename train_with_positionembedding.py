@@ -332,7 +332,8 @@ def main(args):
                 trigger_score = trigger_score.mean(dim=0)
                 normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-
+                if args.strict_learning :
+                    anomal_map = torch.where(anomal_map > 0, 1, 0).squeeze()
                 trg_normal_map = (1-anomal_map).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                 #segment_loss = loss_focal(normal_map, trg_normal_map)
@@ -384,7 +385,8 @@ def main(args):
                 trigger_score = trigger_score.mean(dim=0)
                 normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-
+                if args.strict_learning :
+                    anomal_map = torch.where(anomal_map > 0, 1, 0).squeeze()
                 trg_normal_map = (1 - anomal_map).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                 # segment_loss = loss_focal(normal_map, trg_normal_map)
@@ -598,6 +600,7 @@ if __name__ == "__main__":
     parser.add_argument("--fixed_window_size", action='store_true')
     parser.add_argument("--do_add_query", action='store_true')
     parser.add_argument("--do_map_loss", action='store_true')
+    parser.add_argument("--strict_learning", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
