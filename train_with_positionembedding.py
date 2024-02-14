@@ -222,7 +222,7 @@ def main(args):
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()     # head, pix_num
                 cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0) # pix_num
-                cls_target, trigger_target = torch.zeros_like(cls_score), torch.zeros_ones(trigger_score)
+                cls_target, trigger_target = torch.zeros_like(cls_score), torch.ones_like(trigger_score)
                 cls_score_loss = loss_l2(cls_score ** 2, cls_target)
                 trigger_score_loss = loss_l2(trigger_score ** 2 , trigger_target)
                 value_dict = gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
