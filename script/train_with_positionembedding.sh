@@ -16,5 +16,7 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --trigger_word "${trigger_word}" --obj_name "${obj_name}" --train_unet --train_text_encoder \
  --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']" \
  --start_epoch 0 --max_train_epochs 300 --anomal_only_on_object --unet_inchannels 4 --min_timestep 0 --max_timestep 1000 \
- --do_dist_loss --dist_loss_weight 1.0 --do_attn_loss --attn_loss_weight 1.0 --do_cls_train --normal_weight 1 \
- --do_map_loss --image_classification_layer "mid_block" \
+ --do_dist_loss --dist_loss_weight 1.0 \
+ --do_attn_loss --attn_loss_weight 1.0 --do_cls_train --normal_weight 1 \
+ --do_map_loss \
+ --do_classification --image_classification_layer "mid_block_attentions_0_transformer_blocks_0_attn2" \

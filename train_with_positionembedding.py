@@ -21,6 +21,7 @@ from utils import arg_as_list
 from utils.utils_mahalanobis import gen_mahal_loss
 from utils.model_utils import pe_model_save
 from utils.utils_loss import gen_attn_loss, FocalLoss
+import einops
 
 def main(args):
 
@@ -165,7 +166,7 @@ def main(args):
         for step, batch in enumerate(train_dataloader):
 
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
-            dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0
+            classification_loss, dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0, 0.0
             normal_feat_list, anormal_feat_list = [], []
             value_dict = {}
             loss_dict = {}
@@ -184,6 +185,16 @@ def main(args):
                                                                                            noise_type=position_embedder)
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
+
+            classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [64, 1]
+            classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
+            kernel_size = 7
+            avg_map = torch.nn.functional.avg_pool2d(classification_map,kernel_size=kernel_size,
+                                                     stride=1, padding=kernel_size // 2)
+            anomal_score = torch.min(avg_map)
+            print(f'normal sample anomal_score: {anomal_score}')
+            classification_loss += abs(1-anomal_score).requires_grad_(True)
+
             for trg_layer in args.trg_layer_list:
                 # (1)
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
@@ -228,6 +239,16 @@ def main(args):
             anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0) # [1, 64*64]
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
+
+            classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [64, 1]
+            classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
+            kernel_size = 7
+            avg_map = torch.nn.functional.avg_pool2d(classification_map, kernel_size=kernel_size,
+                                                     stride=1, padding=kernel_size // 2)
+            anomal_score = torch.min(avg_map)
+            print(f'anomal src masked sample anomal_score: {anomal_score}')
+            classification_loss += abs(anomal_score).requires_grad_(True)
+
             for trg_layer in args.trg_layer_list:
                 # [1] feat
                 anomal_position = anomal_map.squeeze(0)
@@ -287,6 +308,14 @@ def main(args):
             anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0)  # [1, 64*64]
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
+            classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [64, 1]
+            classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
+            kernel_size = 7
+            avg_map = torch.nn.functional.avg_pool2d(classification_map, kernel_size=kernel_size,
+                                                     stride=1, padding=kernel_size // 2)
+            anomal_score = torch.min(avg_map)
+            print(f'background masked sample anomal_score: {anomal_score}')
+            classification_loss += abs(anomal_score).requires_grad_(True)
             for trg_layer in args.trg_layer_list:
                 anomal_position = anomal_map.squeeze(0)
                 # [1] feat
@@ -331,6 +360,8 @@ def main(args):
                 map_loss += l2_loss  # + segment_loss
 
             # --------------------------------------------------------------------------------------------------------- #
+            # [4.0] classification loss
+            print(f' classification_loss : {classification_loss}')
             # [4.1] total loss
             normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
             dist_loss += normal_dist_loss.requires_grad_()
@@ -342,6 +373,9 @@ def main(args):
             # [4.3] map loss
             map_loss = map_loss.mean().to(weight_dtype)
             # [5] backprop
+            if args.do_classification :
+                loss = classification_loss
+                loss_dict['classification_loss'] = classification_loss.item()
             if args.do_dist_loss:
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
@@ -500,6 +534,7 @@ if __name__ == "__main__":
     parser.add_argument("--d_dim", default=320, type=int)
     parser.add_argument("--beta_scale_factor", type=float, default=0.4)
     parser.add_argument("--do_map_loss", action='store_true')
+    parser.add_argument("--do_classification", action='store_true')
     parser.add_argument("--image_classification_layer", type=str, )
     # ---------------------------------------------------------------------------------------------------------------- #
     parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
