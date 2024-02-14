@@ -97,20 +97,20 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.tokenizer = tokenizer
         self.transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5]),])
         self.use_perlin = use_perlin
-        self.num_repeat = num_repeat
-
+        self.augmenters = [iaa.Affine(rotate=(0, 0)),
+                           iaa.Affine(rotate=(180, 180)),
+                           iaa.Affine(rotate=(90, 90)),
+                           iaa.Affine(rotate=(270, 270))]
+        num_repeat = len(self.augmenters)
         image_paths = sorted(glob.glob(root_dir + "/*.png"))
         self.image_paths = [image_path for image_path in image_paths for i in range(num_repeat)]
-        random.shuffle(self.image_paths)
         self.anomal_only_on_object = anomal_only_on_object
         self.anomal_training = anomal_training
         self.latent_res = latent_res
         self.perlin_max_scale = perlin_max_scale
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
-        self.augmenters = [iaa.Affine(rotate=(180, 180)),
-                           iaa.Affine(rotate=(90, 90)),
-                           iaa.Affine(rotate=(270, 270))]
+
 
     def __len__(self):
         if len(self.anomaly_source_paths) > 0 :
@@ -124,8 +124,8 @@ class MVTecDRAEMTrainDataset(Dataset):
         np_img = np.array(((torch_img + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
         pil = Image.fromarray(np_img)
 
-    def randAugmenter(self):
-        aug_ind = np.random.choice(np.arange(len(self.augmenters)), 1, replace=False)
+    def randAugmenter(self, idx):
+        aug_ind = idx % len(self.augmenters)
         aug = self.augmenters[aug_ind[0]]
         return aug
 
@@ -217,7 +217,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
     def __getitem__(self, idx):
 
-        aug = self.randAugmenter()
+        aug = self.randAugmenter(idx)
 
         # [1] base
         img_idx = idx % len(self.image_paths)
