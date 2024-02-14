@@ -51,7 +51,12 @@ def main(args):
         pil_object_mask = Image.fromarray((np_object_mask * 255).astype(np.uint8))
         pil_object_mask.save(os.path.join(check_base_dir, f'{image_name}_object_mask.png'))
 
+        merged_src = sample['merged_src'].squeeze()
+        np_merged_src = np.array(((merged_src + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
+        pil_merged_src = Image.fromarray(np_merged_src)
+        pil_merged_src.save(os.path.join(check_base_dir, f'{image_name}_merged_src.png'))
 
+        """
         augmented_image = sample['augmented_image'].squeeze()
         np_augmented_image = np.array(((augmented_image + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
         pil_augmented_image = Image.fromarray(np_augmented_image)
@@ -72,7 +77,7 @@ def main(args):
         pil_masked_image_mask = (np_masked_image_mask * 255).astype(np.uint8)
         pil_masked_image_mask = Image.fromarray(pil_masked_image_mask)
         pil_masked_image_mask.save(os.path.join(check_base_dir, f'{image_name}_masked_image_mask.png'))
-        """
+        
         self_aug_img = sample['self_augmented_image'].squeeze()
         np_self_aug_img = np.array(((self_aug_img + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
         pil_self_aug_img = Image.fromarray(np_self_aug_img)

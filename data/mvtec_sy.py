@@ -146,15 +146,15 @@ class MVTecDRAEMTrainDataset(Dataset):
         perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
         perlin_noise = rand_perlin_2d_np((self.resize_shape[0], self.resize_shape[1]), (perlin_scalex, perlin_scaley))
         threshold = 0.5
-        print(f'max perlin noise : {np.max(perlin_noise)}')
         #perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
+        # 0 and more than 0.5
         perlin_thr = np.where(perlin_noise > threshold, perlin_noise, 0)
         perlin_thr = np.expand_dims(perlin_thr, axis=2)  # [512,512,3]
 
         # [3] only 1 = img
         # [4] beta
         beta = torch.rand(1).numpy()[0] * beta_scale_factor
-        A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32)
+        A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32) # merged
 
         # image and A
         # perlin = 0 --> only image
@@ -261,8 +261,10 @@ class MVTecDRAEMTrainDataset(Dataset):
                     anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0], self.resize_shape[1])
 
                     # anomal_img = original image + augment original image
-                    merged_src, anomal_mask_np = self.augment_image(img, anomaly_source_img,
+                    merged_src, anomal_mask_np = self.augment_image(img,
+                                                                    anomaly_source_img,
                                                                     beta_scale_factor=self.beta_scale_factor)
+
 
                     anomal_mask_np = anomal_mask_np * object_mask_np_aug # [512,512], 0 = background, object anomal not 0
 
@@ -304,6 +306,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         return {'image': self.transform(img),               # original image
                 "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]
+                'merged_src' : self.transform(merged_src), # original image + object
 
                 'augmented_image': self.transform(anomal_img),
                 "anomaly_mask": anomal_mask_torch.unsqueeze(0),   # [1, 64, 64] ################################
