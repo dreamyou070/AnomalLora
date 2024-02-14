@@ -160,13 +160,10 @@ class MVTecDRAEMTrainDataset(Dataset):
         beta = torch.rand(1).numpy()[0] * beta_scale_factor
         A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32) # merged
         augmented_image = (image * (1 - perlin_thr) + A * perlin_thr).astype(np.float32)
-
         mask = (perlin_thr).astype(np.float32) # [512,512,3]
         mask = np.squeeze(mask, axis=2)        # [512,512
         return augmented_image, mask # [512,512,3], [512,512]
-
     def gaussian_augment_image(self, image, back_img, object_position):
-
         # [2] perlin noise
         while True:
             end_num = self.resize_shape[0]
@@ -178,7 +175,8 @@ class MVTecDRAEMTrainDataset(Dataset):
             result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
             result = np.where(result < 0.5, 0, 1)
             # only on object
-            result_thr = cv2.GaussianBlur((result * object_position), (3,3), 0)
+            result_thr = result * object_position
+            result_thr = cv2.GaussianBlur(result_thr, (3,3), 0)
             if np.sum(result_thr) > 0:
                 break
         result_thr = np.expand_dims(result_thr, axis=2)  # [512,512,3]
@@ -300,8 +298,10 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         return {'image': self.transform(img),               # original image
                 "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]
+
                 'augmented_image': self.transform(anomal_img),
                 "anomaly_mask": anomal_mask_torch,   # [1, 64, 64] ################################
+
                 'masked_image': self.transform(back_anomal_img),   # masked image
                 'masked_image_mask': back_anomal_mask_torch,# hold position
                 #'self_augmented_image': self.transform(self_aug_img), # self augmented image

@@ -285,6 +285,13 @@ def main(args):
                  noise_type=position_embedder)
             anomal_map = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
             anomal_position = torch.where(anomal_position > 0, 1, anomal_position).to(accelerator.device)
+
+
+
+
+
+
+
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
