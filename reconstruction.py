@@ -243,6 +243,7 @@ if __name__ == '__main__':
     parser.add_argument("--fixed_window_size", action='store_true')
     parser.add_argument("--window_size", default=8, type=int)
     parser.add_argument("--only_local_self_attn", action='store_true')
+    parser.add_argument("--image_classification_layer", type=str)
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
