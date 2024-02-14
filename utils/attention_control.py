@@ -90,7 +90,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 trg_map = attention_probs[:, :, :2]
                 controller.store(trg_map, layer_name)
             if layer_name == argument.image_classification_layer :
-                controller.store(attention_probs[:, :, 1], layer_name)
+                controller.store_classifocation_map(attention_probs[:, :, 1], layer_name)
             return hidden_states
 
         return forward

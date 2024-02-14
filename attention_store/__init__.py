@@ -21,6 +21,7 @@ class AttentionStore :
         self.normal_score_list = []
         self.map_dict = {}
         self.query_dict_sub = {}
+        self.classifocation_map_dict = {}
     def get_empty_store(self):
         return {}
 
@@ -44,6 +45,13 @@ class AttentionStore :
             self.key_dict[layer_name].append(key)
         else:
             self.key_dict[layer_name].append(key)
+
+    def store_classifocation_map(self, map, layer_name):
+        if layer_name not in self.classifocation_map.keys():
+            self.classifocation_map_dict[layer_name] = []
+            self.classifocation_map_dict[layer_name].append(map)
+        else:
+            self.classifocation_map_dict[layer_name].append(map)
 
 
     def store_normal_score(self, score):
@@ -117,3 +125,4 @@ class AttentionStore :
         self.normal_score_list = []
         self.map_dict = {}
         self.query_dict_sub = {}
+        self.classifocation_map_dict = {}

@@ -193,12 +193,11 @@ def main(args):
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                                                                                            noise_type=position_embedder)
             query_dict, attn_dict = controller.query_dict, controller.step_store
+            classification_map_dict = controller.classification_map_dict
             controller.reset()
 
             if args.image_classification_layer is not None:
-                classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
-                print(f'classification_map shape : {classification_map.shape}')
-
+                classification_map = classification_map_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
                 if 'mid' in args.image_classification_layer :
                     classification_map = classification_map.mean(dim=0)
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
@@ -247,7 +246,7 @@ def main(args):
             controller.reset()
 
             if args.image_classification_layer is not None:
-                classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [8,8*8]
+                classification_map = classification_map_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
                 if 'mid' in args.image_classification_layer :
                     classification_map = classification_map.mean(dim=0)
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
@@ -300,7 +299,7 @@ def main(args):
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             if args.image_classification_layer is not None:
-                classification_map = attn_dict[args.image_classification_layer][0].squeeze()  # [8,8*8]
+                classification_map = classification_map_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
                 if 'mid' in args.image_classification_layer :
                     classification_map = classification_map.mean(dim=0)
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
