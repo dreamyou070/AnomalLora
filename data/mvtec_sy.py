@@ -165,7 +165,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         #mask = np.squeeze(mask, axis=2)        # binarized
 
         #return augmented_image, mask
-        return augmented_image, perlin_thr
+        return augmented_image, np.squeeze(perlin_thr, axis=2)        # binarized
 
 
 
@@ -258,7 +258,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                                                            self.resize_shape[0], self.resize_shape[1], type='L') )
                 object_mask_np_aug = np.where((np.array(object_img_aug)) == 0, 0, 1)             # [512,512]
                 while True:
-                    anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0], self.resize_shape[1])
+                    anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx],
+                                                         self.resize_shape[0], self.resize_shape[1])
 
                     # anomal_img = original image + augment original image
                     merged_src, anomal_mask_np = self.augment_image(img,
