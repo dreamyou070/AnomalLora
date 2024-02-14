@@ -230,6 +230,7 @@ def main(args):
             controller.reset()
             for trg_layer in args.trg_layer_list:
                 # [1] feat
+                anomal_position = anomal_map.squeeze(0)
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 for pix_idx in range(query.shape[0]):
                     feat = query[pix_idx].squeeze(0)
@@ -287,6 +288,7 @@ def main(args):
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
+                anomal_position = anomal_map.squeeze(0)
                 # [1] feat
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 pix_num = query.shape[0]
