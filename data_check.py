@@ -51,11 +51,15 @@ def main(args):
         pil_object_mask = Image.fromarray((np_object_mask * 255).astype(np.uint8))
         pil_object_mask.save(os.path.join(check_base_dir, f'{image_name}_object_mask.png'))
 
-        merged_src = sample['merged_src'].squeeze()
+        merged_src = sample['augmented_image'].squeeze()
         np_merged_src = np.array(((merged_src + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
         pil_merged_src = Image.fromarray(np_merged_src)
         pil_merged_src.save(os.path.join(check_base_dir, f'{image_name}_merged_src.png'))
-
+        anomaly_mask = sample['anomaly_mask']
+        np_anomaly_mask = anomaly_mask.squeeze().numpy()
+        pil_anomaly_mask = (np_anomaly_mask * 255).astype(np.uint8)
+        pil_anomaly_mask = Image.fromarray(pil_anomaly_mask)
+        pil_anomaly_mask.save(os.path.join(check_base_dir, f'{image_name}_anomaly_mask.png'))
         """
         augmented_image = sample['augmented_image'].squeeze()
         np_augmented_image = np.array(((augmented_image + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
