@@ -225,8 +225,8 @@ def main(args):
                 cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0) # pix_num
 
                 cls_target, trigger_target = torch.zeros_like(cls_score), torch.ones_like(trigger_score)
-                cls_score_loss = loss_l2(cls_score ** 2, cls_target)
-                trigger_score_loss = loss_l2(trigger_score ** 2 , trigger_target)
+                cls_score_loss = loss_l2((cls_score ** 2).float, cls_target.float())
+                trigger_score_loss = loss_l2((trigger_score ** 2).float() , trigger_target.float())
                 value_dict = gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
 
                 # (3)
@@ -278,8 +278,8 @@ def main(args):
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()     # head, pix_num
                 cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0) # pix_num
                 cls_target, trigger_target = anomal_position, 1-anomal_position
-                cls_score_loss = loss_l2(cls_score ** 2, cls_target)
-                trigger_score_loss = loss_l2(trigger_score ** 2, trigger_target)
+                cls_score_loss = loss_l2((cls_score ** 2).float, cls_target.float())
+                trigger_score_loss = loss_l2((trigger_score ** 2).float(), trigger_target.float())
                 gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
 
                 # ------------------------------------------------------------------------------------------------------
@@ -336,8 +336,8 @@ def main(args):
                     cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
                     cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
                     cls_target, trigger_target = anomal_position, 1 - anomal_position
-                    cls_score_loss = loss_l2(cls_score ** 2, cls_target)
-                    trigger_score_loss = loss_l2(trigger_score ** 2, trigger_target)
+                    cls_score_loss = loss_l2((cls_score ** 2).float, cls_target.float())
+                    trigger_score_loss = loss_l2((trigger_score ** 2).float(), trigger_target.float())
                     gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
 
                     # [3] map
