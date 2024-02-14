@@ -3,6 +3,7 @@ from data.perlin import rand_perlin_2d_np
 import torch
 from attention_store import AttentionStore
 import argparse
+import einops
 
 def mahal(u, v, cov):
     delta = u - v
@@ -20,79 +21,78 @@ def make_perlin_noise(shape_row, shape_column):
     perlin_noise = rand_perlin_2d_np((shape_row, shape_column), (perlin_scalex, perlin_scaley))
     return perlin_noise
 
-def passing_argument(args):
-    global down_dim
-    global position_embedding_layer
-    global do_concat
 
-    down_dim = args.down_dim
-    position_embedding_layer = args.position_embedding_layer
-    do_concat = args.do_concat
+
 
 def add_attn_argument(parser: argparse.ArgumentParser) :
     parser.add_argument("--down_dim", type=int, default=160)
+
+
+def window_partition(x, window_size):
+    B, H, W, C = x.shape
+    x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
+    windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
+    return windows
+
+def localize_hidden_states(hidden_states, window_size):
+    b, p, d = hidden_states.shape
+    res = int(p ** 0.5)
+    hidden_states = hidden_states.view(b, res, res, d)
+    local_hidden_states = window_partition(hidden_states, window_size).view(-1, window_size * window_size, d)
+    return local_hidden_states
+
+def passing_argument(args):
+    global down_dim
+    global do_local_self_attn
+    global only_local_self_attn
+    global fixed_window_size
+    global argument
+
+    down_dim = args.down_dim
+    argument = args
 
 
 def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
     def ca_forward(self, layer_name):
         def forward(hidden_states, context=None, trg_layer_list=None, noise_type=None):
-
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
 
+            if layer_name == argument.position_embedding_layer :
+                hidden_states_pos = noise_type(hidden_states)
+                hidden_states = hidden_states_pos
+
             query = self.to_q(hidden_states)
-
-            """ Position Embedding right after Down Block 1 """
-            if layer_name == position_embedding_layer  : #'down_blocks_0_attentions_0_transformer_blocks_0_attn1' :
-                query_pos = noise_type(query)
-                #if do_concat :
-                #    query = torch.cat([query, query_pos], dim=-1)
-                if not do_concat :
-                    query = query_pos
-
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 controller.save_query(query, layer_name)
-
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
             query = self.reshape_heads_to_batch_dim(query)
-            if layer_name == position_embedding_layer and do_concat :
-                query_pos = self.reshape_heads_to_batch_dim(query_pos)
-
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
 
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
-                if layer_name == position_embedding_layer and do_concat:
-                    query_pos = query_pos.float()
+
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
                                                          dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
-
-
-            if layer_name == position_embedding_layer and do_concat :
-                attention_scores_pos = torch.baddbmm(torch.empty(query_pos.shape[0], query_pos.shape[1], key.shape[1],
-                                                           dtype=query_pos.dtype, device=query_pos.device), query_pos,
-                                          key.transpose(-1, -2), beta=0, alpha=self.scale, ) # batch, pix_num, sen_len
-                attention_scores = attention_scores + attention_scores_pos
-
-            attention_probs = attention_scores.softmax(dim=-1)
-            attention_probs = attention_probs.to(value.dtype)
-
-            if trg_layer_list is not None and layer_name in trg_layer_list :
-
-                trg_map = attention_probs[:, :, :2]
-                controller.store(trg_map, layer_name)
-
+            attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)
             hidden_states = torch.bmm(attention_probs, value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
             hidden_states = self.to_out[0](hidden_states)
+
+            if trg_layer_list is not None and layer_name in trg_layer_list :
+                trg_map = attention_probs[:, :, :2]
+                controller.store(trg_map, layer_name)
+            if layer_name == argument.image_classification_layer :
+                controller.store(attention_probs[:, :, 1], layer_name)
             return hidden_states
+
         return forward
 
     def register_recr(net_, count, layer_name):
@@ -114,5 +114,3 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
         elif "mid" in net[0]:
             cross_att_count += register_recr(net[1], 0, net[0])
     controller.num_att_layers = cross_att_count
-
-

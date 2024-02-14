@@ -4,7 +4,7 @@ from data.mvtec_sy import MVTecDRAEMTrainDataset
 from model.tokenizer import load_tokenizer
 import numpy as np
 from model.unet import unet_passing_argument
-from utils.attention_control2 import passing_argument
+from utils.attention_control import passing_argument
 import os
 from PIL import Image
 

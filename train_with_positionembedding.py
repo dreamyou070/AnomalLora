@@ -11,11 +11,11 @@ from attention_store import AttentionStore
 from model.tokenizer import load_tokenizer
 from utils import get_epoch_ckpt_name, save_model, prepare_dtype
 from utils.accelerator_utils import prepare_accelerator
-from utils.attention_control2 import register_attention_control
+from utils.attention_control import register_attention_control
 from utils.optimizer_utils import get_optimizer, get_scheduler_fix
 from utils.model_utils import prepare_scheduler_for_custom_training, get_noise_noisy_latents_partial_time
 from model.unet import unet_passing_argument
-from utils.attention_control2 import passing_argument
+from utils.attention_control import passing_argument
 from model.pe import PositionalEmbedding
 from utils import arg_as_list
 from utils.utils_mahalanobis import gen_mahal_loss
