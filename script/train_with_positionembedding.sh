@@ -1,11 +1,11 @@
 # !/bin/bash
 
-port_number=53333
+port_number=51598
 
 obj_name='cable_gland'
 trigger_word='cable'
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../train_with_positionembedding.py \
  --log_with wandb \
  --output_dir "../../result/${obj_name}/up_2_map_loss" \
@@ -17,5 +17,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']" \
  --start_epoch 0 --max_train_epochs 300 --anomal_only_on_object --unet_inchannels 4 --min_timestep 0 --max_timestep 1000 \
  --do_dist_loss --dist_loss_weight 1.0 --do_attn_loss --attn_loss_weight 1.0 --do_cls_train --normal_weight 1 \
- --do_map_loss
- #--image_classification_layer "mid_block" \
+ --do_map_loss --image_classification_layer "mid_block" \
