@@ -265,7 +265,9 @@ def main(args):
                 value_dict['normal_trigger_score'].append(normal_trigger_score)
 
                 trigger_score = trigger_score.mean(dim=0)
-                normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
+                #normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
+                """ Change Model Value """
+                normal_map = trigger_score.squeeze()
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = torch.ones_like(normal_map)  # [64,64]
 
@@ -330,7 +332,8 @@ def main(args):
 
                 # ------------------------------------------------------------------------------------------------------
                 trigger_score = trigger_score.mean(dim=0)
-                normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
+                #normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
+                normal_map = trigger_score.squeeze()
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 if args.strict_learning :
                     anomal_map = torch.where(anomal_map > 0, 1, 0).squeeze()
@@ -383,7 +386,8 @@ def main(args):
 
                 # ------------------------------------------------------------------------------------------------------
                 trigger_score = trigger_score.mean(dim=0)
-                normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
+                #normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
+                normal_map = trigger_score.squeeze()
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 if args.strict_learning :
                     anomal_map = torch.where(anomal_map > 0, 1, 0).squeeze()
