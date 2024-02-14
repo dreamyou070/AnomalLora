@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
-"""
+
 def gen_attn_loss(value_dict):
     anormal_cls_score = torch.stack(value_dict['anormal_cls_score'], dim=0).mean(dim=0)
     anormal_trigger_score = torch.stack(value_dict['anormal_trigger_score'], dim=0).mean(dim=0)
@@ -22,6 +22,21 @@ def gen_attn_loss(value_dict):
     normal_cls_loss = torch.tensor(value_dict['normal_cls_score_loss']).mean()
     normal_trigger_loss = torch.tensor(value_dict['normal_trigger_score_loss']).mean()
     return normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss
+
+def gen_value_dict(value_dict, cls_score_loss, trigger_score_loss):
+    if 'cls_loss' not in value_dict.keys():
+        value_dict['cls_loss'] = []
+    value_dict['cls_loss'].append(cls_score_loss)
+    if 'trigger_loss' not in value_dict.keys():
+        value_dict['trigger_loss'] = []
+    value_dict['trigger_loss'].append(trigger_score_loss)
+    return value_dict
+"""
+def gen_attn_loss(value_dict):
+    cls_loss = torch.stack(value_dict['cls_loss'] , dim=0).mean(dim=0)
+    trigger_loss = torch.stack(value_dict['trigger_loss'], dim=0).mean(dim=0)
+    return cls_loss, trigger_loss
+
 
 class FocalLoss(nn.Module):
     """

@@ -350,10 +350,12 @@ def main(args):
             normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
             dist_loss += normal_dist_loss.requires_grad_()
             # [4.2] attn loss
-            normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss = gen_attn_loss(value_dict)
-            attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
+            #normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss = gen_attn_loss(value_dict)
+            cls_loss, trigger_loss = gen_attn_loss(value_dict)
+            #attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
+            attn_loss += trigger_loss.mean()
             if args.do_cls_train:
-                attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
+                attn_loss += cls_loss.mean()
             # [4.3] map loss
             map_loss = map_loss.mean().to(weight_dtype)
             # [5] backprop
