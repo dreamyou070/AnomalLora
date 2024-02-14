@@ -243,18 +243,19 @@ def main(args):
             anomal_map = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
             anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0) # [1, 64*64]
             query_dict, attn_dict = controller.query_dict, controller.step_store
+            classification_map_dict = controller.classification_map_dict
             controller.reset()
 
             if args.image_classification_layer is not None:
                 classification_map = classification_map_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
-                if 'mid' in args.image_classification_layer :
+                if 'mid' in args.image_classification_layer:
                     classification_map = classification_map.mean(dim=0)
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
-                else :
+                else:
                     classification_map = torch.max(classification_map, dim=0).values.squeeze()
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
-            anomal_score = torch.min(classification_map)
-            classification_loss += abs(anomal_score).requires_grad_(True)
+                anomal_score = torch.min(classification_map)
+                classification_loss += abs(1 - anomal_score).requires_grad_(True)
 
             for trg_layer in args.trg_layer_list:
                 # [1] feat
@@ -297,17 +298,20 @@ def main(args):
             anomal_map = batch["anomaly_mask"].squeeze().flatten().squeeze()  # [64*64]
             anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0)  # [1, 64*64]
             query_dict, attn_dict = controller.query_dict, controller.step_store
+            classification_map_dict = controller.classification_map_dict
             controller.reset()
+
             if args.image_classification_layer is not None:
                 classification_map = classification_map_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
-                if 'mid' in args.image_classification_layer :
+                if 'mid' in args.image_classification_layer:
                     classification_map = classification_map.mean(dim=0)
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
-                else :
+                else:
                     classification_map = torch.max(classification_map, dim=0).values.squeeze()
                     classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
                 anomal_score = torch.min(classification_map)
-                classification_loss += abs(anomal_score).requires_grad_(True)
+                classification_loss += abs(1 - anomal_score).requires_grad_(True)
+
             for trg_layer in args.trg_layer_list:
                 anomal_position = anomal_map.squeeze(0)
                 # [1] feat
