@@ -1,8 +1,8 @@
 # !/bin/bash
 
 port_number=52222
-obj_name='carrot'
-caption='carrot'
+obj_name='cable_gland'
+caption='cable'
 # --position_embedding_layer 'down_blocks_0_attentions_0_transformer_blocks_0_attn1'
 # --do_local_self_attn --fixed_window_size --window_size 8 \
 
