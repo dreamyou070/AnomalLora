@@ -290,59 +290,60 @@ def main(args):
 
             # --------------------------------------------------------------------------------------------------------- #
             # [3] Anormal Sample Learning
-            with torch.no_grad():
-                anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
-                anomal_latents = anomal_latents * args.vae_scale_factor
-            noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                                                          anomal_latents)
-            with accelerator.autocast():
-                unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                                                                                 noise_type=position_embedder)
-            anomal_map = batch["anomaly_mask"].squeeze().flatten().squeeze()  # [64*64]
-            anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0)  # [1, 64*64]
-            query_dict, attn_dict = controller.query_dict, controller.step_store
-            classification_map_dict = controller.classification_map_dict
-            controller.reset()
+            if not args.not_anomal_hole :
+                with torch.no_grad():
+                    anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
+                    anomal_latents = anomal_latents * args.vae_scale_factor
+                noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
+                                                                                              anomal_latents)
+                with accelerator.autocast():
+                    unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                                                                                     noise_type=position_embedder)
+                anomal_map = batch["anomaly_mask"].squeeze().flatten().squeeze()  # [64*64]
+                anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0)  # [1, 64*64]
+                query_dict, attn_dict = controller.query_dict, controller.step_store
+                classification_map_dict = controller.classification_map_dict
+                controller.reset()
 
-            if args.image_classification_layer is not None:
-                classification_map = classification_map_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
-                if 'mid' in args.image_classification_layer:
-                    classification_map = classification_map.mean(dim=0)
-                    classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
-                else:
-                    classification_map = torch.max(classification_map, dim=0).values.squeeze()
-                    classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
-                anomal_score = torch.min(classification_map)
-                classification_loss += abs(1 - anomal_score).requires_grad_(True)
+                if args.image_classification_layer is not None:
+                    classification_map = classification_map_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
+                    if 'mid' in args.image_classification_layer:
+                        classification_map = classification_map.mean(dim=0)
+                        classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
+                    else:
+                        classification_map = torch.max(classification_map, dim=0).values.squeeze()
+                        classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
+                    anomal_score = torch.min(classification_map)
+                    classification_loss += abs(1 - anomal_score).requires_grad_(True)
 
-            for trg_layer in args.trg_layer_list:
-                anomal_position = anomal_map.squeeze(0)
-                # [1] feat
-                query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
-                pix_num = query.shape[0]
-                for pix_idx in range(pix_num):
-                    feat = query[pix_idx].squeeze(0)
-                    anomal_flag = anomal_position[pix_idx].item()
-                    if anomal_flag == 1:
-                        anormal_feat_list.append(feat.unsqueeze(0))
-                    else :
-                        normal_feat_list.append(feat.unsqueeze(0))
+                for trg_layer in args.trg_layer_list:
+                    anomal_position = anomal_map.squeeze(0)
+                    # [1] feat
+                    query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
+                    pix_num = query.shape[0]
+                    for pix_idx in range(pix_num):
+                        feat = query[pix_idx].squeeze(0)
+                        anomal_flag = anomal_position[pix_idx].item()
+                        if anomal_flag == 1:
+                            anormal_feat_list.append(feat.unsqueeze(0))
+                        else :
+                            normal_feat_list.append(feat.unsqueeze(0))
 
-                # [2] attn score
-                attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
-                cls_score, trigger_score = attention_score.chunk(2, dim=-1)
-                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-                cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
-                cls_target, trigger_target = anomal_position, 1 - anomal_position
-                cls_score_loss = loss_l2(cls_score ** 2, cls_target)
-                trigger_score_loss = loss_l2(trigger_score ** 2, trigger_target)
-                gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
+                    # [2] attn score
+                    attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                    cls_score, trigger_score = attention_score.chunk(2, dim=-1)
+                    cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+                    cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
+                    cls_target, trigger_target = anomal_position, 1 - anomal_position
+                    cls_score_loss = loss_l2(cls_score ** 2, cls_target)
+                    trigger_score_loss = loss_l2(trigger_score ** 2, trigger_target)
+                    gen_value_dict(value_dict, cls_score_loss, trigger_score_loss)
 
-                # [3] map
-                normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
-                map_loss += l2_loss  # + segment_loss
+                    # [3] map
+                    normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                    trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                    l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
+                    map_loss += l2_loss  # + segment_loss
 
             # --------------------------------------------------------------------------------------------------------- #
             # [4.0] classification loss
@@ -360,16 +361,16 @@ def main(args):
             map_loss = map_loss.mean().to(weight_dtype)
             # [5] backprop
             if args.do_classification :
-                loss = classification_loss
+                loss = classification_loss.to(weight_dtype)
                 loss_dict['classification_loss'] = classification_loss.item()
             if args.do_dist_loss:
-                loss += dist_loss
+                loss += dist_loss.to(weight_dtype)
                 loss_dict['dist_loss'] = dist_loss.item()
             if args.do_attn_loss:
-                loss += attn_loss.mean()
+                loss += attn_loss.mean().to(weight_dtype)
                 loss_dict['attn_loss'] = attn_loss.mean().item()
             if args.do_map_loss:
-                loss += map_loss
+                loss += map_loss.to(weight_dtype)
                 loss_dict['map_loss'] = map_loss.item()
             current_loss = loss.detach().item()
             if epoch == args.start_epoch:
@@ -523,6 +524,7 @@ if __name__ == "__main__":
     parser.add_argument("--do_classification", action='store_true')
     parser.add_argument("--image_classification_layer", type=str, )
     parser.add_argument("--use_small_anomal", action='store_true')
+    parser.add_argument("--not_anomal_hole", action='store_true')
     # ---------------------------------------------------------------------------------------------------------------- #
     parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
                                                                                "euler_a", "heun", "dpm_2", "dpm_2_a",
