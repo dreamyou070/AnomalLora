@@ -211,6 +211,10 @@ def main(args):
     controller = AttentionStore()
     register_attention_control(unet, controller)
 
+    from loss import FocalLoss, SSIM
+    loss_focal = FocalLoss()
+    loss_l2 = torch.nn.modules.loss.MSELoss()
+
     for epoch in range(args.start_epoch, args.max_train_epochs):
 
         epoch_loss_total = 0
@@ -222,6 +226,7 @@ def main(args):
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
             dist_loss = 0.0
             attn_loss = 0.0
+            map_loss = 0.0
             normal_feat_list = []
             anormal_feat_list = []
             value_dict = {}
@@ -232,7 +237,6 @@ def main(args):
                 encoder_hidden_states = enc_out["last_hidden_state"]
 
             # [1] normal sample
-
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
                 latents = latents * vae_scale_factor  # [1,4,64,64]
@@ -264,6 +268,19 @@ def main(args):
                     value_dict['normal_trigger_score'] = []
                 value_dict['normal_trigger_score'].append(normal_trigger_score)
 
+                trigger_score = trigger_score.mean(dim=0)
+                normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
+                normal_map = normal_map.unsqueeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                trg_normal_map = torch.ones_like(normal_map)  # [64,64]
+
+                l2_loss = loss_l2(normal_map, trg_normal_map)
+                #ssim_loss = loss_ssim(gray_rec, gray_batch)
+                segment_loss = loss_focal(normal_map, trg_normal_map)
+                map_loss += l2_loss + segment_loss
+
+
+
+            # ----------------------------------------------------------------------------------------------------------
             # [2] Masked Sample Learning
             with torch.no_grad():
                 latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample()  # 1, 4, 64, 64
@@ -309,8 +326,17 @@ def main(args):
                     value_dict['anormal_trigger_score'] = []
                 value_dict['anormal_trigger_score'].append(anormal_trigger_score)
 
-                #value_dict['normal_cls_score'].append(normal_cls_score)
-                #value_dict['normal_trigger_score'].append(normal_trigger_score)
+                # ------------------------------------------------------------------------------------------------------
+                trigger_score = trigger_score.mean(dim=0)
+                normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
+                normal_map = normal_map.unsqueeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                trg_normal_map = (1-anomal_position).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                l2_loss = loss_l2(normal_map, trg_normal_map)
+                segment_loss = loss_focal(normal_map, trg_normal_map)
+                map_loss += l2_loss + segment_loss
+
+
+
 
             # [3] Anormal Sample Learning
             with torch.no_grad():
@@ -352,6 +378,16 @@ def main(args):
                 value_dict['normal_cls_score'].append(normal_cls_score)
                 value_dict['normal_trigger_score'].append(normal_trigger_score)
 
+                trigger_score = trigger_score.mean(dim=0)
+                normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
+                normal_map = normal_map.unsqueeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                trg_normal_map = (1 - anomal_position).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                l2_loss = loss_l2(normal_map, trg_normal_map)
+                segment_loss = loss_focal(normal_map, trg_normal_map)
+                map_loss += l2_loss + segment_loss
+
+            print(f'map_loss: {map_loss}')
+            print(f'map loss shape : {map_loss.shape}')
 
             # [4.1] total loss
             normal_dist_loss = gen_mahal_loss(anormal_feat_list, normal_feat_list)
