@@ -77,7 +77,7 @@ def main(args):
         parent, _ = os.path.split(args.network_folder)
         recon_base_folder = os.path.join(parent, 'reconstruction')
         os.makedirs(recon_base_folder, exist_ok=True)
-        score_save_file = os.path.join(lora_base_folder, f'score_lora_{lora_epoch}.txt')
+        score_save_file = os.path.join(recon_base_folder, f'score_lora_{lora_epoch}.txt')
         contents = []
 
         lora_base_folder = os.path.join(recon_base_folder, f'lora_epoch_{lora_epoch}')
