@@ -7,7 +7,7 @@ caption='carrot'
 # --do_local_self_attn --fixed_window_size --window_size 8 \
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
- --main_process_port $port_number ../reconstruction_with_positionembedding.py \
+ --main_process_port $port_number ../up_2_pe_beta_scale_0.8_normal_map_loss.py \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --network_folder "../../result/${obj_name}/up_2_basic_pe_beta_scale_0.8/models" \
  --data_path "../../../MyData/anomaly_detection/MVTec3D-AD/${obj_name}/test" \
