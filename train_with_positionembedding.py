@@ -275,8 +275,8 @@ def main(args):
 
                 l2_loss = loss_l2(normal_map, trg_normal_map)
                 #ssim_loss = loss_ssim(gray_rec, gray_batch)
-                segment_loss = loss_focal(normal_map, trg_normal_map)
-                map_loss += l2_loss + segment_loss
+                #segment_loss = loss_focal(normal_map, trg_normal_map)
+                map_loss += l2_loss #+ segment_loss
 
 
 
@@ -332,8 +332,8 @@ def main(args):
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = (1-anomal_position).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 l2_loss = loss_l2(normal_map, trg_normal_map)
-                segment_loss = loss_focal(normal_map, trg_normal_map)
-                map_loss += l2_loss + segment_loss
+                #segment_loss = loss_focal(normal_map, trg_normal_map)
+                map_loss += l2_loss #+ segment_loss
 
 
 
@@ -383,11 +383,11 @@ def main(args):
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = (1 - anomal_position).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 l2_loss = loss_l2(normal_map, trg_normal_map)
-                segment_loss = loss_focal(normal_map, trg_normal_map)
-                map_loss += l2_loss + segment_loss
+                #segment_loss = loss_focal(normal_map, trg_normal_map)
+                map_loss += l2_loss #+ segment_loss
 
+            map_loss = map_loss.mean()
             print(f'map_loss: {map_loss}')
-            print(f'map loss shape : {map_loss.shape}')
 
             # [4.1] total loss
             normal_dist_loss = gen_mahal_loss(anormal_feat_list, normal_feat_list)
@@ -399,6 +399,9 @@ def main(args):
                 attn_loss += args.normal_weight * normal_cls_loss + args.anormal_weight * anormal_cls_loss
 
             # [5] backprop
+            if args.do_map_loss:
+                loss += map_loss
+                loss_dict['map_loss'] = map_loss.item()
             if args.do_dist_loss:
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
@@ -591,8 +594,7 @@ if __name__ == "__main__":
     parser.add_argument("--only_local_self_attn", action='store_true')
     parser.add_argument("--fixed_window_size", action='store_true')
     parser.add_argument("--do_add_query", action='store_true')
-
-
+    parser.add_argument("--do_map_loss", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)

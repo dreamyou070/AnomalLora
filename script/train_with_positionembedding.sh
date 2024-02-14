@@ -17,4 +17,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --beta_scale_factor 0.8 \
  --use_position_embedder \
  --position_embedding_layer 'down_blocks_0_attentions_0_transformer_blocks_0_attn1' \
- --d_dim 320 --latent_res 64
+ --d_dim 320 --latent_res 64 --do_map_loss
