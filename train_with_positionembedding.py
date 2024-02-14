@@ -288,6 +288,7 @@ def main(args):
                 l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                 map_loss += l2_loss #+ segment_loss
 
+
             # --------------------------------------------------------------------------------------------------------- #
             # [3] Anormal Sample Learning
             if not args.not_anomal_hole :
