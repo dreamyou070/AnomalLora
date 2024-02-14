@@ -244,23 +244,19 @@ def main(args):
                                                  latents,min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder)
-
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
-                # [1] query
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 pix_num = query.shape[0]
                 for pix_idx in range(pix_num):
                     feat = query[pix_idx].squeeze(0)
                     normal_feat_list.append(feat.unsqueeze(0))
-                # [2] attn score
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
                 normal_cls_score = cls_score.mean(dim=0)  # pix_num
                 normal_trigger_score = trigger_score.mean(dim=0)
-
                 if 'normal_cls_score' not in value_dict.keys():
                     value_dict['normal_cls_score'] = []
                 value_dict['normal_cls_score'].append(normal_cls_score)
@@ -273,12 +269,10 @@ def main(args):
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = torch.ones_like(normal_map)  # [64,64]
 
-                l2_loss = loss_l2(normal_map, trg_normal_map)
+                l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                 #ssim_loss = loss_ssim(gray_rec, gray_batch)
                 #segment_loss = loss_focal(normal_map, trg_normal_map)
                 map_loss += l2_loss #+ segment_loss
-
-
 
             # ----------------------------------------------------------------------------------------------------------
             # [2] Masked Sample Learning
@@ -289,7 +283,8 @@ def main(args):
                                             latents,min_timestep=args.min_timestep, max_timestep=args.max_timestep, )
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder)
-            anomal_position = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
+            anomal_map = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
+            anomal_position = torch.where(anomal_position > 0, 1, anomal_position).to(accelerator.device)
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
