@@ -218,9 +218,6 @@ class MVTecDRAEMTrainDataset(Dataset):
         return object_mask_dir
 
 
-
-
-
     def __getitem__(self, idx):
 
         aug = self.randAugmenter(idx)

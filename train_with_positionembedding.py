@@ -326,12 +326,10 @@ def main(args):
                 normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
 
-                trg_normal_map = (1-anomal_position).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                l2_loss = loss_l2(normal_map, trg_normal_map)
+                trg_normal_map = (1-anomal_map).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                 #segment_loss = loss_focal(normal_map, trg_normal_map)
                 map_loss += l2_loss #+ segment_loss
-
-
 
 
             # [3] Anormal Sample Learning
@@ -346,13 +344,14 @@ def main(args):
 
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
-            anormal_position = batch['anomaly_mask'].squeeze().flatten().squeeze()  # [64*64]
+            anomal_map = batch['anomaly_mask'].squeeze().flatten().squeeze()  # [64*64]
+            anomal_position = torch.where(anomal_position > 0, 1, anomal_position).to(accelerator.device)
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 pix_num = query.shape[0]
                 for pix_idx in range(pix_num):
                     feat = query[pix_idx].squeeze(0)
-                    anomal_flag = anormal_position[pix_idx].item()
+                    anomal_flag = anomal_position[pix_idx].item()
                     if anomal_flag == 1:
                         anormal_feat_list.append(feat.unsqueeze(0))
                     else :
@@ -363,7 +362,7 @@ def main(args):
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
 
                 # (1) get position
-                anormal_position_ = anormal_position.unsqueeze(0).repeat(cls_score.shape[0], 1)
+                anormal_position_ = anomal_position.unsqueeze(0).repeat(cls_score.shape[0], 1)
                 anormal_cls_score = (cls_score * anormal_position_).mean(dim=0)
                 anormal_trigger_score = (trigger_score * anormal_position_).mean(dim=0)
                 normal_cls_score = (cls_score * (1 - anormal_position_)).mean(dim=0)  # pix_num
@@ -374,13 +373,15 @@ def main(args):
                 value_dict['normal_cls_score'].append(normal_cls_score)
                 value_dict['normal_trigger_score'].append(normal_trigger_score)
 
+                # ------------------------------------------------------------------------------------------------------
                 trigger_score = trigger_score.mean(dim=0)
                 normal_map = torch.where(trigger_score > 0.5, 1, trigger_score).squeeze()
                 normal_map = normal_map.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                trg_normal_map = (1 - anomal_position).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                l2_loss = loss_l2(normal_map, trg_normal_map)
-                #segment_loss = loss_focal(normal_map, trg_normal_map)
-                map_loss += l2_loss #+ segment_loss
+
+                trg_normal_map = (1 - anomal_map).squeeze().view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
+                # segment_loss = loss_focal(normal_map, trg_normal_map)
+                map_loss += l2_loss  # + segment_loss
 
             map_loss = map_loss.mean().to(weight_dtype)
 
