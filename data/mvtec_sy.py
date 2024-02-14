@@ -75,7 +75,6 @@ class MVTecDRAEMTrainDataset(Dataset):
                  tokenizer=None,
                  caption: str = None,
                  use_perlin: bool = False,
-                 num_repeat: int = 1,
                  anomal_only_on_object : bool = True,
                  anomal_training : bool = False,
                  latent_res : int = 64,

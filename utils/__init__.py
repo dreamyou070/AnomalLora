@@ -1,5 +1,13 @@
 import torch
 import os
+import ast
+import argparse
+
+def arg_as_list(arg):
+    v = ast.literal_eval(arg)
+    if type(v) is not list:
+        raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
+    return v
 
 DEFAULT_EPOCH_NAME = "epoch"
 EPOCH_FILE_NAME = "{}-{:06d}"
