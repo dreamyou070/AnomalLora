@@ -6,14 +6,13 @@ from utils.attention_control import register_attention_control
 from accelerate import Accelerator
 from model.tokenizer import load_tokenizer
 from utils import prepare_dtype
-from utils.pipeline import AnomalyDetectionStableDiffusionPipeline
 from utils.scheduling_utils import get_scheduler
 from utils.model_utils import get_input_ids
 from PIL import Image
 from model.lora import LoRAInfModule
 from utils.image_utils import load_image, image2latent
 import numpy as np
-from model.diffusion_model import load_target_model, transform_models_if_DDP
+from model.diffusion_model import load_target_model
 
 
 def main(args):
@@ -30,13 +29,10 @@ def main(args):
     text_encoder, vae, unet, _ = load_target_model(args, weight_dtype, accelerator)
     text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
 
-    from model.pe import PositionalEmbedding, PE_Pooling
+    from model.pe import PositionalEmbedding
     if args.use_position_embedder:
         position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
                                                 d_model=args.d_dim)
-    elif args.use_pe_pooling:
-        position_embedder = PE_Pooling(max_len=args.latent_res * args.latent_res,
-                                       d_model=args.d_dim)
 
     print(f'\n step 2. accelerator and device')
     vae.requires_grad_(False)
