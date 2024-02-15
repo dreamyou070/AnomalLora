@@ -1284,7 +1284,7 @@ class LoRANetwork(torch.nn.Module):
         param_data = {"params": params}
         if unet_lr is not None:
             param_data["lr"] = unet_lr
-        return param_data
+        return [param_data]
 
     def enable_gradient_checkpointing(self):
         # not supported
