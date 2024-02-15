@@ -563,9 +563,6 @@ if __name__ == "__main__":
     parser.add_argument("--scheduler_linear_end", type=float, default=0.012)
     parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear",
                         choices=["scaled_linear", "linear", "cosine", "cosine_warmup", ], )
-    parser.add_argument("--unet_inchannels", type=int, default=9)
-    parser.add_argument("--min_timestep", type=int, default=0)
-    parser.add_argument("--max_timestep", type=int, default=1000)
     parser.add_argument("--down_dim", type=int)
     parser.add_argument("--noise_type", type=str)
     parser.add_argument("--anomal_src_more", action='store_true')
@@ -580,7 +577,6 @@ if __name__ == "__main__":
     parser.add_argument("--do_anomal_hole", action='store_true')
     parser.add_argument("--do_down_dim_mahal_loss", action='store_true')
     parser.add_argument("--use_focal_loss", action='store_true')
-
     # ---------------------------------------------------------------------------------------------------------------- #
     parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
                                                                                "euler_a", "heun", "dpm_2", "dpm_2_a",

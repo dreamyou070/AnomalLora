@@ -7,7 +7,7 @@ trigger_word='carrot'
 bench_mark='MVTec3D-AD'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_config \
- --main_process_port $port_number ../train_with_positionembedding.py \
+ --main_process_port $port_number ../train.py \
  --log_with wandb \
  --output_dir "../../result/${bench_mark}/${obj_name}/up_2_focal_loss_on_unet_anomal_on_whole" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \

@@ -22,17 +22,12 @@ TRANSFORMER_NORM_NUM_GROUPS = 32
 DOWN_BLOCK_TYPES = ["CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "CrossAttnDownBlock2D", "DownBlock2D"]
 UP_BLOCK_TYPES = ["UpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D"]
 
-
 def unet_passing_argument(args):
-    global IN_CHANNELS
     global argument
-    IN_CHANNELS = args.unet_inchannels
     argument = args
 
 
-
-
-
+IN_CHANNELS = 4
 EPSILON = 1e-6
 
 # helper functions

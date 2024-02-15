@@ -195,10 +195,10 @@ if __name__ == '__main__':
     parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear",
                         choices=["scaled_linear", "linear", "cosine", "cosine_warmup", ], )
     parser.add_argument("--prompt", type=str, default="bagel", )
-    parser.add_argument("--num_ddim_steps", type=int, default=30)
     parser.add_argument("--guidance_scale", type=float, default=8.5)
-
+    parser.add_argument("--latent_res", type=int, default=64)
     parser.add_argument("--truncating", action='store_true')
+
     # step 8. test
     import ast
     def arg_as_list(arg):
@@ -206,8 +206,8 @@ if __name__ == '__main__':
         if type(v) is not list:
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
-    parser.add_argument("--threds", type=arg_as_list,
-                        default=[0.55,0.6,0.65,0.7,0.75,0.8])
+    parser.add_argument("--threds", type=arg_as_list,default=[0.55,0.6,0.65,0.7,0.75,0.8])
+    parser.add_argument("--trg_layer_list", type=arg_as_list, default=[])
     parser.add_argument("--position_embedding_layer", type=str)
     parser.add_argument("--use_position_embedder", action='store_true')
     parser.add_argument("--use_pe_pooling", action='store_true')
