@@ -195,7 +195,7 @@ def main(args):
                                   alpha=args.network_alpha,
                                   module_class=LoRAInfModule)
     teacher_network.apply_to(text_encoder, unet, True, True)
-    teacher_network.load_state_dict(args.network_weights)
+    teacher_network.load_weights(args.network_weights) #####
     teacher_unet.requires_grad_(False)
     teacher_unet.to(accelerator.device, dtype=weight_dtype)
     teacher_text_encoder.requires_grad_(False)
