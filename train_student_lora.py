@@ -189,10 +189,6 @@ def main(args):
     if args.use_position_embedder:
         teacher_position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
                                                         d_model=args.d_dim)
-    teacher_unet.requires_grad_(False)
-    teacher_unet.to(accelerator.device, dtype=weight_dtype)
-    teacher_text_encoder.requires_grad_(False)
-    teacher_text_encoder.to(accelerator.device, dtype=weight_dtype)
     teacher_network = LoRANetwork(text_encoder=teacher_text_encoder,
                                   unet=teacher_unet,
                                   lora_dim=args.network_dim,
@@ -200,7 +196,10 @@ def main(args):
                                   module_class=LoRAInfModule)
     teacher_network.apply_to(text_encoder, unet, True, True)
     teacher_network.load_state_dict(args.network_weights)
-
+    teacher_unet.requires_grad_(False)
+    teacher_unet.to(accelerator.device, dtype=weight_dtype)
+    teacher_text_encoder.requires_grad_(False)
+    teacher_text_encoder.to(accelerator.device, dtype=weight_dtype)
 
     print(f'\n step 8. Training !')
     if args.max_train_epochs is not None:
