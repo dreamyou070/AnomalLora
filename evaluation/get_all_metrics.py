@@ -11,24 +11,27 @@ def main(args) :
     lora_folders = os.listdir(metric_base_folder)
 
     total_metrics = []
-    title = ['lora_folder', 'au_pro', 'au_roc', 'roc_curve_fpr', '','','roc_curve_tpr','','']
+    title = ['lora_folder', 'thred', 'au_pro', 'au_roc', 'roc_curve_fpr', '','','roc_curve_tpr','','']
     total_metrics.append(title)
     for lora_folder in lora_folders:
         lora_dir = os.path.join(metric_base_folder, lora_folder)
-        metric_dir = os.path.join(lora_dir, f'metrics/metrics.json')
-        with open(metric_dir, 'r') as f:
-            content = json.load(f)
-        metric = content[args.class_name]
-        pro = metric['au_pro']
-        roc = metric['au_roc']
-        elem = [lora_folder, pro, roc]
-        roc_curve_fpr = metric['roc_curve_fpr']
-        for i in range(len(roc_curve_fpr)):
-            elem.append(roc_curve_fpr[i])
-        roc_curve_tpr = metric['roc_curve_tpr']
-        for i in range(len(roc_curve_tpr)):
-            elem.append(roc_curve_tpr[i])
-        total_metrics.append(elem)
+        threds = os.listdir(lora_dir)
+        for thred in threds:
+            thred_dir = os.path.join(lora_dir, thred)
+            metric_dir = os.path.join(thred_dir, f'metrics/metrics.json')
+            with open(metric_dir, 'r') as f:
+                content = json.load(f)
+            metric = content[args.class_name]
+            pro = metric['au_pro']
+            roc = metric['au_roc']
+            elem = [lora_folder, thred, pro, roc]
+            roc_curve_fpr = metric['roc_curve_fpr']
+            for i in range(len(roc_curve_fpr)):
+                elem.append(roc_curve_fpr[i])
+            roc_curve_tpr = metric['roc_curve_tpr']
+            for i in range(len(roc_curve_tpr)):
+                elem.append(roc_curve_tpr[i])
+            total_metrics.append(elem)
 
     with open(total_matric_save_dir, 'w') as f:
         for elem in total_metrics:
