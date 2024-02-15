@@ -9,7 +9,7 @@ bench_mark='MVTec3D-AD'
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_config \
  --main_process_port $port_number ../train_with_positionembedding.py \
  --log_with wandb \
- --output_dir "../../result/${obj_name}/up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss_map_loss_with_focal_loss_pe_on_unet" \
+ --output_dir "../../result/${obj_name}/up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss_map_loss_with_focal_loss" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --data_path "../../../MyData/anomaly_detection/${bench_mark}" --beta_scale_factor 0.8 \
  --trigger_word "${trigger_word}" --obj_name "${obj_name}" --train_unet --train_text_encoder \
