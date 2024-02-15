@@ -182,7 +182,7 @@ if __name__ == '__main__':
         if type(v) is not list:
             raise argparse.ArgumentTypeError("Argument \"%s\" is not a list" % (arg))
         return v
-    parser.add_argument("--threds", type=arg_as_list,default=[0.55,0.6,0.65,0.7,0.75,0.8])
+    parser.add_argument("--threds", type=arg_as_list,default=[0.55,0.6,0.65,0.7,0.75,0.8, 0.85,])
     parser.add_argument("--trg_layer_list", type=arg_as_list, default=[])
     parser.add_argument("--position_embedding_layer", type=str)
     parser.add_argument("--use_position_embedder", action='store_true')

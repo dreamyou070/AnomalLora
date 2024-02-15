@@ -188,7 +188,7 @@ def main():
         thred_folders = os.listdir(lora_dir)
         for thred_folder in thred_folders:
             thred_folder_dir = os.path.join(lora_dir, thred_folder)
-            print(f' * * * Evaluate {lora_folder} * * * * ')
+            print(f' * * * Evaluate {lora_folder} {thred_folder_dir} * * * * ')
             args.anomaly_maps_dir = os.path.join(thred_folder_dir, 'scoring')
             args.output_dir = os.path.join(thred_folder_dir, 'metrics')
 
