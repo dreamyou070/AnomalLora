@@ -1,9 +1,9 @@
 # !/bin/bash
 
-port_number=53203
+port_number=53201
 obj_name='carrot'
 caption='carrot'
-folder_name="up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss_map_loss_with_focal_loss_on_unet"
+folder_name="up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss"
 bench_mark="MVTec3D-AD"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
@@ -13,4 +13,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --data_path "../../../MyData/anomaly_detection/${bench_mark}/${obj_name}/test" \
  --obj_name "${obj_name}" --prompt "${caption}" \
  --latent_res 64 --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']" \
- --d_dim 320 --use_position_embedder --position_embedding_layer 'unet'
+ --d_dim 320 --use_position_embedder --position_embedding_layer 'down_blocks_0_attentions_0_transformer_blocks_0_attn1'
