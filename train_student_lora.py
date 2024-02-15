@@ -167,8 +167,8 @@ def main(args):
     unet.to(dtype=weight_dtype)
     for t_enc in text_encoders:
         t_enc.requires_grad_(False)
-    unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
-                                                                                   train_dataloader, lr_scheduler)
+    unet, network, optimizer, train_dataloader, lr_scheduler, position_embedder = accelerator.prepare(unet, network, optimizer,
+                                                                                   train_dataloader, lr_scheduler, position_embedder)
     text_encoder.to(accelerator.device)
     unet, network = transform_models_if_DDP([unet, network])
     if args.gradient_checkpointing:
@@ -200,6 +200,8 @@ def main(args):
     teacher_unet.to(accelerator.device, dtype=weight_dtype)
     teacher_text_encoder.requires_grad_(False)
     teacher_text_encoder.to(accelerator.device, dtype=weight_dtype)
+    teacher_position_embedder.requires_grad_(False)
+    teacher_position_embedder.to(accelerator.device, dtype=weight_dtype)
 
     print(f'\n step 8. Training !')
     if args.max_train_epochs is not None:
