@@ -6,7 +6,7 @@ obj_name='carrot'
 trigger_word='carrot'
 bench_mark='MVTec3D-AD'
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train_student_lora.py \
  --log_with wandb \
  --output_dir "../../result/${bench_mark}/${obj_name}/train_student_lora" \
