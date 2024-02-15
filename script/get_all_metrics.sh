@@ -1,6 +1,6 @@
 #! /bin/bash
 
-class_name="cable_gland"
+class_name="carrot"
 second_folder_name="up_2_not_anomal_hole_act_deact"
 
 
