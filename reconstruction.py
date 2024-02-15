@@ -133,7 +133,6 @@ def main(args):
                         attn_dict = controller.step_store
                         query_dict = controller.query_dict
                         controller.reset()
-                        thred = len(args.trg_layer_list) / 2
 
                         map_list = []
                         for layer_name in args.trg_layer_list:
@@ -141,18 +140,16 @@ def main(args):
                             if attn_map.shape[0] != 8:
                                 attn_map = attn_map.chunk(2, dim=0)[0]
 
-                            if args.truncating:
-                                cls_map, trigger_map = attn_map.chunk(2, dim=-1)  # head, pix_num
-                            else:
-                                trigger_map = attn_map[:, :, 1].squeeze()
-                            trigger_map = (trigger_map.squeeze()).mean(dim=0)  #
-                            map_list.append(trigger_map)
-
+                            cls_map = attn_map[:, :, 0].squeeze().mean(dim=0) # [res*res]
+                            trigger_map = attn_map[:, :, 1].squeeze().mean(dim=0)
                             pix_num = trigger_map.shape[0]
                             res = int(pix_num ** 0.5)
 
-                            normal_map = torch.where(trigger_map > 0.5, 1, trigger_map).squeeze()
+                            cls_map = cls_map.unsqueeze(0).view(res, res)
+                            cls_map_pil = Image.fromarray((255*cls_map).cpu().detach().numpy().astype(np.uint8)).resize((org_h, org_w))
+                            cls_map_pil.save(os.path.join(save_base_folder, f'{name}_cls_map_{layer_name}.png'))
 
+                            normal_map = torch.where(trigger_map > 0.5, 1, trigger_map).squeeze()
                             normal_map = normal_map.unsqueeze(0)
                             normal_map = normal_map.view(res, res)
                             normal_map_pil = Image.fromarray(

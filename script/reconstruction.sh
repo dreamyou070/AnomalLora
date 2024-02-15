@@ -7,7 +7,7 @@ caption='carrot'
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../reconstruction.py \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
- --network_folder "../../result/${obj_name}/up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss/models" \
+ --network_folder "../../result/${obj_name}/up_2_not_anomal_hole_act_deact/models" \
  --data_path "../../../MyData/anomaly_detection/MVTec3D-AD/${obj_name}/test" \
  --obj_name "${obj_name}" --network_dim 64 --network_alpha 4 --unet_inchannels 4 --prompt "${caption}" --latent_res 64 \
  --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']" \
