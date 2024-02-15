@@ -188,7 +188,6 @@ def main():
         thred_folders = os.listdir(lora_dir)
         for thred_folder in thred_folders:
             thred_folder_dir = os.path.join(lora_dir, thred_folder)
-            print(f' * * * Evaluate {lora_folder} {thred_folder} * * * * ')
             args.anomaly_maps_dir = os.path.join(thred_folder_dir, 'scoring')
             args.output_dir = os.path.join(thred_folder_dir, 'metrics')
 
@@ -201,7 +200,7 @@ def main():
 
             # Evaluate each dataset object separately.
             for obj in args.evaluated_objects:
-                print(f"=== Evaluate {obj} ===")
+                print(f"=== Evaluate {obj} : {lora_folder} {thred_folder} ===")
                 evaluation_dict[obj] = dict()
 
                 # Parse the filenames of all ground truth and corresponding anomaly
