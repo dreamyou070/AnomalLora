@@ -131,8 +131,8 @@ def main(args):
         for net_arg in args.network_args:
             key, value = net_arg.split("=")
             net_kwargs[key] = value
-    network = create_network(1.0, args.network_dim, args.network_alpha,
-                             vae, text_encoder, unet, neuron_dropout=args.network_dropout, **net_kwargs, )
+    network = create_network(1.0, args.network_dim, args.network_alpha, vae,
+                             text_encoder, unet, neuron_dropout=args.network_dropout, **net_kwargs, )
     network.apply_to(text_encoder, unet, True, True)
     if args.network_weights is not None:
         info = network.load_weights(args.network_weights)
@@ -154,7 +154,7 @@ def main(args):
     loss_focal = FocalLoss()
     loss_l2 = torch.nn.modules.loss.MSELoss()
 
-    print(f'\n step 7. weight dtype and network to acceleratepreparing')
+    print(f'\n step 7. weight dtype and network to accelerate preparing')
     if args.full_fp16:
         assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16'"
         accelerator.print("enable full fp16 training.")
@@ -182,10 +182,9 @@ def main(args):
     vae.requires_grad_(False)
     vae.eval()
     vae.to(accelerator.device, dtype=vae_dtype)
-
+    del text_encoder, vae
     print(f'\n step 8. call teacher model')
-    teacher_text_encoder, _, teacher_unet, _ = load_target_model(args, weight_dtype, accelerator)
-
+    teacher_text_encoder, vae, teacher_unet, _ = load_target_model(args, weight_dtype, accelerator)
     if args.use_position_embedder:
         teacher_position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
                                                         d_model=args.d_dim)
@@ -194,12 +193,15 @@ def main(args):
                                   lora_dim=args.network_dim,
                                   alpha=args.network_alpha,
                                   module_class=LoRAInfModule)
-    teacher_network.apply_to(text_encoder, unet, True, True)
+    teacher_network.apply_to(teacher_text_encoder, teacher_unet, True, True)
     teacher_network.load_weights(args.network_weights) #####
+
     teacher_unet.requires_grad_(False)
     teacher_unet.to(accelerator.device, dtype=weight_dtype)
+
     teacher_text_encoder.requires_grad_(False)
     teacher_text_encoder.to(accelerator.device, dtype=weight_dtype)
+
     teacher_position_embedder.requires_grad_(False)
     teacher_position_embedder.to(accelerator.device, dtype=weight_dtype)
 
@@ -243,10 +245,9 @@ def main(args):
             value_dict = {}
             loss_dict = {}
 
-
             # [1] normal sample
             with torch.no_grad():
-                encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
+                encoder_hidden_states = teacher_text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler, latents,
                                                                                        min_timestep=0,max_timestep=1000)

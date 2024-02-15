@@ -144,7 +144,7 @@ def main(args):
     loss_focal = FocalLoss()
     loss_l2 = torch.nn.modules.loss.MSELoss()
 
-    print(f'\n step 7. weight dtype and network to acceleratepreparing')
+    print(f'\n step 7. weight dtype and network to accelerate preparing')
     if args.full_fp16:
         assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16'"
         accelerator.print("enable full fp16 training.")
