@@ -133,8 +133,7 @@ def main(args):
             net_kwargs[key] = value
     network = create_network(1.0, args.network_dim, args.network_alpha,
                              vae, text_encoder, unet, neuron_dropout=args.network_dropout, **net_kwargs, )
-    train_unet, text_encoder = args.train_unet, args.train_text_encoder
-    network.apply_to(text_encoder, unet, text_encoder, train_unet)
+    network.apply_to(text_encoder, unet, True, True)
     if args.network_weights is not None:
         info = network.load_weights(args.network_weights)
         accelerator.print(f"load network weights from {args.network_weights}: {info}")
@@ -145,8 +144,7 @@ def main(args):
     print(f'\n step 5. optimizer')
     trainable_params = network.prepare_optimizer_unet_params(args.unet_lr)
     if position_embedder is not None:
-        trainable_params.append({"params": position_embedder.parameters(),
-                                 "lr": args.learning_rate})
+        trainable_params.append({"params": position_embedder.parameters(), "lr": args.learning_rate})
     optimizer_name, optimizer_args, optimizer = get_optimizer(args, trainable_params)
 
     print(f'\n step 6. lr')
@@ -169,10 +167,9 @@ def main(args):
     unet.to(dtype=weight_dtype)
     for t_enc in text_encoders:
         t_enc.requires_grad_(False)
-    if train_unet  :
-        unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-            unet, network, optimizer, train_dataloader, lr_scheduler)
-        text_encoder.to(accelerator.device)
+    unet, network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(unet, network, optimizer,
+                                                                                   train_dataloader, lr_scheduler)
+    text_encoder.to(accelerator.device)
     unet, network = transform_models_if_DDP([unet, network])
     if args.gradient_checkpointing:
         unet.train()
