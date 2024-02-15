@@ -5,7 +5,7 @@ port_number=50003
 obj_name='carrot'
 trigger_word='carrot'
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_config \
  --main_process_port $port_number ../train_with_positionembedding.py \
  --log_with wandb \
  --output_dir "../../result/${obj_name}/up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss" \
