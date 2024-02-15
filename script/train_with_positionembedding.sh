@@ -4,7 +4,7 @@ port_number=50004
 
 obj_name='carrot'
 trigger_word='carrot'
-bench_mark='MVTec-3D'
+bench_mark='MVTec3D-AD'
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_config \
  --main_process_port $port_number ../train_with_positionembedding.py \
