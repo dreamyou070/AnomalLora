@@ -3,7 +3,7 @@
 port_number=53235
 obj_name='carrot'
 caption='carrot'
-folder_name="up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss_map_loss_with_focal_loss_on_unet"
+folder_name="up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss"
 bench_mark="MVTec3D-AD"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
