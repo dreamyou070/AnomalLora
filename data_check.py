@@ -23,7 +23,6 @@ def main(args):
                                      tokenizer=tokenizer,
                                      caption=obj_name,
                                      use_perlin=True,
-                                     num_repeat=1,
                                      anomal_only_on_object=True,
                                      anomal_training=True,
                                      latent_res=64,
