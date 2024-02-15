@@ -21,7 +21,7 @@ def main(args):
                                      anomaly_source_path=args.anomaly_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
-                                     caption='cable',
+                                     caption=obj_name,
                                      use_perlin=True,
                                      num_repeat=1,
                                      anomal_only_on_object=True,
@@ -72,11 +72,7 @@ def main(args):
         pil_masked_image_mask = Image.fromarray(pil_masked_image_mask)
         pil_masked_image_mask.save(os.path.join(check_base_dir, f'{image_name}_masked_image_mask.png'))
 
-        """
-        
-
-        
-        
+        """   
         
         self_aug_img = sample['self_augmented_image'].squeeze()
         np_self_aug_img = np.array(((self_aug_img + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
@@ -94,48 +90,15 @@ if __name__ == "__main__":
     # step 1. setting
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--output_dir', type=str, default='output')
-    parser.add_argument('--wandb_api_key', type=str, default='output')
-    parser.add_argument('--wandb_project_name', type=str, default='bagel')
     # step 2. dataset
     parser.add_argument('--data_path', type=str, default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
-    parser.add_argument('--obj_name', type=str, default='cable_gland')
+    parser.add_argument('--obj_name', type=str, default='carrot')
     parser.add_argument('--anomaly_source_path', type=str)
-    parser.add_argument('--batch_size', type=int, default=1)
-    parser.add_argument('--num_repeat', type=int, default=1)
     parser.add_argument('--trigger_word', type=str)
     parser.add_argument('--perlin_max_scale', type=int, default=8)
     parser.add_argument('--kernel_size', type=int, default=5)
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--latent_res", type=int, default=64)
     # step 3. preparing accelerator')
-
-    # step 4. model
-    parser.add_argument("--beta_scale_factor", type=float, default=0.8)
-    parser.add_argument("--scheduler_linear_start", type=float, default=0.00085)
-    parser.add_argument("--scheduler_linear_end", type=float, default=0.012)
-    parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
-                                                                               "euler_a", "heun", "dpm_2", "dpm_2_a",
-                                                                               "dpmsolver", "dpmsolver++",
-                                                                               "dpmsingle", "k_lms", "k_euler",
-                                                                               "k_euler_a", "k_dpm_2", "k_dpm_2_a", ], )
-    parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear",
-                        choices=["scaled_linear", "linear", "cosine", "cosine_warmup", ], )
-    parser.add_argument("--num_ddim_steps", type=int, default=30)
-    parser.add_argument("--unet_inchannels", type=int, default=9)
-    parser.add_argument("--back_token_separating", action='store_true')
-    parser.add_argument("--min_timestep", type=int, default=0)
-    parser.add_argument("--max_timestep", type=int, default=1000)
-    parser.add_argument("--down_dim", type=int)
-    parser.add_argument("--noise_type", type=str)
-    parser.add_argument("--guidance_scale", type=float, default=8.5)
-    parser.add_argument("--negative_prompt", type=str,
-                        default="low quality, worst quality, bad anatomy, bad composition, poor, low effort")
-    parser.add_argument("--anomal_src_more", action='store_true')
-    parser.add_argument("--without_background", action='store_true')
-    parser.add_argument("--position_embedding_layer", type=str)
-    parser.add_argument("--use_position_embedder", action='store_true')
-    parser.add_argument("--use_pe_pooling", action='store_true')
-    parser.add_argument("--d_dim", default=320, type=int)
-    parser.add_argument("--do_concat", action='store_true')
     args = parser.parse_args()
     main(args)

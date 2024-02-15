@@ -96,11 +96,13 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.tokenizer = tokenizer
         self.transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5]),])
         self.use_perlin = use_perlin
-        self.augmenters = [iaa.Affine(rotate=(0, 0)),
+        self.rot_augmenters = [iaa.Affine(rotate=(0, 0)),
                            iaa.Affine(rotate=(180, 180)),
                            iaa.Affine(rotate=(90, 90)),
                            iaa.Affine(rotate=(270, 270))]
-        num_repeat = len(self.augmenters)
+        self.sharpen_augmenters = [iaa.Sharpen(alpha=(0.0,0.0), ),
+                                   iaa.Sharpen(alpha=(0.3,0.3), )]
+        num_repeat = len(self.rot_augmenters) * len(self.sharpen_augmenters)
         image_paths = sorted(glob.glob(root_dir + "/*.png"))
         self.image_paths = [image_path for image_path in image_paths for i in range(num_repeat)]
         self.anomal_only_on_object = anomal_only_on_object
@@ -124,8 +126,13 @@ class MVTecDRAEMTrainDataset(Dataset):
         pil = Image.fromarray(np_img)
 
     def randAugmenter(self, idx):
-        aug_ind = idx % len(self.augmenters)
-        aug = self.augmenters[aug_ind]
+        rot_aug_ind = idx % len(self.augmenters)
+        sharpen_aug_ind = idx // len(self.augmenters)
+
+        rot_aug = self.rot_augmenters[rot_aug_ind]
+        sharpen_aug = self.sharpen_augmenters[sharpen_aug_ind]
+        aug = iaa.Sequential([rot_aug,
+                              sharpen_aug])
         return aug
 
 
@@ -264,6 +271,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
                 # [2] anomal img
                 background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1], type='RGB')
+                background_img = aug(image=background_img)
                 back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, object_position)
                 back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
                 back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0)) # [1,64,64]
