@@ -8,30 +8,29 @@ from utils.attention_control import register_attention_control
 from accelerate import Accelerator
 from model.tokenizer import load_tokenizer
 from utils import prepare_dtype
-from utils.scheduling_utils import get_scheduler
 from utils.model_utils import get_input_ids
 from PIL import Image
 from model.lora import LoRAInfModule
 from utils.image_utils import load_image, image2latent
 import numpy as np
 from model.diffusion_model import load_target_model
-
+from model.pe import PositionalEmbedding
+from safetensors.torch import load_file
 
 def main(args):
+
     print(f'\n step 1. accelerator')
-    weight_dtype, save_dtype = prepare_dtype(args)
     accelerator = Accelerator(gradient_accumulation_steps=args.gradient_accumulation_steps,
-                              mixed_precision=args.mixed_precision, log_with=args.log_with, project_dir='log')
+                              mixed_precision=args.mixed_precision,
+                              log_with=args.log_with,
+                              project_dir='log')
 
     print(f'\n step 2. model')
     weight_dtype, save_dtype = prepare_dtype(args)
     tokenizer = load_tokenizer(args)
-    tokenizers = tokenizer if isinstance(tokenizer, list) else [tokenizer]
-    vae_dtype = weight_dtype
-    text_encoder, vae, unet, _ = load_target_model(args, weight_dtype, accelerator)
-    text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
+    text_encoder, vae, unet, _ = load_target_model(args, weight_dtype,
+                                                   accelerator)
 
-    from model.pe import PositionalEmbedding
     if args.use_position_embedder:
         position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
                                                 d_model=args.d_dim)
@@ -43,24 +42,19 @@ def main(args):
     unet.to(accelerator.device, dtype=weight_dtype)
     text_encoder.requires_grad_(False)
     text_encoder.to(accelerator.device, dtype=weight_dtype)
-    scheduler_cls = get_scheduler(args.sample_sampler, False)[0]
-    scheduler = scheduler_cls(num_train_timesteps=args.scheduler_timesteps, beta_start=args.scheduler_linear_start,
-                              beta_end=args.scheduler_linear_end, beta_schedule=args.scheduler_schedule)
 
-    print(f'\n step 3. object_detector network')
-    from safetensors.torch import load_file
-
-    print(f'\n step 4. inference')
+    print(f'\n step 3. inference')
     models = os.listdir(args.network_folder)
-    network = LoRANetwork(text_encoder=text_encoder, unet=unet, lora_dim=args.network_dim, alpha=args.network_alpha,
+    network = LoRANetwork(text_encoder=text_encoder,
+                          unet=unet,
+                          lora_dim=args.network_dim,
+                          alpha=args.network_alpha,
                           module_class=LoRAInfModule)
     network.apply_to(text_encoder, unet, True, True)
     raw_state_dict = network.state_dict()
     raw_state_dict_orig = raw_state_dict.copy()
 
     for model in models:
-
-
 
         network_model_dir = os.path.join(args.network_folder, model)
         lora_name, ext = os.path.splitext(model)
@@ -167,7 +161,6 @@ if __name__ == '__main__':
     parser.add_argument('--network_dim', type=int, default=64)
     parser.add_argument('--network_alpha', type=float, default=4)
     parser.add_argument('--network_folder', type=str)
-    parser.add_argument('--object_detector_weight', type=str)
     parser.add_argument("--lowram", action="store_true", )
     # step 4. dataset and dataloader
     parser.add_argument("--mixed_precision", type=str, default="no", choices=["no", "fp16", "bf16"], )
@@ -176,29 +169,12 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', type=str,
                         default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
     parser.add_argument('--obj_name', type=str, default='bagel')
-    parser.add_argument('--anomaly_source_path', type=str)
-    parser.add_argument('--batch_size', type=int, default=1)
-    # step 5. lr
-    parser.add_argument('--num_epochs', type=int, default=10)
-    parser.add_argument('--lr_scheduler_num_cycles', type=int, default=1)
-    parser.add_argument('--num_warmup_steps', type=int, default=100)
     # step 6
     parser.add_argument("--log_with", type=str, default=None, choices=["tensorboard", "wandb", "all"], )
-    # step 7. inference check
-    parser.add_argument("--sample_sampler", type=str, default="ddim",
-                        choices=["ddim", "pndm", "lms", "euler", "euler_a", "heun", "dpm_2", "dpm_2_a", "dpmsolver",
-                                 "dpmsolver++", "dpmsingle", "k_lms", "k_euler", "k_euler_a", "k_dpm_2",
-                                 "k_dpm_2_a", ], )
-    parser.add_argument("--scheduler_timesteps", type=int, default=1000, )
-    parser.add_argument("--scheduler_linear_start", type=float, default=0.00085)
-    parser.add_argument("--scheduler_linear_end", type=float, default=0.012, )
-    parser.add_argument("--scheduler_schedule", type=str, default="scaled_linear",
-                        choices=["scaled_linear", "linear", "cosine", "cosine_warmup", ], )
     parser.add_argument("--prompt", type=str, default="bagel", )
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--latent_res", type=int, default=64)
     parser.add_argument("--truncating", action='store_true')
-
     # step 8. test
     import ast
     def arg_as_list(arg):
