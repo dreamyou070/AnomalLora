@@ -240,7 +240,7 @@ def main(args):
                     feat = query[pix_idx].squeeze(0)
                     normal_feat_list.append(feat.unsqueeze(0))
 
-                    down_dim_feat = torch.index_select(feat, 0, down_dim_idx)
+                    down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
                     down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
 
                 # (2)
@@ -285,7 +285,7 @@ def main(args):
                 for pix_idx in range(query.shape[0]):
                     feat = query[pix_idx].squeeze(0)
                     anomal_flag = anomal_position[pix_idx].item()
-                    down_dim_feat = torch.index_select(feat, 0, down_dim_idx)
+                    down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
                     down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                     if anomal_flag != 0 :
                         anormal_feat_list.append(feat.unsqueeze(0))
@@ -348,7 +348,7 @@ def main(args):
                     for pix_idx in range(pix_num):
                         feat = query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
-                        down_dim_feat = torch.index_select(feat, 0, down_dim_idx)
+                        down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
                         if anomal_flag == 1:
                             anormal_feat_list.append(feat.unsqueeze(0))
                             down_dim_anormal_feat_list.append(down_dim_feat.unsqueeze(0))
