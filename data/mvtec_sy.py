@@ -127,7 +127,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
     def randAugmenter(self, idx):
         rot_aug_ind = idx % len(self.rot_augmenters)
-        sharpen_aug_ind = idx // len(self.sharpen_augmenters)
+        sharpen_aug_ind = idx % len(self.sharpen_augmenters)
 
         rot_aug = self.rot_augmenters[rot_aug_ind]
         sharpen_aug = self.sharpen_augmenters[sharpen_aug_ind]
