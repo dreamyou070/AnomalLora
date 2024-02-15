@@ -179,12 +179,9 @@ def main(args):
     text_encoder.requires_grad_(False)
     text_encoder.eval()
     text_encoder.to(accelerator.device, dtype=weight_dtype)
-    vae.requires_grad_(False)
-    vae.eval()
-    vae.to(accelerator.device, dtype=vae_dtype)
     del text_encoder, vae
     print(f'\n step 8. call teacher model')
-    teacher_text_encoder, vae, teacher_unet, _ = load_target_model(args, weight_dtype, accelerator)
+    teacher_text_encoder, teacher_vae, teacher_unet, _ = load_target_model(args, weight_dtype, accelerator)
     if args.use_position_embedder:
         teacher_position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
                                                         d_model=args.d_dim)
@@ -205,6 +202,10 @@ def main(args):
     teacher_position_embedder.requires_grad_(False)
     teacher_position_embedder.to(accelerator.device, dtype=weight_dtype)
     teacher_network.to(accelerator.device, dtype=weight_dtype)
+
+    teacher_vae.requires_grad_(False)
+    teacher_vae.eval()
+    teacher_vae.to(accelerator.device, dtype=vae_dtype)
 
     print(f'\n step 8. Training !')
     if args.max_train_epochs is not None:
@@ -249,7 +250,7 @@ def main(args):
             # [1] normal sample
             with torch.no_grad():
                 encoder_hidden_states = teacher_text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
-                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+                latents = teacher_vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler, latents,
                                                                                        min_timestep=0,max_timestep=1000)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
@@ -291,7 +292,7 @@ def main(args):
 
             # [2] Masked Sample Learning
             with torch.no_grad():
-                latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+                latents = teacher_vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                  latents,min_timestep=0, max_timestep=1000)
                 teacher_unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
@@ -348,7 +349,7 @@ def main(args):
             # [3] Anormal Sample Learning
             if args.do_anomal_hole :
                 with torch.no_grad():
-                    latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+                    latents = teacher_vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
                     noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                                                            latents, min_timestep=0,max_timestep=1000)
                     teacher_unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
