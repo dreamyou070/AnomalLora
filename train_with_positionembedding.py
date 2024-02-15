@@ -325,7 +325,7 @@ def main(args):
 
             # --------------------------------------------------------------------------------------------------------- #
             # [3] Anormal Sample Learning
-            if not args.not_anomal_hole :
+            if args.do_anomal_hole :
                 with torch.no_grad():
                     anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
                     anomal_latents = anomal_latents * args.vae_scale_factor
@@ -567,7 +567,7 @@ if __name__ == "__main__":
     parser.add_argument("--do_classification", action='store_true')
     parser.add_argument("--image_classification_layer", type=str, )
     parser.add_argument("--use_small_anomal", action='store_true')
-    parser.add_argument("--not_anomal_hole", action='store_true')
+    parser.add_argument("--do_anomal_hole", action='store_true')
     # ---------------------------------------------------------------------------------------------------------------- #
     parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
                                                                                "euler_a", "heun", "dpm_2", "dpm_2_a",
