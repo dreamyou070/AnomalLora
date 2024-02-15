@@ -5,7 +5,6 @@ dataset_cat="MVTec3D-AD"
 dataset_dir="../../../MyData/anomaly_detection/${dataset_cat}"
 sub_folder="up_2_not_anomal_hole"
 
-
 output_dir="metrics"
 
 python ../evaluation/evaluation_code_MVTec3D-AD/evaluate_experiment.py \
