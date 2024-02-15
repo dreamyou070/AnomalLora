@@ -4,17 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
 
-def gen_attn_loss(value_dict):
-    anormal_cls_score = torch.stack(value_dict['anormal_cls_score'], dim=0).mean(dim=0)
-    anormal_trigger_score = torch.stack(value_dict['anormal_trigger_score'], dim=0).mean(dim=0)
-    normal_cls_score = torch.stack(value_dict['normal_cls_score'], dim=0).mean(dim=0)
-    normal_trigger_score = torch.stack(value_dict['normal_trigger_score'], dim=0).mean(dim=0)
-    total_score = torch.ones_like(normal_cls_score)
-    normal_cls_loss = (normal_cls_score / total_score) ** 2  # [pix_num]
-    normal_trigger_loss = (1 - (normal_trigger_score / total_score)) ** 2
-    anormal_cls_loss = (1 - (anormal_cls_score / total_score)) ** 2  # [pix_num]
-    anormal_trigger_loss = (anormal_trigger_score / total_score) ** 2
-    return normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss
 """
 def gen_attn_loss(value_dict):
     anormal_cls_loss = torch.tensor(value_dict['anormal_cls_score_loss']).mean()
