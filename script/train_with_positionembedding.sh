@@ -8,7 +8,7 @@ trigger_word='carrot'
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_config \
  --main_process_port $port_number ../train_with_positionembedding.py \
  --log_with wandb \
- --output_dir "../../result/${obj_name}/up_2_not_anomal_hole_act_deact_map_loss_with_focal_loss" \
+ --output_dir "../../result/${obj_name}/up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss_map_loss_with_focal_loss" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --data_path '../../../MyData/anomaly_detection/MVTec3D-AD' --beta_scale_factor 0.8 \
  --use_position_embedder --d_dim 320 --latent_res 64 --position_embedding_layer 'down_blocks_0_attentions_0_transformer_blocks_0_attn1' \
