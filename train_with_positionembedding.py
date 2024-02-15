@@ -266,10 +266,12 @@ def main(args):
                     l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                     map_loss += l2_loss
                 if args.use_focal_loss:
+
                     attn_score = attn_score.mean(dim=0)  # 64*64, 2
                     attn_score = attn_score.permute(1, 0).unsqueeze(0)  # 1, 2, 64*64
                     attn_score = einops.rearrange(attn_score, 'b c (h w) -> b c h w', h=int(pix_num ** 0.5))
                     attn_score = attn_score.softmax(dim=1)
+                    trg_normal_map = torch.ones_like(attn_score)[:,0,:,:]
                     focal_loss = loss_focal(attn_score, (1-trg_normal_map).unsqueeze(0).unsqueeze(0).to(dtype=weight_dtype))
                     map_loss += focal_loss
 
@@ -321,12 +323,12 @@ def main(args):
                     l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                     map_loss += l2_loss
                 if args.use_focal_loss:
+                    normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num))) # [64,64]
                     attn_score = attn_score.mean(dim=0)  # 64*64, 2
                     attn_score = attn_score.permute(1, 0).unsqueeze(0)  # 1, 2, 64*64
                     attn_score = einops.rearrange(attn_score, 'b c (h w) -> b c h w', h=int(pix_num ** 0.5))
                     attn_score = attn_score.softmax(dim=1)
-                    focal_loss = loss_focal(attn_score,
-                                            (1 - trg_normal_map).unsqueeze(0).unsqueeze(0).to(dtype=weight_dtype))
+                    focal_loss = loss_focal(attn_score,(1-normal_map).unsqueeze(0).unsqueeze(0).to(dtype=weight_dtype))
                     map_loss += focal_loss
 
 
@@ -391,21 +393,21 @@ def main(args):
                     value_dict = gen_value_dict(value_dict, normal_cls_loss, anormal_cls_loss,
                                                 normal_trigger_loss, anormal_trigger_loss)
 
-                    # [3] map
+                    # [3] normal map
                     if not args.use_focal_loss:
                         normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                         trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                         l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
                         map_loss += l2_loss
-                    # ---------------------------------------------------------------------------------------------------- #
-                    # focal loss
                     if args.use_focal_loss:
+                        normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)),
+                                                                     int(math.sqrt(pix_num)))  # [64,64]
                         attn_score = attn_score.mean(dim=0)  # 64*64, 2
                         attn_score = attn_score.permute(1, 0).unsqueeze(0)  # 1, 2, 64*64
                         attn_score = einops.rearrange(attn_score, 'b c (h w) -> b c h w', h=int(pix_num ** 0.5))
                         attn_score = attn_score.softmax(dim=1)
                         focal_loss = loss_focal(attn_score,
-                                                (1 - trg_normal_map).unsqueeze(0).unsqueeze(0).to(dtype=weight_dtype))
+                                                (1 - normal_map).unsqueeze(0).unsqueeze(0).to(dtype=weight_dtype))
                         map_loss += focal_loss
 
             # --------------------------------------------------------------------------------------------------------- #
