@@ -28,7 +28,8 @@ def main(args):
                                      latent_res=64,
                                      perlin_max_scale=args.perlin_max_scale,
                                      kernel_size=args.kernel_size,
-                                     beta_scale_factor=args.beta_scale_factor)
+                                     beta_scale_factor=args.beta_scale_factor,
+                                     use_sharpen_aug=args.use_sharpen_aug,)
 
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
     beta_scale_factor = args.beta_scale_factor
@@ -91,6 +92,7 @@ if __name__ == "__main__":
     parser.add_argument('--output_dir', type=str, default='output')
     # step 2. dataset
     parser.add_argument('--data_path', type=str, default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
+    parser.add_argument("--use_sharpen_aug", action='store_true')
     parser.add_argument('--obj_name', type=str, default='carrot')
     parser.add_argument('--anomaly_source_path', type=str)
     parser.add_argument('--trigger_word', type=str)

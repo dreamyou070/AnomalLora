@@ -80,7 +80,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                  latent_res : int = 64,
                  perlin_max_scale : int = 8,
                  kernel_size : int = 5,
-                 beta_scale_factor : float = 0.8):
+                 beta_scale_factor : float = 0.8,
+                 use_sharpen_aug : bool = True):
 
         self.root_dir = root_dir
         self.resize_shape=resize_shape
@@ -102,7 +103,12 @@ class MVTecDRAEMTrainDataset(Dataset):
                            iaa.Affine(rotate=(270, 270))]
         self.sharpen_augmenters = [iaa.Sharpen(alpha=(0.0,0.0), ),
                                    iaa.Sharpen(alpha=(0.3,0.3), )]
-        num_repeat = len(self.rot_augmenters) * len(self.sharpen_augmenters)
+        self.use_sharpen_aug = use_sharpen_aug
+        if self.use_sharpen_aug:
+            num_repeat = len(self.rot_augmenters) * len(self.sharpen_augmenters)
+        else:
+            num_repeat = len(self.rot_augmenters)
+
         image_paths = sorted(glob.glob(root_dir + "/*.png"))
         self.image_paths = [image_path for image_path in image_paths for i in range(num_repeat)]
         self.anomal_only_on_object = anomal_only_on_object
@@ -112,6 +118,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
         self.down_sizer = transforms.Resize(size=(64, 64), antialias=True)
+
 
     def __len__(self):
         if len(self.anomaly_source_paths) > 0 :
@@ -131,8 +138,11 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         rot_aug = self.rot_augmenters[rot_aug_ind]
         sharpen_aug = self.sharpen_augmenters[sharpen_aug_ind]
-        aug = iaa.Sequential([rot_aug,
-                              sharpen_aug])
+        if self.use_sharpen_aug:
+            aug = iaa.Sequential([rot_aug,
+                                  sharpen_aug])
+        else:
+            aug = iaa.Sequential([rot_aug])
         return aug
 
 
