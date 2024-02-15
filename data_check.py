@@ -99,6 +99,7 @@ if __name__ == "__main__":
     parser.add_argument('--kernel_size', type=int, default=5)
     parser.add_argument("--anomal_only_on_object", action='store_true')
     parser.add_argument("--latent_res", type=int, default=64)
+    parser.add_argument("--beta_scale_factor", type=float, default=0.8)
     # step 3. preparing accelerator')
     args = parser.parse_args()
     main(args)
