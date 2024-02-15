@@ -3,7 +3,7 @@
 class_name="carrot"
 dataset_cat="MVTec3D-AD"
 dataset_dir="../../../MyData/anomaly_detection/${dataset_cat}"
-sub_folder="up_2_basic_pe_beta_scale_0.8"
+sub_folder="up_2_not_anomal_hole"
 
 
 output_dir="metrics"
