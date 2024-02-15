@@ -1,9 +1,9 @@
 # !/bin/bash
 
-port_number=53201
+port_number=53204
 obj_name='carrot'
 caption='carrot'
-folder_name="up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss"
+folder_name="up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss_map_loss_with_focal_loss"
 bench_mark="MVTec3D-AD"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
