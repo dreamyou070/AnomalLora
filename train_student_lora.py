@@ -204,6 +204,7 @@ def main(args):
 
     teacher_position_embedder.requires_grad_(False)
     teacher_position_embedder.to(accelerator.device, dtype=weight_dtype)
+    teacher_network.to(accelerator.device, dtype=weight_dtype)
 
     print(f'\n step 8. Training !')
     if args.max_train_epochs is not None:
