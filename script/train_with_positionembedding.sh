@@ -17,4 +17,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --start_epoch 0 --max_train_epochs 300 --anomal_only_on_object --unet_inchannels 4 --min_timestep 0 --max_timestep 1000 \
  --do_dist_loss --dist_loss_weight 1.0 \
  --do_attn_loss --attn_loss_weight 1.0 --do_cls_train --normal_weight 1 \
- --do_map_loss --do_down_dim_mahal_loss
+ --do_map_loss --do_down_dim_mahal_loss --down_dim 100
