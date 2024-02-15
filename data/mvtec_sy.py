@@ -173,6 +173,8 @@ class MVTecDRAEMTrainDataset(Dataset):
             if np.sum(perlin_thr) > 0:
                 break
         perlin_thr = np.expand_dims(perlin_thr, axis=2)  # [512,512,3]
+
+        # if i rase beta_scale_factor,
         beta = torch.rand(1).numpy()[0] * beta_scale_factor
         A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32) # merged
         augmented_image = (image * (1 - perlin_thr) + A * perlin_thr).astype(np.float32)
