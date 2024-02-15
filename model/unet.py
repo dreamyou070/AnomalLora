@@ -25,7 +25,10 @@ UP_BLOCK_TYPES = ["UpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D", "Cros
 
 def unet_passing_argument(args):
     global IN_CHANNELS
+    global argument
     IN_CHANNELS = args.unet_inchannels
+    argument = args
+
 
 
 
@@ -1418,6 +1421,14 @@ class UNet2DConditionModel(nn.Module):
         #if noise_type is not None:
         #    sample = sample.chunk(2, dim=0)[0]
         sample = self.conv_in(sample)     # 1, 320, 64, 64
+
+        if 'unet' in argument.position_embedding_layer :
+
+            # sample with positino embeddding
+            sample = noise_type(sample)
+
+
+
 
         # 3. down
         # encoder_hidden_states = [4,277,768]
