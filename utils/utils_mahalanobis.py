@@ -11,13 +11,16 @@ def gen_mahal_loss(args, anormal_feat_list, normal_feat_list):
     # [2] mu and cov
     mu = torch.mean(normal_feats, dim=0)
     cov = torch.cov(normal_feats.transpose(0, 1))
+
     # [3] mahalanobis distance
     anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
     anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+
     normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
-    normal_dist_mean = torch.tensor(normal_mahalanobis_dists).mean()
+    normal_dist_max = torch.tensor(normal_mahalanobis_dists).max()
+
     # [4] loss
-    total_dist = normal_dist_mean + anormal_dist_mean
-    normal_dist_loss = normal_dist_mean / total_dist
+    total_dist = normal_dist_max + anormal_dist_mean
+    normal_dist_loss = normal_dist_max / total_dist
     normal_dist_loss = normal_dist_loss * args.dist_loss_weight
-    return normal_dist_loss
+    return normal_dist_max, normal_dist_loss
