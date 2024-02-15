@@ -23,6 +23,7 @@ from utils.model_utils import pe_model_save
 #from utils.utils_loss import gen_attn_loss, FocalLoss
 import einops
 from utils.utils_loss import FocalLoss
+from random import sample
 
 def gen_value_dict(value_dict,
                    normal_cls_loss, anormal_cls_loss,
@@ -214,6 +215,10 @@ def main(args):
             value_dict = {}
             loss_dict = {}
 
+            original_dim = 320
+            down_dim_idx = torch.tensor(sample(range(0, original_dim), args.down_dim))
+            down_dim_normal_feat_list, down_dim_anormal_feat_list = [], []
+
             with torch.set_grad_enabled(True):
                 enc_out = text_encoder(batch["input_ids"].to(accelerator.device))
                 encoder_hidden_states = enc_out["last_hidden_state"]
@@ -225,19 +230,7 @@ def main(args):
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                                                                                            noise_type=position_embedder)
             query_dict, attn_dict = controller.query_dict, controller.step_store
-            classification_map_dict = controller.classification_map_dict
             controller.reset()
-
-            if args.image_classification_layer is not None:
-                classification_map = classification_map_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
-                if 'mid' in args.image_classification_layer :
-                    classification_map = classification_map.mean(dim=0)
-                    classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
-                else :
-                    classification_map = torch.max(classification_map, dim=0).values.squeeze()
-                    classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
-                anomal_score = torch.min(classification_map)
-                classification_loss += abs(1-anomal_score).requires_grad_(True)
 
             for trg_layer in args.trg_layer_list:
                 # (1)
@@ -246,6 +239,10 @@ def main(args):
                 for pix_idx in range(pix_num):
                     feat = query[pix_idx].squeeze(0)
                     normal_feat_list.append(feat.unsqueeze(0))
+
+                    down_dim_feat = torch.index_select(feat, 0, down_dim_idx)
+                    down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
+
                 # (2)
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
@@ -279,19 +276,7 @@ def main(args):
             anomal_map = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
             anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0) # [1, 64*64]
             query_dict, attn_dict = controller.query_dict, controller.step_store
-            classification_map_dict = controller.classification_map_dict
             controller.reset()
-
-            if args.image_classification_layer is not None:
-                classification_map = classification_map_dict[args.image_classification_layer][0].squeeze()  # [8,64*64]
-                if 'mid' in args.image_classification_layer:
-                    classification_map = classification_map.mean(dim=0)
-                    classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=8)
-                else:
-                    classification_map = torch.max(classification_map, dim=0).values.squeeze()
-                    classification_map = einops.rearrange(classification_map, '(h w) -> h w', w=64)
-                anomal_score = torch.min(classification_map)
-                classification_loss += abs(1 - anomal_score).requires_grad_(True)
 
             for trg_layer in args.trg_layer_list:
                 # [1] feat
@@ -300,10 +285,14 @@ def main(args):
                 for pix_idx in range(query.shape[0]):
                     feat = query[pix_idx].squeeze(0)
                     anomal_flag = anomal_position[pix_idx].item()
+                    down_dim_feat = torch.index_select(feat, 0, down_dim_idx)
+                    down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                     if anomal_flag != 0 :
                         anormal_feat_list.append(feat.unsqueeze(0))
+                        down_dim_anormal_feat_list.append(down_dim_feat.unsqueeze(0))
                     else :
                         normal_feat_list.append(feat.unsqueeze(0))
+                        down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                 # [2] attn score
                 attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attention_score.chunk(2, dim=-1)
@@ -359,10 +348,13 @@ def main(args):
                     for pix_idx in range(pix_num):
                         feat = query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
+                        down_dim_feat = torch.index_select(feat, 0, down_dim_idx)
                         if anomal_flag == 1:
                             anormal_feat_list.append(feat.unsqueeze(0))
+                            down_dim_anormal_feat_list.append(down_dim_feat.unsqueeze(0))
                         else :
                             normal_feat_list.append(feat.unsqueeze(0))
+                            down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
 
                     # [2] attn score
                     attention_score = attn_dict[trg_layer][0]  # head, pix_num, 2
@@ -391,7 +383,10 @@ def main(args):
             # [4.0] classification loss
             # [4.1] total loss
             normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list).to(weight_dtype)
+            down_dim_normal_dist_loss = gen_mahal_loss(args, down_dim_anormal_feat_list, down_dim_normal_feat_list).to(weight_dtype)
             dist_loss += normal_dist_loss.requires_grad_()
+            if args.do_down_dim_mahal_loss:
+                dist_loss += down_dim_normal_dist_loss.requires_grad_()
             # [4.2] attn loss
             normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss = gen_attn_loss(value_dict)
             attn_loss += args.normal_weight * normal_trigger_loss.mean() + args.anormal_weight * anormal_trigger_loss.mean()
@@ -568,6 +563,8 @@ if __name__ == "__main__":
     parser.add_argument("--image_classification_layer", type=str, )
     parser.add_argument("--use_small_anomal", action='store_true')
     parser.add_argument("--do_anomal_hole", action='store_true')
+    parser.add_argument("--do_down_dim_mahal_loss", action='store_true')
+
     # ---------------------------------------------------------------------------------------------------------------- #
     parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
                                                                                "euler_a", "heun", "dpm_2", "dpm_2_a",
