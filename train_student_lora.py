@@ -310,9 +310,10 @@ def main(args):
             for trg_layer in args.trg_layer_list:
                 anomal_position = anomal_map.squeeze(0)      # [64*64]
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
+                teacher_query = teacher_query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 for pix_idx in range(query.shape[0]):
                     feat = query[pix_idx].squeeze(0)
-                    teacher_feat = teacher_query_dict[trg_layer][0][pix_idx].squeeze(0)
+                    teacher_feat = teacher_query[pix_idx].squeeze(0)
                     anomal_flag = anomal_position[pix_idx].item()
                     if anomal_flag != 0 :
                         student_feat_list.append(feat.unsqueeze(0))
@@ -366,9 +367,10 @@ def main(args):
                 for trg_layer in args.trg_layer_list:
                     anomal_position = anomal_map.squeeze(0)  # [64*64]
                     query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
+                    teacher_query = teacher_query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                     for pix_idx in range(query.shape[0]):
                         feat = query[pix_idx].squeeze(0)
-                        teacher_feat = teacher_query_dict[trg_layer][0][pix_idx].squeeze(0)
+                        teacher_feat = teacher_query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
                         if anomal_flag != 0:
                             student_feat_list.append(feat.unsqueeze(0))
