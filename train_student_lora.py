@@ -199,7 +199,7 @@ def main(args):
                                   alpha=args.network_alpha,
                                   module_class=LoRAInfModule)
     teacher_network.apply_to(text_encoder, unet, True, True)
-    teacher_network.load_state_dict(args.teacher_network_weights)
+    teacher_network.load_state_dict(args.network_weights)
 
 
     print(f'\n step 8. Training !')
