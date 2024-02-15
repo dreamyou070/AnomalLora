@@ -3,7 +3,7 @@
 class_name="carrot"
 dataset_cat="MVTec3D-AD"
 dataset_dir="../../../MyData/anomaly_detection/${dataset_cat}"
-sub_folder="up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss"
+sub_folder="up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss_map_loss_with_focal_loss"
 
 output_dir="metrics"
 
