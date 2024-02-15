@@ -236,6 +236,7 @@ def main(args):
                 # (1)
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 pix_num = query.shape[0]
+
                 for pix_idx in range(pix_num):
                     feat = query[pix_idx].squeeze(0)
                     normal_feat_list.append(feat.unsqueeze(0))
@@ -262,7 +263,17 @@ def main(args):
                 normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = torch.ones_like(normal_map)  # [64,64]
                 l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
-                map_loss += l2_loss
+                map_loss += l2_loss.mean()
+                # ---------------------------------------------------------------------------------------------------- #
+                # focal loss
+                if args.use_focal_loss:
+                    attn_score = attn_score.mean(dim=0)  # 64*64, 2
+                    attn_score = attn_score.permute(1, 0).unsqueeze(0)  # 1, 2, 64*64
+                    attn_score = einops.rearrange(attn_score, 'b c (h w) -> b c h w', h=int(pix_num ** 0.5))
+                    attn_score = attn_score.softmax(dim=1)
+                    focal_loss = loss_focal(attn_score, (1-trg_normal_map).unsqueeze(0).unsqueeze(0).to(dtype=weight_dtype))
+
+                    map_loss += focal_loss.mean()
 
             # --------------------------------------------------------------------------------------------------------- #
             # [2] Masked Sample Learning
@@ -309,7 +320,17 @@ def main(args):
                 normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 trg_normal_map = (1-anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                 l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
-                map_loss += l2_loss #+ segment_loss
+                map_loss += l2_loss.mean()
+                # ---------------------------------------------------------------------------------------------------- #
+                # focal loss
+                if args.use_focal_loss:
+                    attn_score = attn_score.mean(dim=0)  # 64*64, 2
+                    attn_score = attn_score.permute(1, 0).unsqueeze(0)  # 1, 2, 64*64
+                    attn_score = einops.rearrange(attn_score, 'b c (h w) -> b c h w', h=int(pix_num ** 0.5))
+                    attn_score = attn_score.softmax(dim=1)
+                    focal_loss = loss_focal(attn_score,
+                                            (1 - trg_normal_map).unsqueeze(0).unsqueeze(0).to(dtype=weight_dtype))
+                    map_loss += focal_loss.mean()
 
 
             # --------------------------------------------------------------------------------------------------------- #
@@ -377,7 +398,16 @@ def main(args):
                     normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                     trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
                     l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
-                    map_loss += l2_loss  # + segment_loss
+                    # ---------------------------------------------------------------------------------------------------- #
+                    # focal loss
+                    if args.use_focal_loss:
+                        attn_score = attn_score.mean(dim=0)  # 64*64, 2
+                        attn_score = attn_score.permute(1, 0).unsqueeze(0)  # 1, 2, 64*64
+                        attn_score = einops.rearrange(attn_score, 'b c (h w) -> b c h w', h=int(pix_num ** 0.5))
+                        attn_score = attn_score.softmax(dim=1)
+                        focal_loss = loss_focal(attn_score,
+                                                (1 - trg_normal_map).unsqueeze(0).unsqueeze(0).to(dtype=weight_dtype))
+                        map_loss += focal_loss.mean()
 
             # --------------------------------------------------------------------------------------------------------- #
             # [4.0] classification loss
@@ -564,6 +594,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_small_anomal", action='store_true')
     parser.add_argument("--do_anomal_hole", action='store_true')
     parser.add_argument("--do_down_dim_mahal_loss", action='store_true')
+    parser.add_argument("--use_focal_loss", action='store_true')
 
     # ---------------------------------------------------------------------------------------------------------------- #
     parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
