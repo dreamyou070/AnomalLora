@@ -7,6 +7,7 @@ sub_folder="up_2_not_anomal_hole_act_deact_do_down_dim_mahal_loss"
 
 output_dir="metrics"
 
+
 python ../evaluation/evaluation_code_MVTec3D-AD/evaluate_experiment.py \
      --base_dir "../../result/${class_name}/${sub_folder}/reconstruction" \
      --dataset_base_dir "${dataset_dir}" \
