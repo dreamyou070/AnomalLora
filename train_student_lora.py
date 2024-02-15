@@ -58,10 +58,23 @@ def generate_attn_loss(target, position, base, do_lowering):
     return loss
 
 def gen_attn_loss(value_dict):
-    normal_cls_loss = torch.stack(value_dict['normal_cls_loss'], dim=0).mean(dim=0)
-    anormal_cls_loss = torch.stack(value_dict['anormal_cls_loss'], dim=0).mean(dim=0)
-    normal_trigger_loss = torch.stack(value_dict['normal_trigger_loss'], dim=0).mean(dim=0)
-    anormal_trigger_loss = torch.stack(value_dict['anormal_trigger_loss'], dim=0).mean(dim=0)
+    if 'normal_cls_loss' in value_dict.keys():
+        normal_cls_loss = torch.stack(value_dict['normal_cls_loss'], dim=0).mean(dim=0)
+    else :
+        normal_cls_loss = None
+    if 'anormal_cls_loss' in value_dict.keys():
+        anormal_cls_loss = torch.stack(value_dict['anormal_cls_loss'], dim=0).mean(dim=0)
+    else :
+        anormal_cls_loss = None
+    if 'normal_trigger_loss' in value_dict.keys():
+        normal_trigger_loss = torch.stack(value_dict['normal_trigger_loss'], dim=0).mean(dim=0)
+    else :
+        normal_trigger_loss = None
+    if 'anormal_trigger_loss' in value_dict.keys():
+        anormal_trigger_loss = torch.stack(value_dict['anormal_trigger_loss'], dim=0).mean(dim=0)
+    else :
+        anormal_trigger_loss = None
+
     return normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss
 
 def main(args):
@@ -191,7 +204,7 @@ def main(args):
     teacher_network.apply_to(text_encoder, unet, True, True)
     teacher_network.load_state_dict(args.teacher_network_weights)
 
-    """
+
     print(f'\n step 8. Training !')
     if args.max_train_epochs is not None:
         args.max_train_steps = args.max_train_epochs * math.ceil(
@@ -211,6 +224,8 @@ def main(args):
 
     controller = AttentionStore()
     register_attention_control(unet, controller)
+    teacher_controller = AttentionStore()
+    register_attention_control(teacher_unet, teacher_controller)
 
     if is_main_process:
         logging_info = f"'step', 'normal dist max', 'down dimed normal dist max'"
@@ -226,25 +241,19 @@ def main(args):
 
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
             classification_loss, dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0, 0.0
-            normal_feat_list, anormal_feat_list = [], []
+            normal_feat_list, student_feat_list, teacher_feat_list = [], [], []
             value_dict = {}
             loss_dict = {}
 
-            original_dim = 320
-            down_dim_idx = torch.tensor(sample(range(0, original_dim), args.down_dim))
-            down_dim_normal_feat_list, down_dim_anormal_feat_list = [], []
 
-            with torch.set_grad_enabled(True):
-                encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
-
-            # --------------------------------------------------------------------------------------------------------- #
             # [1] normal sample
             with torch.no_grad():
+                encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
-            noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                 latents,min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
+                noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
+                                                latents,min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                                                                                           noise_type=position_embedder)
+                                                                        noise_type=position_embedder)
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
@@ -253,8 +262,6 @@ def main(args):
                 for pix_idx in range(pix_num):
                     feat = query[pix_idx].squeeze(0)
                     normal_feat_list.append(feat.unsqueeze(0))
-                    down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
-                    down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                 # (2) attn loss
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
@@ -284,40 +291,42 @@ def main(args):
 
             # [2] Masked Sample Learning
             with torch.no_grad():
-                latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor  # [1,4,64,64]
-            noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                            latents,min_timestep=args.min_timestep, max_timestep=args.max_timestep, )
-            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+                noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
+                                                 latents,min_timestep=args.min_timestep, max_timestep=args.max_timestep, )
+                teacher_unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                             noise_type=teacher_position_embedder)
+            with accelerator.autocast():
+                unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                                                                                         noise_type=position_embedder)
+
             anomal_map = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
             anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0) # [1, 64*64]
             query_dict, attn_dict = controller.query_dict, controller.step_store
+            teacher_query_dict, teacher_attn_dict = teacher_controller.query_dict, teacher_controller.step_store
             controller.reset()
+            teacher_controller.reset()
             for trg_layer in args.trg_layer_list:
                 anomal_position = anomal_map.squeeze(0)      # [64*64]
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 for pix_idx in range(query.shape[0]):
                     feat = query[pix_idx].squeeze(0)
+                    teacher_feat = teacher_query_dict[trg_layer][0][pix_idx].squeeze(0)
                     anomal_flag = anomal_position[pix_idx].item()
-                    down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
-                    down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                     if anomal_flag != 0 :
-                        anormal_feat_list.append(feat.unsqueeze(0))
-                        down_dim_anormal_feat_list.append(down_dim_feat.unsqueeze(0))
+                        student_feat_list.append(feat.unsqueeze(0))
+                        teacher_feat_list.append(teacher_feat.unsqueeze(0))
                     else :
                         normal_feat_list.append(feat.unsqueeze(0))
-                        down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                 # [2] attn score
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
                 cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()     # head, pix_num
                 cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0) # pix_num
                 total_score = torch.ones_like(cls_score)
-                anormal_cls_loss = generate_attn_loss(cls_score, anomal_position, total_score, do_lowering=False)
-                anormal_trigger_loss = generate_attn_loss(trigger_score, anomal_position, total_score, do_lowering=True)
                 normal_cls_loss = generate_attn_loss(cls_score, 1-anomal_position, total_score, do_lowering=True)
                 normal_trigger_loss = generate_attn_loss(trigger_score, 1-anomal_position, total_score, do_lowering=False)
-                value_dict = gen_value_dict(value_dict, normal_cls_loss, anormal_cls_loss, normal_trigger_loss,anormal_trigger_loss)
+                value_dict = gen_value_dict(value_dict, normal_cls_loss, None, normal_trigger_loss,None)
                 # [3] normal map
                 if not args.use_focal_loss:
                     normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
@@ -339,45 +348,45 @@ def main(args):
             # [3] Anormal Sample Learning
             if args.do_anomal_hole :
                 with torch.no_grad():
-                    anomal_latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample()
-                    anomal_latents = anomal_latents * args.vae_scale_factor
-                noise, anomal_noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                                                              anomal_latents)
+                    latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+                    noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args,
+                                                                                           noise_scheduler,
+                                                                                           latents,
+                                                                                           min_timestep=args.min_timestep,
+                                                                                           max_timestep=args.max_timestep, )
+                    teacher_unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                                 noise_type=teacher_position_embedder)
                 with accelerator.autocast():
-                    unet(anomal_noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                                                                                     noise_type=position_embedder)
+                    unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                         noise_type=position_embedder)
                 anomal_map = batch["anomaly_mask"].squeeze().flatten().squeeze()  # [64*64]
                 anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0)  # [1, 64*64]
                 query_dict, attn_dict = controller.query_dict, controller.step_store
+                teacher_query_dict, teacher_attn_dict = teacher_controller.query_dict, teacher_controller.step_store
                 controller.reset()
+                teacher_controller.reset()
                 for trg_layer in args.trg_layer_list:
                     anomal_position = anomal_map.squeeze(0)  # [64*64]
                     query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                     for pix_idx in range(query.shape[0]):
                         feat = query[pix_idx].squeeze(0)
+                        teacher_feat = teacher_query_dict[trg_layer][0][pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
-                        down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
-                        down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                         if anomal_flag != 0:
-                            anormal_feat_list.append(feat.unsqueeze(0))
-                            down_dim_anormal_feat_list.append(down_dim_feat.unsqueeze(0))
+                            student_feat_list.append(feat.unsqueeze(0))
+                            teacher_feat_list.append(teacher_feat.unsqueeze(0))
                         else:
                             normal_feat_list.append(feat.unsqueeze(0))
-                            down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                     # [2] attn score
                     attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                     cls_score, trigger_score = attn_score.chunk(2, dim=-1)
                     cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
                     cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
                     total_score = torch.ones_like(cls_score)
-                    anormal_cls_loss = generate_attn_loss(cls_score, anomal_position, total_score, do_lowering=False)
-                    anormal_trigger_loss = generate_attn_loss(trigger_score, anomal_position, total_score,
-                                                              do_lowering=True)
                     normal_cls_loss = generate_attn_loss(cls_score, 1 - anomal_position, total_score, do_lowering=True)
                     normal_trigger_loss = generate_attn_loss(trigger_score, 1 - anomal_position, total_score,
                                                              do_lowering=False)
-                    value_dict = gen_value_dict(value_dict, normal_cls_loss, anormal_cls_loss, normal_trigger_loss,
-                                                anormal_trigger_loss)
+                    value_dict = gen_value_dict(value_dict, normal_cls_loss, None, normal_trigger_loss, None)
                     # [3] normal map
                     if not args.use_focal_loss:
                         normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
@@ -398,22 +407,15 @@ def main(args):
             # --------------------------------------------------------------------------------------------------------- #
             # [4.0] classification loss
             # [4.1] total loss
-            normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
-            normal_dist_loss = normal_dist_loss.to(weight_dtype)
-            down_dim_normal_dist_max, down_dim_normal_dist_loss = gen_mahal_loss(args, down_dim_anormal_feat_list, down_dim_normal_feat_list)
-            down_dim_normal_dist_loss = down_dim_normal_dist_loss.to(weight_dtype)
-
-            # logging -------------------------------------------------------------------------------------------------
-
-
+            normal_dist_max, _ = gen_mahal_loss(args, None, normal_feat_list)
+            normal_dist_loss = normal_dist_max.to(weight_dtype)
             dist_loss += normal_dist_loss.requires_grad_()
-            if args.do_down_dim_mahal_loss:
-                dist_loss += down_dim_normal_dist_loss.requires_grad_()
+
             # [4.2] attn loss
-            normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss = gen_attn_loss(value_dict)
-            attn_loss += args.normal_weight * normal_trigger_loss.mean() + args.anormal_weight * anormal_trigger_loss.mean()
+            normal_cls_loss, normal_trigger_loss, _,_ = gen_attn_loss(value_dict)
+            attn_loss += args.normal_weight * normal_trigger_loss.mean()
             if args.do_cls_train:
-                attn_loss += args.normal_weight * normal_cls_loss.mean() + args.anormal_weight * anormal_cls_loss.mean()
+                attn_loss += args.normal_weight * normal_cls_loss.mean()
             # [4.3] map loss
             map_loss = map_loss.mean().to(weight_dtype)
             # [5] backprop
@@ -447,7 +449,7 @@ def main(args):
                 progress_bar.update(1)
                 global_step += 1
             if is_main_process:
-                logging_info = f'{global_step}, {normal_dist_max}, {down_dim_normal_dist_loss}'
+                logging_info = f'{global_step}, {normal_dist_max}'
                 with open(logging_file, 'a') as f:
                     f.write(logging_info + '\n')
                 progress_bar.set_postfix(**loss_dict)
@@ -470,7 +472,6 @@ def main(args):
                     pe_model_save(accelerator.unwrap_model(position_embedder), save_dtype, p_save_dir)
 
     accelerator.end_training()
-    """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
