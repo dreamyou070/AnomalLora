@@ -4,7 +4,8 @@ def main(args) :
 
     second_folder_name = args.second_folder_name
     class_name = args.class_name
-    base_save_dir = f'/home/dreamyou070/AnomalLora/result/{class_name}/{second_folder_name}'
+    bench_mark = 'MVTec3D-AD'
+    base_save_dir = f'/home/dreamyou070/AnomalLora/result/{bench_mark}/{class_name}/{second_folder_name}'
     total_matric_save_dir = os.path.join(base_save_dir, f'{class_name}_total_metrics.csv')
 
     metric_base_folder = os.path.join(base_save_dir, 'reconstruction_')
