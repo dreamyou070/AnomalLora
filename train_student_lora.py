@@ -246,8 +246,8 @@ def main(args):
             with torch.no_grad():
                 encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
-                noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                latents,min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
+                noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler, latents,
+                                                                                       min_timestep=0,max_timestep=1000)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                                                                         noise_type=position_embedder)
             query_dict, attn_dict = controller.query_dict, controller.step_store
@@ -289,7 +289,7 @@ def main(args):
             with torch.no_grad():
                 latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                 latents,min_timestep=args.min_timestep, max_timestep=args.max_timestep, )
+                                                 latents,min_timestep=0, max_timestep=1000)
                 teacher_unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                              noise_type=teacher_position_embedder)
             with accelerator.autocast():
@@ -345,11 +345,8 @@ def main(args):
             if args.do_anomal_hole :
                 with torch.no_grad():
                     latents = vae.encode(batch['augmented_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
-                    noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args,
-                                                                                           noise_scheduler,
-                                                                                           latents,
-                                                                                           min_timestep=args.min_timestep,
-                                                                                           max_timestep=args.max_timestep, )
+                    noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
+                                                                                           latents, min_timestep=0,max_timestep=1000)
                     teacher_unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                                  noise_type=teacher_position_embedder)
                 with accelerator.autocast():
