@@ -21,7 +21,7 @@ def gen_mahal_loss(args, anormal_feat_list, normal_feat_list):
     normal_dist_max = torch.tensor(normal_mahalanobis_dists).max()
 
     # [4] loss
-    if anormal_feat_list is None:
+    if anormal_feat_list is not None:
         total_dist = normal_dist_max + anormal_dist_mean
     else :
         total_dist = normal_dist_max
