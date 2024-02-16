@@ -78,7 +78,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             attn_windows = hidden_states.view(-1, argument.window_size, argument.window_size, C)  # 64, 7, 7, 96
             window_attn = window_reverse(attn_windows, argument.window_size, H, W)  # batch, w_size, w_size, c
             hidden_states = window_attn.view(B, H * W, C)
-            local_hidden_states = self.out[0](hidden_states)
+            local_hidden_states = self.to_out[0](hidden_states)
             return local_hidden_states
 
         def global_self_attn(hidden_states, context, trg_layer_list):
