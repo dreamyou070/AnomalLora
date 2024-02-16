@@ -1,9 +1,9 @@
 # !/bin/bash
 
-port_number=51211
+port_number=51210
 obj_name='carrot'
 caption='carrot'
-folder_name="11_up_2_anomal_pe_down_down_mahal_task_loss_global_local_attn"
+folder_name="10_up_2_anomal_pe_down_down_mahal_task_loss_only_local_attn"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 
@@ -15,4 +15,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --obj_name "${obj_name}" --prompt "${caption}" \
  --latent_res 64 --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']" \
  --d_dim 320 --use_position_embedder --position_embedding_layer ${position_embedding_layer} \
- --do_local_self_attn --windos_size 8
+ --do_local_self_attn --windos_size 8 --only_local_self_attn
