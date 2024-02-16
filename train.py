@@ -268,9 +268,8 @@ def main(args):
                     cls_map = cls.view(res, res).unsqueeze(0).unsqueeze(0)
                     trigger_map = trigger.view(res, res).unsqueeze(0).unsqueeze(0)
                     focal_loss_in = torch.cat([cls_map, trigger_map], 1)
-                    trg_normal_map = torch.ones_like(attn_score)[:,0,:,:]
-                    focal_loss = loss_focal(focal_loss_in,
-                                            (1-trg_normal_map).unsqueeze(0).unsqueeze(0).to(dtype=weight_dtype))
+                    focal_loss_trg = torch.zeros_like(focal_loss_in)[:,0,:,:]
+                    focal_loss = loss_focal(focal_loss_in, focal_loss_trg.to(dtype=weight_dtype))
                     map_loss += focal_loss
             # --------------------------------------------------------------------------------------------------------- #
             # [2] Masked Sample Learning
@@ -326,9 +325,8 @@ def main(args):
                     cls_map = cls.view(res, res).unsqueeze(0).unsqueeze(0)
                     trigger_map = trigger.view(res, res).unsqueeze(0).unsqueeze(0)
                     focal_loss_in = torch.cat([cls_map, trigger_map], 1)
-                    focal_loss = loss_focal(focal_loss_in,
-                                            anomal_map.view(int(pix_num ** 0.5), int(pix_num ** 0.5)).unsqueeze(
-                                                0).unsqueeze(0).to(dtype=weight_dtype))
+                    focal_loss_trg = anomal_map.view(1, 1, int(pix_num ** 0.5),int(pix_num ** 0.5))
+                    focal_loss = loss_focal(focal_loss_in,focal_loss_trg.to(dtype=weight_dtype))
                     map_loss += focal_loss
 
             # [3] Masked Sample Learning
@@ -383,8 +381,8 @@ def main(args):
                         cls_map = cls.view(res, res).unsqueeze(0).unsqueeze(0)
                         trigger_map = trigger.view(res, res).unsqueeze(0).unsqueeze(0)
                         focal_loss_in = torch.cat([cls_map, trigger_map], 1)
-                        focal_loss = loss_focal(focal_loss_in,
-                        anomal_map.view(int(pix_num ** 0.5),int(pix_num ** 0.5)).unsqueeze(0).unsqueeze(0).to(dtype=weight_dtype))
+                        focal_loss_trg = anomal_map.view(1, 1, int(pix_num ** 0.5), int(pix_num ** 0.5))
+                        focal_loss = loss_focal(focal_loss_in, focal_loss_trg.to(dtype=weight_dtype))
                         map_loss += focal_loss
 
             # [4.1] total loss
