@@ -57,6 +57,7 @@ def parse_user_arguments():
                                 all dataset objects will be evaluated.""",
                         default=util.OBJECT_NAMES)
     parser.add_argument('--base_dir', type=str)
+    parser.add_argument('--sub_folder', type=str)
     args = parser.parse_args()
     # Check that the PRO integration limit is within the valid range.
     assert 0.0 < args.pro_integration_limit <= 1.0
@@ -182,6 +183,9 @@ def main():
     # Parse user arguments.
     args = parse_user_arguments()
 
+    args.base_dir = os.path.join(args.base_dir, args.sub_folder)
+    args.base_dir = os.path.join(args.base_dir, 'reconstruction')
+
     lora_folders = os.listdir(args.base_dir)
     for lora_folder in lora_folders:
         lora_dir = os.path.join(args.base_dir, lora_folder)
@@ -243,4 +247,5 @@ def main():
                 print(f"Wrote metrics to {path.join(args.output_dir, 'metrics.json')}")
 
 if __name__ == "__main__":
+
     main()
