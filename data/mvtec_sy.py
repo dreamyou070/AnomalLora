@@ -328,8 +328,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                     masked_image = self.transform(back_anomal_img)
                     masked_image_mask = back_anomal_mask_torch
                 else :
-                    masked_image = None
-                    masked_image_mask =  None
+                    masked_image = img
+                    masked_image_mask = object_mask
 
             if self.anomal_only_on_object:
 
@@ -351,13 +351,13 @@ class MVTecDRAEMTrainDataset(Dataset):
                     masked_image = self.transform(back_anomal_img)
                     masked_image_mask = back_anomal_mask_torch
                 else :
-                    masked_image = None
-                    masked_image_mask = None
+                    masked_image = img
+                    masked_image_mask = object_mask
         else :
             anomal_img = img
             anomal_mask = object_mask # [64,64]
-            masked_image = None
-            masked_image_mask = None
+            masked_image = img
+            masked_image_mask = object_mask
 
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
 
