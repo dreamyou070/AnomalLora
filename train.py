@@ -203,7 +203,10 @@ def main(args):
     register_attention_control(unet, controller)
 
     if is_main_process:
-        logging_info = f"'step', 'normal dist max', 'down dimed normal dist max'"
+        if args.do_down_dim_mahal_loss:
+            logging_info = f"'step', 'normal dist max', 'down dimed normal dist max'"
+        else:
+            logging_info = f"'step', 'normal dist max'"
         with open(logging_file, 'a') as f:
             f.write(logging_info + '\n')
 
@@ -436,7 +439,10 @@ def main(args):
                 progress_bar.update(1)
                 global_step += 1
             if is_main_process:
-                logging_info = f'{global_step}, {normal_dist_max}, {down_dim_normal_dist_loss}'
+                if args.do_down_dim_mahal_loss:
+                    logging_info = f'{global_step}, {normal_dist_max}, {down_dim_normal_dist_loss}'
+                else:
+                    logging_info = f'{global_step}, {normal_dist_max}'
                 with open(logging_file, 'a') as f:
                     f.write(logging_info + '\n')
                 progress_bar.set_postfix(**loss_dict)
