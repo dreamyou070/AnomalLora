@@ -87,8 +87,15 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             hidden_states = self.to_out[0](hidden_states)
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
-                trg_map = attention_probs[:, :, :2]
-                controller.store(trg_map, layer_name)
+                if argument.use_focal_loss :
+                    attention_scores = attention_scores[:, :, :2]
+                    attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)
+                    trg_map = attention_probs[:, :, :2]
+                    controller.store(trg_map, layer_name)
+                else :
+                    trg_map = attention_probs[:, :, :2]
+                    controller.store(trg_map, layer_name)
+
             if layer_name == argument.image_classification_layer :
                 controller.store_classifocation_map(attention_probs[:, :, 1], layer_name)
             return hidden_states
