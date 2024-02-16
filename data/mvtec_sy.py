@@ -92,6 +92,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                 self.anomaly_source_paths.extend(sorted(glob.glob(anomaly_source_path + f"/*/*/*.{ext}")))
         else :
             self.anomaly_source_paths = []
+        print(f'anomal_source_paths: {len(self.anomaly_source_paths)}')
 
         self.caption = caption
         self.tokenizer = tokenizer
@@ -349,8 +350,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
                 'masked_image': self.transform(back_anomal_img),   # masked image
                 'masked_image_mask': back_anomal_mask_torch,# hold position
-                #'self_augmented_image': self.transform(self_aug_img), # self augmented image
-                #'self_augmented_mask': self_aug_mask_torch.unsqueeze(0), # self augmented mask
+
                 'idx': idx,
                 'input_ids': input_ids.squeeze(0),
                 'caption': self.caption,

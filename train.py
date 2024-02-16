@@ -576,15 +576,8 @@ if __name__ == "__main__":
     parser.add_argument("--do_anomal_hole", action='store_true')
     parser.add_argument("--do_down_dim_mahal_loss", action='store_true')
     parser.add_argument("--use_focal_loss", action='store_true')
-
     # ---------------------------------------------------------------------------------------------------------------- #
-    parser.add_argument("--sample_sampler", type=str, default="ddim", choices=["ddim", "pndm", "lms", "euler",
-                                                                               "euler_a", "heun", "dpm_2", "dpm_2_a",
-                                                                               "dpmsolver", "dpmsolver++",
-                                                                               "dpmsingle", "k_lms", "k_euler",
-                                                                               "k_euler_a", "k_dpm_2", "k_dpm_2_a", ], )
     parser.add_argument("--num_ddim_steps", type=int, default=30)
-    parser.add_argument("--do_concat", action='store_true')
     parser.add_argument("--do_local_self_attn", action='store_true')
     parser.add_argument("--window_size", type=int, default=4)
     parser.add_argument("--only_local_self_attn", action='store_true')
