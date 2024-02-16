@@ -240,7 +240,7 @@ def main(args):
 
                     img = load_image(rgb_img_dir, 512, 512)
                     vae_latent = image2latent(img, teacher_vae, weight_dtype)
-                    input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
+                    input_ids, attention_mask = get_input_ids(tokenizer, args.trigger_word)
                     controller = AttentionStore()
                     encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                     unet(vae_latent, 0, encoder_hidden_states,
