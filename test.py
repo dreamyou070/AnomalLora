@@ -1,6 +1,6 @@
-import torch
-from torch import nn
+import os, json,torch
 
-classification_map = torch.randn(8, 64*64,1)
-classification_map = torch.max(classification_map, dim=0).values.squeeze()
-print(classification_map.shape)
+feat = torch.randn(64*64)
+anomal_feat_list = [feat,feat]
+student_anomal_feat = torch.stack(anomal_feat_list, dim=0)
+print(student_anomal_feat.shape)
