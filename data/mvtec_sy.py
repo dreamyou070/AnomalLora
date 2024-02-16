@@ -325,9 +325,11 @@ class MVTecDRAEMTrainDataset(Dataset):
                     back_augmented_image, hole_mask = self.gaussian_augment_image_general(img, background_img)
                     back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
                     back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0))  # [1,64,64]
+                    masked_image = self.transform(back_anomal_img)
+                    masked_image_mask = back_anomal_mask_torch
                 else :
-                    back_anomal_img = None
-                    back_anomal_mask_torch = None
+                    masked_image = None
+                    masked_image_mask =  None
 
             if self.anomal_only_on_object:
 
@@ -346,12 +348,17 @@ class MVTecDRAEMTrainDataset(Dataset):
                     back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, object_position)
                     back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
                     back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0)) # [1,64,64]
+                    masked_image = self.transform(back_anomal_img)
+                    masked_image_mask = back_anomal_mask_torch
                 else :
-                    back_anomal_img = None
-                    back_anomal_mask_torch = None
+                    masked_image = None
+                    masked_image_mask = None
         else :
             anomal_img = img
             anomal_mask = object_mask # [64,64]
+            masked_image = None
+            masked_image_mask = None
+
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
 
 
@@ -361,8 +368,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                 'augmented_image': self.transform(anomal_img),
                 "anomaly_mask": anomal_mask_torch,   # [1, 64, 64] ################################
 
-                'masked_image': self.transform(back_anomal_img),   # masked image
-                'masked_image_mask': back_anomal_mask_torch,# hold position
+                'masked_image': masked_image,          # masked image
+                'masked_image_mask': masked_image_mask,# hold position
 
                 'idx': idx,
                 'input_ids': input_ids.squeeze(0),
