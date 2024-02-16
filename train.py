@@ -71,7 +71,7 @@ def main(args):
     os.makedirs(output_dir, exist_ok=True)
     args.logging_dir = os.path.join(output_dir, 'log')
     os.makedirs(args.logging_dir, exist_ok=True)
-    logging_file = os.path.join(args.logging_dir, 'log_8.txt')
+    logging_file = os.path.join(args.logging_dir, 'log.txt')
     record_save_dir = os.path.join(output_dir, 'record')
     os.makedirs(record_save_dir, exist_ok=True)
     with open(os.path.join(record_save_dir, 'config.json'), 'w') as f:
