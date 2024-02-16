@@ -84,10 +84,10 @@ def main(args):
     root_dir = os.path.join(args.data_path, f'{args.obj_name}/train/good/rgb')
     #args.anomaly_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}")
     if args.use_small_anomal :
-        args.anomaly_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}2")
+        args.anomal_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}2")
 
     dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
-                                     anomaly_source_path=args.anomaly_source_path,
+                                     anomaly_source_path=args.anomal_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
                                      caption=args.trigger_word,
@@ -472,7 +472,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_sharpen_aug', action='store_true')
 
     parser.add_argument('--obj_name', type=str, default='bottle')
-    parser.add_argument('--anomaly_source_path', type=str)
+    parser.add_argument("--anomal_source_path", type=str)
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--trigger_word', type=str)
     parser.add_argument('--perlin_max_scale', type=int, default=8)
@@ -572,7 +572,6 @@ if __name__ == "__main__":
     parser.add_argument("--do_map_loss", action='store_true')
     parser.add_argument("--image_classification_layer", type=str, )
     parser.add_argument("--use_small_anomal", action='store_true')
-    parser.add_argument("--anomal_source_path", type=str)
     parser.add_argument("--do_anomal_hole", action='store_true')
     parser.add_argument("--do_down_dim_mahal_loss", action='store_true')
     parser.add_argument("--use_focal_loss", action='store_true')
