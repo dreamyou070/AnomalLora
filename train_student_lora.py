@@ -183,7 +183,7 @@ def main(args):
     text_encoder.requires_grad_(False)
     text_encoder.eval()
     text_encoder.to(accelerator.device, dtype=weight_dtype)
-    del text_encoder, vae
+    del vae
     print(f'\n step 8. call teacher model')
     teacher_text_encoder, teacher_vae, teacher_unet, _ = load_target_model(args, weight_dtype, accelerator)
     if args.use_position_embedder:
@@ -199,6 +199,7 @@ def main(args):
 
     teacher_unet.requires_grad_(False)
     teacher_unet.to(accelerator.device, dtype=weight_dtype)
+
 
     teacher_text_encoder.requires_grad_(False)
     teacher_text_encoder.to(accelerator.device, dtype=weight_dtype)
