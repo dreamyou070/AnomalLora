@@ -1,10 +1,11 @@
 # !/bin/bash
 
-port_number=51234
+port_number=51215
 obj_name='carrot'
 caption='carrot'
-folder_name="train_student_lora"
+folder_name="6_up_2_anomal_pe_down"
 bench_mark="MVTec3D-AD"
+position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../reconstruction.py \
@@ -13,4 +14,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --data_path "../../../MyData/anomaly_detection/${bench_mark}/${obj_name}/test" \
  --obj_name "${obj_name}" --prompt "${caption}" \
  --latent_res 64 --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']" \
- --d_dim 320 --use_position_embedder --position_embedding_layer 'up_blocks_0_attentions_0_transformer_blocks_0_attn1'
+ --d_dim 320 --use_position_embedder --position_embedding_layer ${position_embedding_layer}
