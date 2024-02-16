@@ -406,10 +406,13 @@ def main(args):
                         map_loss += focal_loss
 
             # querry permute
-            queries = torch.cat(normal_feat_list, dim=0) #
-            p_shuffle = torch.randperm(queries.size(0))
-            shuffled_queries = queries[p_shuffle]
-            normal_query_loss = loss_l2(queries.float(), shuffled_queries.float()).to(weight_dtype).mean()
+            if args.do_query_shuffle_loss :
+                queries = torch.cat(normal_feat_list, dim=0) #
+                p_shuffle = torch.randperm(queries.size(0))
+                shuffled_queries = queries[p_shuffle]
+                normal_query_loss = loss_l2(queries.float(), shuffled_queries.float()).to(weight_dtype).mean()
+                loss += normal_query_loss
+                loss_dict['query_loss'] = normal_query_loss.item()
 
             # ----------------------------------------------------------------------------------------------------------
             # [5] backprop
@@ -615,6 +618,7 @@ if __name__ == "__main__":
     parser.add_argument("--previous_mahal", action='store_true')
     parser.add_argument("--do_task_loss", action='store_true')
     parser.add_argument("--task_loss_weight", type=float, default=1.0)
+    parser.add_argument("--do_query_shuffle_loss", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
