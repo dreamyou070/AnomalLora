@@ -81,7 +81,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                  perlin_max_scale : int = 8,
                  kernel_size : int = 5,
                  beta_scale_factor : float = 0.8,
-                 use_sharpen_aug : bool = True):
+                 use_sharpen_aug : bool = True,
+                 do_anomal_hole : bool = False,):
 
         self.root_dir = root_dir
         self.resize_shape=resize_shape
@@ -119,6 +120,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
         self.down_sizer = transforms.Resize(size=(64, 64), antialias=True)
+        self.do_anomal_hole = do_anomal_hole
 
 
     def __len__(self):
@@ -289,9 +291,12 @@ class MVTecDRAEMTrainDataset(Dataset):
         final_name = self.get_img_name(img_path)
 
         # [2] background
-        parent, name = os.path.split(img_path)
-        parent, _ = os.path.split(parent)
-        background_dir = os.path.join(parent, f"background/{name}")
+        if self.do_anomal_hole :
+            parent, name = os.path.split(img_path)
+            parent, _ = os.path.split(parent)
+            background_dir = os.path.join(parent, f"background/{name}")
+        else :
+            background_dir = None
 
         # [3] object mask
         object_mask_dir = self.get_object_mask_dir(img_path)
@@ -314,11 +319,15 @@ class MVTecDRAEMTrainDataset(Dataset):
                 anomal_mask_torch = self.down_sizer(torch.tensor(mask).unsqueeze(0))  # [1,64,64]
 
                 # [2] anomal img
-                background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1], type='RGB')
-                background_img = aug(image=background_img)
-                back_augmented_image, hole_mask = self.gaussian_augment_image_general(img, background_img)
-                back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
-                back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0))  # [1,64,64]
+                if self.do_anomal_hole:
+                    background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1], type='RGB')
+                    background_img = aug(image=background_img)
+                    back_augmented_image, hole_mask = self.gaussian_augment_image_general(img, background_img)
+                    back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
+                    back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0))  # [1,64,64]
+                else :
+                    back_anomal_img = None
+                    back_anomal_mask_torch = None
 
             if self.anomal_only_on_object:
 
@@ -331,11 +340,15 @@ class MVTecDRAEMTrainDataset(Dataset):
                 anomal_mask_torch = self.down_sizer(torch.tensor(mask).unsqueeze(0)) # [1,64,64]
 
                 # [2] anomal img
-                background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1], type='RGB')
-                background_img = aug(image=background_img)
-                back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, object_position)
-                back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
-                back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0)) # [1,64,64]
+                if self.do_anomal_hole:
+                    background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1], type='RGB')
+                    background_img = aug(image=background_img)
+                    back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, object_position)
+                    back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
+                    back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0)) # [1,64,64]
+                else :
+                    back_anomal_img = None
+                    back_anomal_mask_torch = None
         else :
             anomal_img = img
             anomal_mask = object_mask # [64,64]
