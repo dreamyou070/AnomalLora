@@ -1,5 +1,6 @@
 import argparse, math, random, json
 from tqdm import tqdm
+import numpy as np
 from accelerate.utils import set_seed
 from diffusers import DDPMScheduler
 import torch
@@ -19,6 +20,9 @@ from model.unet import unet_passing_argument
 from utils.attention_control import passing_argument
 from model.pe import PositionalEmbedding
 from utils import arg_as_list
+from PIL import Image
+from utils.image_utils import load_image, image2latent
+from utils.model_utils import get_input_ids
 from utils.utils_mahalanobis import gen_mahal_loss
 from utils.model_utils import pe_model_save
 #from utils.utils_loss import gen_attn_loss, FocalLoss
@@ -207,6 +211,68 @@ def main(args):
     teacher_vae.eval()
     teacher_vae.to(accelerator.device, dtype=vae_dtype)
 
+    print(f'\n step 8. Inference Before Training')
+    test_img_folder = os.path.join(args.data_path, f'{args.obj_name}/test')
+    anomal_folders = os.listdir(test_img_folder)
+    infer_test_base_folder = os.path.join(args.output_dir, 'start_inference_test')
+    os.makedirs(infer_test_base_folder, exist_ok=True)
+    for anomal_folder in anomal_folders:
+
+        save_base_folder = os.path.join(infer_test_base_folder, anomal_folder)
+        os.makedirs(save_base_folder, exist_ok=True)
+
+        anomal_folder_dir = os.path.join(test_img_folder, anomal_folder)
+        rgb_folder = os.path.join(anomal_folder_dir, 'rgb')
+        gt_folder = os.path.join(anomal_folder_dir, 'gt')
+        rgb_imgs = os.listdir(rgb_folder)
+
+        for rgb_img in rgb_imgs:
+
+            name, ext = os.path.splitext(rgb_img)
+            rgb_img_dir = os.path.join(rgb_folder, rgb_img)
+            org_h, org_w = Image.open(rgb_img_dir).size
+            img_dir = os.path.join(save_base_folder, f'{name}_org{ext}')
+            Image.open(rgb_img_dir).resize((org_h, org_w)).save(img_dir)
+            gt_img_dir = os.path.join(gt_folder, f'{name}.png')
+
+            if accelerator.is_main_process:
+                with torch.no_grad():
+
+                    img = load_image(rgb_img_dir, 512, 512)
+                    vae_latent = image2latent(img, vae, weight_dtype)
+                    input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
+                    controller = AttentionStore()
+                    encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
+                    unet(vae_latent, 0, encoder_hidden_states,
+                         trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
+                    attn_dict = controller.step_store
+                    controller.reset()
+                    for layer_name in args.trg_layer_list:
+                        attn_map = attn_dict[layer_name][0]
+                        cls_map = attn_map[:, :, 0].squeeze().mean(dim=0)  # [res*res]
+                        trigger_map = attn_map[:, :, 1].squeeze().mean(dim=0)
+                        pix_num = trigger_map.shape[0]
+                        res = int(pix_num ** 0.5)
+
+                        cls_map = cls_map.unsqueeze(0).view(res, res)
+                        cls_map_pil = Image.fromarray((255 * cls_map).cpu().detach().numpy().astype(np.uint8)).resize(
+                            (org_h, org_w))
+                        cls_map_pil.save(os.path.join(save_base_folder, f'{name}_cls_map_{layer_name}.png'))
+
+                        normal_map = torch.where(trigger_map > 0.75, 1, trigger_map).squeeze()
+                        normal_map = normal_map.unsqueeze(0).view(res, res)
+                        normal_map_pil = Image.fromarray(
+                            normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                        normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
+
+                        anomal_np = ((1 - normal_map) * 255).cpu().detach().numpy().astype(np.uint8)
+                        anomaly_map_pil = Image.fromarray(anomal_np).resize((org_h, org_w))
+                        anomaly_map_pil.save(os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
+                    gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
+                    Image.open(gt_img_dir).resize((org_h, org_w)).save(gt_img_save_dir)
+
+
+    """
     print(f'\n step 8. Training !')
     if args.max_train_epochs is not None:
         args.max_train_steps = args.max_train_epochs * math.ceil(
@@ -472,6 +538,7 @@ def main(args):
                     pe_model_save(accelerator.unwrap_model(position_embedder), save_dtype, p_save_dir)
 
     accelerator.end_training()
+    """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
