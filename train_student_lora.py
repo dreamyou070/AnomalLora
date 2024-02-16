@@ -219,7 +219,7 @@ def main(args):
     register_attention_control(unet, controller)
     teacher_controller = AttentionStore()
     register_attention_control(teacher_unet, teacher_controller)
-
+    """
     for anomal_folder in anomal_folders:
         save_base_folder = os.path.join(infer_test_base_folder, anomal_folder)
         os.makedirs(save_base_folder, exist_ok=True)
@@ -263,7 +263,7 @@ def main(args):
                         anomaly_map_pil.save(os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
                     gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
                     Image.open(gt_img_dir).resize((org_h, org_w)).save(gt_img_save_dir)
-
+    """
     print(f'\n step 8. Training !')
     if args.max_train_epochs is not None:
         args.max_train_steps = args.max_train_epochs * math.ceil(
