@@ -170,7 +170,8 @@ class MVTecDRAEMTrainDataset(Dataset):
             # 0 and more than 0.5
             perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
             # only on object
-            perlin_thr = perlin_thr * object_position
+            if object_position is not None:
+                perlin_thr = perlin_thr * object_position
             # smoothing
             perlin_thr = cv2.GaussianBlur(perlin_thr, (5,5), 0)
             if np.sum(perlin_thr) > 0:
@@ -185,27 +186,6 @@ class MVTecDRAEMTrainDataset(Dataset):
         mask = np.squeeze(mask, axis=2)        # [512,512
         return augmented_image, mask # [512,512,3], [512,512]
 
-    def augment_image_general(self, image, anomaly_source_img, beta_scale_factor):
-
-
-        # [2] perlin noise
-        perlin_scale = 6
-        min_perlin_scale = 0
-        perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
-        perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
-        perlin_noise = rand_perlin_2d_np((self.resize_shape[0], self.resize_shape[1]), (perlin_scalex, perlin_scaley))
-        threshold = 0.5
-        perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
-        perlin_thr = cv2.GaussianBlur(perlin_thr, (5,5), 0)
-        perlin_thr = np.expand_dims(perlin_thr, axis=2)  # [512,512,3]
-
-        # if i rase beta_scale_factor,
-        beta = torch.rand(1).numpy()[0] * beta_scale_factor
-        A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32) # merged
-        augmented_image = (image * (1 - perlin_thr) + A * perlin_thr).astype(np.float32)
-        mask = (perlin_thr).astype(np.float32) # [512,512,3]
-        mask = np.squeeze(mask, axis=2)        # [512,512
-        return augmented_image, mask # [512,512,3], [512,512]
     def gaussian_augment_image(self, image, back_img, object_position):
         # [2] perlin noise
         while True:
@@ -216,9 +196,9 @@ class MVTecDRAEMTrainDataset(Dataset):
             y_0 = torch.randint(int(end_num / 4), int(3 * end_num / 4), (1,)).item()
             sigma = torch.randint(25, 60, (1,)).item()
             result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
-            result = np.where(result < 0.5, 0, 1)
-            # only on object
-            result_thr = (result * object_position).astype(np.float32)
+            result_thr = np.where(result < 0.5, 0, 1).astype(np.float32)
+            if object_position is not None:
+                result_thr = (result * object_position).astype(np.float32)
             result_thr = cv2.GaussianBlur(result_thr, (3,3), 0)
             if np.sum(result_thr) > 0:
                 break
@@ -226,25 +206,6 @@ class MVTecDRAEMTrainDataset(Dataset):
         A = back_img.astype(np.float32)  # merged
         augmented_image = (image * (1 - result_thr) + A * result_thr).astype(np.float32)
 
-        mask = (result_thr).astype(np.float32)  # [512,512,3]
-        mask = np.squeeze(mask, axis=2)  # [512,512
-        return augmented_image, mask  # [512,512,3], [512,512]
-
-    def gaussian_augment_image_general(self, image, back_img):
-
-        end_num = self.resize_shape[0]
-        x = np.arange(0, end_num, 1, float)
-        y = np.arange(0, end_num, 1, float)[:, np.newaxis]
-        x_0 = torch.randint(int(end_num / 4), int(3 * end_num / 4), (1,)).item()
-        y_0 = torch.randint(int(end_num / 4), int(3 * end_num / 4), (1,)).item()
-        sigma = torch.randint(25, 60, (1,)).item()
-        result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
-        result = np.where(result < 0.5, 0, 1)
-        result_thr = (result).astype(np.float32)
-        result_thr = cv2.GaussianBlur(result_thr, (3,3), 0)
-        result_thr = np.expand_dims(result_thr, axis=2)  # [512,512,3]
-        A = back_img.astype(np.float32)  # merged
-        augmented_image = (image * (1 - result_thr) + A * result_thr).astype(np.float32)
         mask = (result_thr).astype(np.float32)  # [512,512,3]
         mask = np.squeeze(mask, axis=2)  # [512,512
         return augmented_image, mask  # [512,512,3], [512,512]
@@ -312,22 +273,29 @@ class MVTecDRAEMTrainDataset(Dataset):
 
             if not self.anomal_only_on_object:
 
+                object_img_aug = aug(
+                    image=self.load_image(object_mask_dir, self.resize_shape[0], self.resize_shape[1], type='L'))
+                object_position = np.where((np.array(object_img_aug)) == 0, 0, 1)  # [512,512]
                 # [1] anomal img
-                anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0],self.resize_shape[1])
-                augmented_image, mask = self.augment_image_general(img, anomaly_source_img,beta_scale_factor=self.beta_scale_factor,)
+                anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0],
+                                                     self.resize_shape[1])
+                augmented_image, mask = self.augment_image(img, anomaly_source_img,
+                                                           beta_scale_factor=self.beta_scale_factor,
+                                                           object_position=None)  # [512,512,3], [512,512]
                 anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
                 anomal_mask_torch = self.down_sizer(torch.tensor(mask).unsqueeze(0))  # [1,64,64]
 
                 # [2] anomal img
                 if self.do_anomal_hole:
-                    background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1], type='RGB')
+                    background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],
+                                                     type='RGB')
                     background_img = aug(image=background_img)
-                    back_augmented_image, hole_mask = self.gaussian_augment_image_general(img, background_img)
+                    back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, None)
                     back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
                     back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0))  # [1,64,64]
                     masked_image = self.transform(back_anomal_img)
                     masked_image_mask = back_anomal_mask_torch
-                else :
+                else:
                     masked_image = img
                     masked_image_mask = object_mask
 
