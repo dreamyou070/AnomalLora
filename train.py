@@ -76,17 +76,14 @@ def main(args):
     os.makedirs(record_save_dir, exist_ok=True)
     with open(os.path.join(record_save_dir, 'config.json'), 'w') as f:
         json.dump(vars(args), f, indent=4)
-    if args.seed is None: args.seed = random.randint(0, 2 ** 32)
-    set_seed(args.seed)
 
     print(f'\n step 2. dataset and dataloader')
+    if args.seed is None: args.seed = random.randint(0, 2 ** 32)
+    set_seed(args.seed)
     tokenizer = load_tokenizer(args)
-    root_dir = os.path.join(args.data_path, f'{args.obj_name}/train/good/rgb')
-    #args.anomaly_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}")
     if args.use_small_anomal :
         args.anomal_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}2")
-
-    dataset = MVTecDRAEMTrainDataset(root_dir=root_dir,
+    dataset = MVTecDRAEMTrainDataset(root_dir=os.path.join(args.data_path, f'{args.obj_name}/train/good/rgb'),
                                      anomaly_source_path=args.anomal_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,
@@ -144,7 +141,7 @@ def main(args):
     loss_focal = FocalLoss()
     loss_l2 = torch.nn.modules.loss.MSELoss()
 
-    print(f'\n step 7. weight dtype and network to accelerate preparing')
+    print(f'\n step 8. weight dtype and network to accelerate preparing')
     if args.full_fp16:
         assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16'"
         accelerator.print("enable full fp16 training.")
@@ -188,8 +185,6 @@ def main(args):
             len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
         accelerator.print(f"override steps. steps for {args.max_train_epochs} epochs / {args.max_train_steps}")
     args.save_every_n_epochs = 1
-    attention_storer = AttentionStore()
-    register_attention_control(unet, attention_storer)
     max_train_steps = len(train_dataloader) * args.max_train_epochs
     progress_bar = tqdm(range(max_train_steps),
                         smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
@@ -218,10 +213,9 @@ def main(args):
         for step, batch in enumerate(train_dataloader):
 
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
-            classification_loss, dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0, 0.0
+            dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0
             normal_feat_list, anormal_feat_list = [], []
-            value_dict = {}
-            loss_dict = {}
+            value_dict, loss_dict = {}, {}
 
             if args.do_down_dim_mahal_loss :
                 original_dim = 320

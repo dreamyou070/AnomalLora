@@ -1,6 +1,6 @@
 # !/bin/bash
 
-port_number=50015
+port_number=50006
 
 obj_name='carrot'
 trigger_word='carrot'
@@ -9,7 +9,7 @@ anomal_source_path="../../../MyData/anomal_source"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train.py --log_with wandb \
- --output_dir "../../result/${bench_mark}/${obj_name}/5_up_2_anomal_pe_down" \
+ --output_dir "../../result/${bench_mark}/${obj_name}/6_up_2_anomal_pe_unet" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --data_path "../../../MyData/anomaly_detection/${bench_mark}" --trigger_word "${trigger_word}" --obj_name "${obj_name}" \
  --anomal_source_path ${anomal_source_path} \
