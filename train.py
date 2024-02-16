@@ -206,8 +206,8 @@ def main(args):
         with open(logging_file, 'a') as f:
             f.write(logging_info + '\n')
 
+    mu, cov = None, None
     for epoch in range(args.start_epoch, args.max_train_epochs):
-
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.max_train_epochs}")
 
@@ -392,7 +392,20 @@ def main(args):
                         map_loss += focal_loss
 
             # [4.1] total loss
-            normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
+            normal_dist_max, normal_dist_loss, mu, cov = gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov)
+
+
+
+
+
+
+
+
+
+
+
+
+
             normal_dist_loss = normal_dist_loss.to(weight_dtype)
             if args.do_down_dim_mahal_loss:
                 down_dim_normal_dist_max, down_dim_normal_dist_loss = gen_mahal_loss(args, down_dim_anormal_feat_list, down_dim_normal_feat_list)
@@ -591,6 +604,8 @@ if __name__ == "__main__":
     parser.add_argument("--sample_every_n_epochs", type=int, default=None,
                         help="generate sample images every N epochs (overwrites n_steps)", )
     parser.add_argument("--adv_focal_loss", action='store_true')
+    parser.add_argument("--previous_mahal", action='store_true')
+
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
