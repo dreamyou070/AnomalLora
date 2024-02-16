@@ -219,19 +219,15 @@ def main(args):
     register_attention_control(unet, attention_storer)
     teacher_attention_storer = AttentionStore()
     register_attention_control(teacher_unet, teacher_attention_storer)
-    
-    for anomal_folder in anomal_folders:
 
+    for anomal_folder in anomal_folders:
         save_base_folder = os.path.join(infer_test_base_folder, anomal_folder)
         os.makedirs(save_base_folder, exist_ok=True)
-
         anomal_folder_dir = os.path.join(test_img_folder, anomal_folder)
         rgb_folder = os.path.join(anomal_folder_dir, 'rgb')
         gt_folder = os.path.join(anomal_folder_dir, 'gt')
         rgb_imgs = os.listdir(rgb_folder)
-
         for rgb_img in rgb_imgs:
-
             name, ext = os.path.splitext(rgb_img)
             rgb_img_dir = os.path.join(rgb_folder, rgb_img)
             org_h, org_w = Image.open(rgb_img_dir).size
@@ -243,32 +239,25 @@ def main(args):
                 with torch.no_grad():
 
                     img = load_image(rgb_img_dir, 512, 512)
-                    vae_latent = image2latent(img, teacher_vae, weight_dtype)
+                    vae_latent = image2latent(img, vae, weight_dtype)
                     input_ids, attention_mask = get_input_ids(tokenizer, args.trigger_word)
-                    controller = AttentionStore()
                     encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
-                    unet(vae_latent, 0, encoder_hidden_states,
-                         trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
-                    attn_dict = controller.step_store
-                    controller.reset()
+                    unet(vae_latent, 0, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
+                    attn_dict = attention_storer.step_store
+                    attention_storer.reset()
                     for layer_name in args.trg_layer_list:
                         attn_map = attn_dict[layer_name][0]
                         cls_map = attn_map[:, :, 0].squeeze().mean(dim=0)  # [res*res]
                         trigger_map = attn_map[:, :, 1].squeeze().mean(dim=0)
                         pix_num = trigger_map.shape[0]
                         res = int(pix_num ** 0.5)
-
                         cls_map = cls_map.unsqueeze(0).view(res, res)
-                        cls_map_pil = Image.fromarray((255 * cls_map).cpu().detach().numpy().astype(np.uint8)).resize(
-                            (org_h, org_w))
+                        cls_map_pil = Image.fromarray((255 * cls_map).cpu().detach().numpy().astype(np.uint8)).resize((org_h, org_w))
                         cls_map_pil.save(os.path.join(save_base_folder, f'{name}_cls_map_{layer_name}.png'))
-
                         normal_map = torch.where(trigger_map > 0.75, 1, trigger_map).squeeze()
                         normal_map = normal_map.unsqueeze(0).view(res, res)
-                        normal_map_pil = Image.fromarray(
-                            normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
+                        normal_map_pil = Image.fromarray(normal_map.cpu().detach().numpy().astype(np.uint8) * 255).resize((org_h, org_w))
                         normal_map_pil.save(os.path.join(save_base_folder, f'{name}_normal_score_map_{layer_name}.png'))
-
                         anomal_np = ((1 - normal_map) * 255).cpu().detach().numpy().astype(np.uint8)
                         anomaly_map_pil = Image.fromarray(anomal_np).resize((org_h, org_w))
                         anomaly_map_pil.save(os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
