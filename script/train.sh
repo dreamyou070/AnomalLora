@@ -1,6 +1,6 @@
 # !/bin/bash
 
-port_number=50005
+port_number=50015
 
 obj_name='carrot'
 trigger_word='carrot'
