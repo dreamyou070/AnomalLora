@@ -193,6 +193,7 @@ if __name__ == '__main__':
     parser.add_argument("--use_focal_loss", action='store_true')
     parser.add_argument("--do_local_self_attn", action='store_true')
     parser.add_argument("--only_local_self_attn", action='store_true')
+    parser.add_argument("--windos_size", type=int, default=7)
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
