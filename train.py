@@ -71,7 +71,7 @@ def main(args):
     os.makedirs(output_dir, exist_ok=True)
     args.logging_dir = os.path.join(output_dir, 'log')
     os.makedirs(args.logging_dir, exist_ok=True)
-    logging_file = os.path.join(args.logging_dir, 'log.txt')
+    logging_file = os.path.join(args.logging_dir, 'log_8.txt')
     record_save_dir = os.path.join(output_dir, 'record')
     os.makedirs(record_save_dir, exist_ok=True)
     with open(os.path.join(record_save_dir, 'config.json'), 'w') as f:
@@ -82,7 +82,7 @@ def main(args):
     set_seed(args.seed)
     tokenizer = load_tokenizer(args)
     if args.use_small_anomal :
-        args.anomal_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}2")
+        args.anomal_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}")
     dataset = MVTecDRAEMTrainDataset(root_dir=os.path.join(args.data_path, f'{args.obj_name}/train/good/rgb'),
                                      anomaly_source_path=args.anomal_source_path,
                                      resize_shape=[512, 512],
@@ -140,7 +140,7 @@ def main(args):
 
     print(f'\n step 7. loss function')
     loss_focal = FocalLoss()
-    loss_l2 = torch.nn.modules.loss.MSELoss()
+    loss_l2 = torch.nn.modules.loss.MSELoss(reduction='none')
 
     print(f'\n step 8. weight dtype and network to accelerate preparing')
     if args.full_fp16:
@@ -214,7 +214,7 @@ def main(args):
         for step, batch in enumerate(train_dataloader):
 
             loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
-            dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0
+            task_loss, dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0, 0.0
             normal_feat_list, anormal_feat_list = [], []
             value_dict, loss_dict = {}, {}
 
@@ -231,8 +231,15 @@ def main(args):
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                                                                                           noise_type=position_embedder)
+            noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                              noise_type=position_embedder).sample()
+            target = noise
+            loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
+            loss = loss.mean([1, 2, 3])
+            task_loss += loss.mean()  * args.task_loss_weight
+
+
+
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
@@ -278,10 +285,15 @@ def main(args):
             with torch.no_grad():
                 latents = vae.encode(batch["augmented_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                 noise_type=position_embedder)
+            noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                 noise_type=position_embedder).sample()
+
             anomal_map = batch["anomaly_mask"].squeeze().flatten().squeeze()  # [64*64]
-            anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0)  # [1, 64*64]
+            trg_map = (1-anomal_map.view(1, 1, args.latent_res, args.latent_res))
+            loss = torch.nn.functional.mse_loss((noise_pred * trg_map).float(),
+                                                (target*trg_map).float(), reduction="none")
+            loss = loss.mean([1, 2, 3])
+            task_loss += loss.mean() * args.task_loss_weight
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
@@ -369,8 +381,10 @@ def main(args):
                     total_score = torch.ones_like(cls_score)
                     anormal_cls_loss = generate_attn_loss(cls_score, anomal_position, total_score, do_lowering=False)
                     anormal_trigger_loss = generate_attn_loss(trigger_score, anomal_position, total_score, do_lowering=True)
+
                     normal_cls_loss = generate_attn_loss(cls_score, 1-anomal_position, total_score, do_lowering=True)
                     normal_trigger_loss = generate_attn_loss(trigger_score, 1-anomal_position, total_score, do_lowering=False)
+
                     value_dict = gen_value_dict(value_dict, normal_cls_loss, anormal_cls_loss, normal_trigger_loss,anormal_trigger_loss)
                     # [3] normal map
                     if not args.use_focal_loss:
@@ -391,47 +405,40 @@ def main(args):
                         focal_loss = loss_focal(focal_loss_in, focal_loss_trg.to(dtype=weight_dtype))
                         map_loss += focal_loss
 
-            # [4.1] total loss
-            normal_dist_max, normal_dist_loss, mu, cov = gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov)
+            # querry permute
+            queries = torch.cat(normal_feat_list, dim=0) #
+            p_shuffle = torch.randperm(queries.size(0))
+            shuffled_queries = queries[p_shuffle]
+            normal_query_loss = loss_l2(queries.float(), shuffled_queries.float()).to(weight_dtype).mean()
 
-
-
-
-
-
-
-
-
-
-
-
-
-            normal_dist_loss = normal_dist_loss.to(weight_dtype)
-            if args.do_down_dim_mahal_loss:
-                down_dim_normal_dist_max, down_dim_normal_dist_loss = gen_mahal_loss(args, down_dim_anormal_feat_list, down_dim_normal_feat_list)
-                down_dim_normal_dist_loss = down_dim_normal_dist_loss.to(weight_dtype)
-
-            # logging -------------------------------------------------------------------------------------------------
-            dist_loss += normal_dist_loss.requires_grad_()
-            if args.do_down_dim_mahal_loss:
-                dist_loss += down_dim_normal_dist_loss.requires_grad_()
-            # [4.2] attn loss
-            normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss = gen_attn_loss(value_dict)
-            attn_loss += args.normal_weight * normal_trigger_loss.mean() + args.anormal_weight * anormal_trigger_loss.mean()
-            if args.do_cls_train:
-                attn_loss += args.normal_weight * normal_cls_loss.mean() + args.anormal_weight * anormal_cls_loss.mean()
-            # [4.3] map loss
-            map_loss = map_loss.mean().to(weight_dtype)
+            # ----------------------------------------------------------------------------------------------------------
             # [5] backprop
+            if args.do_task_loss:
+                loss += task_loss.to(weight_dtype)
+                loss_dict['task_loss'] = task_loss.item()
+
             if args.do_dist_loss:
+                normal_dist_max, normal_dist_loss, mu, cov = gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov)
+                dist_loss += normal_dist_loss.to(weight_dtype).requires_grad_()
+                if args.do_down_dim_mahal_loss:
+                    down_dim_normal_dist_max, down_dim_normal_dist_loss = gen_mahal_loss(args, down_dim_anormal_feat_list, down_dim_normal_feat_list)
+                    down_dim_normal_dist_loss = down_dim_normal_dist_loss.to(weight_dtype)
+                    dist_loss += down_dim_normal_dist_loss.requires_grad_()
                 loss += dist_loss.to(weight_dtype)
                 loss_dict['dist_loss'] = dist_loss.item()
+
             if args.do_attn_loss:
+                normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss = gen_attn_loss(value_dict)
+                attn_loss += args.normal_weight * normal_trigger_loss.mean() + args.anormal_weight * anormal_trigger_loss.mean()
+                if args.do_cls_train:
+                    attn_loss += args.normal_weight * normal_cls_loss.mean() + args.anormal_weight * anormal_cls_loss.mean()
                 loss += attn_loss.mean().to(weight_dtype)
                 loss_dict['attn_loss'] = attn_loss.mean().item()
+
             if args.do_map_loss:
-                loss += map_loss.to(weight_dtype)
-                loss_dict['map_loss'] = map_loss.item()
+                loss += map_loss.mean().to(weight_dtype)
+                loss_dict['map_loss'] = map_loss.mean().item()
+
             loss = loss.to(weight_dtype)
             current_loss = loss.detach().item()
             if epoch == args.start_epoch:
@@ -605,7 +612,7 @@ if __name__ == "__main__":
                         help="generate sample images every N epochs (overwrites n_steps)", )
     parser.add_argument("--adv_focal_loss", action='store_true')
     parser.add_argument("--previous_mahal", action='store_true')
-
+    parser.add_argument("--do_task_loss", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
