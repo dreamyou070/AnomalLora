@@ -1,6 +1,6 @@
 # !/bin/bash
 
-port_number=51218
+port_number=51288
 obj_name='carrot'
 caption='carrot'
 folder_name="8_up_2_anomal_pe_unet_down_mahal"

@@ -190,6 +190,7 @@ if __name__ == '__main__':
     parser.add_argument("--d_dim", default=320, type=int)
     parser.add_argument("--thred", default=0.5, type=float)
     parser.add_argument("--image_classification_layer", type=str)
+    parser.add_argument("--use_focal_loss", action='store_true')
     add_attn_argument(parser)
     args = parser.parse_args()
     passing_argument(args)
