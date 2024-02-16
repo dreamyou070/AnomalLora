@@ -1,11 +1,11 @@
 # !/bin/bash
 
-port_number=51215
+port_number=51216
 obj_name='carrot'
 caption='carrot'
-folder_name="6_up_2_anomal_pe_down"
+folder_name="6_up_2_anomal_pe_unet"
 bench_mark="MVTec3D-AD"
-position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
+position_embedding_layer="unet"
 
 accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../reconstruction.py \
