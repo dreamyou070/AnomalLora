@@ -183,7 +183,10 @@ def main(args):
     text_encoder.requires_grad_(False)
     text_encoder.eval()
     text_encoder.to(accelerator.device, dtype=weight_dtype)
-    del vae
+    vae.requires_grad_(False)
+    vae.eval()
+    vae.to(accelerator.device, dtype=weight_dtype)
+
     print(f'\n step 8. call teacher model')
     teacher_text_encoder, teacher_vae, teacher_unet, _ = load_target_model(args, weight_dtype, accelerator)
     if args.use_position_embedder:
@@ -200,23 +203,23 @@ def main(args):
     teacher_unet.requires_grad_(False)
     teacher_unet.to(accelerator.device, dtype=weight_dtype)
 
-
-    teacher_text_encoder.requires_grad_(False)
-    teacher_text_encoder.to(accelerator.device, dtype=weight_dtype)
-
     teacher_position_embedder.requires_grad_(False)
     teacher_position_embedder.to(accelerator.device, dtype=weight_dtype)
+
     teacher_network.to(accelerator.device, dtype=weight_dtype)
 
-    teacher_vae.requires_grad_(False)
-    teacher_vae.eval()
-    teacher_vae.to(accelerator.device, dtype=vae_dtype)
+    del teacher_text_encoder, teacher_vae
 
     print(f'\n step 8. Inference Before Training')
     test_img_folder = os.path.join(args.data_path, f'{args.obj_name}/test')
     anomal_folders = os.listdir(test_img_folder)
     infer_test_base_folder = os.path.join(args.output_dir, 'start_inference_test')
     os.makedirs(infer_test_base_folder, exist_ok=True)
+    attention_storer = AttentionStore()
+    register_attention_control(unet, attention_storer)
+    teacher_attention_storer = AttentionStore()
+    register_attention_control(teacher_unet, teacher_attention_storer)
+    
     for anomal_folder in anomal_folders:
 
         save_base_folder = os.path.join(infer_test_base_folder, anomal_folder)
