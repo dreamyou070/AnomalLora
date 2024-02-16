@@ -614,7 +614,6 @@ if __name__ == "__main__":
     parser.add_argument("--adv_focal_loss", action='store_true')
     parser.add_argument("--previous_mahal", action='store_true')
     parser.add_argument("--do_task_loss", action='store_true')
-    parser.add_argument("--only_local_self_attn", action='store_true')
     parser.add_argument("--task_loss_weight", type=float, default=1.0)
     args = parser.parse_args()
     unet_passing_argument(args)
