@@ -13,7 +13,7 @@ from utils import get_epoch_ckpt_name, save_model, prepare_dtype
 from utils.accelerator_utils import prepare_accelerator
 from utils.attention_control import register_attention_control
 from utils.optimizer_utils import get_optimizer, get_scheduler_fix
-from utils.model_utils import prepare_scheduler_for_custom_training, get_noise_noisy_latents_partial_time
+from utils.model_utils import prepare_scheduler_for_custom_training, get_noise_noisy_latents_and_timesteps
 from model.unet import unet_passing_argument
 from utils.attention_control import passing_argument
 from model.pe import PositionalEmbedding
@@ -235,8 +235,7 @@ def main(args):
             # [1] normal sample
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
-            noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                 latents,min_timestep=args.min_timestep,max_timestep=args.max_timestep,)
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                                                                                            noise_type=position_embedder)
             query_dict, attn_dict = controller.query_dict, controller.step_store
@@ -280,10 +279,7 @@ def main(args):
             # [2] Masked Sample Learning
             with torch.no_grad():
                 latents = vae.encode(batch["augmented_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
-            noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                                                   latents,
-                                                                                   min_timestep=0,
-                                                                                   max_timestep=1000)
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder)
             anomal_map = batch["anomaly_mask"].squeeze().flatten().squeeze()  # [64*64]
@@ -341,8 +337,7 @@ def main(args):
             if args.do_anomal_hole :
                 with torch.no_grad():
                     latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor  # [1,4,64,64]
-                noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
-                                                latents,min_timestep=args.min_timestep, max_timestep=args.max_timestep, )
+                noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
                 unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                                                                                             noise_type=position_embedder)
                 anomal_map = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
