@@ -3,7 +3,7 @@
 class_name="carrot"
 bench_mark="MVTec3D-AD"
 dataset_dir="../../../MyData/anomaly_detection/${bench_mark}"
-sub_folder="3_up_2_act_deact_do_down_dim_mahal_loss_focal_loss"
+sub_folder="4_up_2_act_deact_do_down_dim_mahal_loss_focal_loss_on_unet"
 
 output_dir="metrics"
 
