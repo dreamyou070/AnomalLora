@@ -304,8 +304,8 @@ def main(args):
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                                                    latents,
-                                                                                   min_timestep=args.min_timestep,
-                                                                                   max_timestep=args.max_timestep, )
+                                                                                   min_timestep=0,
+                                                                                   max_timestep=1000, )
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder)
             query_dict, attn_dict = controller.query_dict, controller.step_store
@@ -351,8 +351,8 @@ def main(args):
                     dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor  # [1,4,64,64]
             noise, noisy_latents, timesteps = get_noise_noisy_latents_partial_time(args, noise_scheduler,
                                                                                    latents,
-                                                                                   min_timestep=args.min_timestep,
-                                                                                   max_timestep=args.max_timestep, )
+                                                                                   min_timestep=0,
+                                                                                   max_timestep=1000, )
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder)
             with torch.no_grad():
@@ -448,7 +448,7 @@ def main(args):
                 progress_bar.update(1)
                 global_step += 1
             if is_main_process:
-                logging_info = f'{global_step}, {normal_dist_max}, {down_dim_normal_dist_loss}'
+                logging_info = f'{global_step}, {normal_dist_max}'
                 with open(logging_file, 'a') as f:
                     f.write(logging_info + '\n')
                 progress_bar.set_postfix(**loss_dict)
