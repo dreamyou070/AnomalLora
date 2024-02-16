@@ -10,7 +10,7 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --main_process_port $port_number ../train_student_lora.py \
  --log_with wandb \
  --output_dir "../../result/${bench_mark}/${obj_name}/train_student_lora_pe_on_down_2" \
- --network_weights "../../result/${bench_mark}/${obj_name}/up_2_not_anomal_hole_act_deact/models/epoch-000016.safetensors" \
+ --network_weights "../../result/${bench_mark}/${obj_name}/1_up_2_act_deact/models/epoch-000016.safetensors" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --data_path "../../../MyData/anomaly_detection/${bench_mark}" --beta_scale_factor 0.8 \
  --trigger_word "${trigger_word}" --obj_name "${obj_name}" --train_unet --train_text_encoder \
