@@ -269,6 +269,8 @@ def main(args):
                     trigger_map = trigger.view(res, res).unsqueeze(0).unsqueeze(0)
                     focal_loss_in = torch.cat([cls_map, trigger_map], 1)
                     focal_loss_trg = torch.zeros_like(focal_loss_in)[:,0,:,:]
+                    if args.adv_focal_loss:
+                        focal_loss_trg = 1-focal_loss_trg
                     focal_loss = loss_focal(focal_loss_in, focal_loss_trg.to(dtype=weight_dtype))
                     map_loss += focal_loss
             # --------------------------------------------------------------------------------------------------------- #
@@ -326,6 +328,8 @@ def main(args):
                     trigger_map = trigger.view(res, res).unsqueeze(0).unsqueeze(0)
                     focal_loss_in = torch.cat([cls_map, trigger_map], 1)
                     focal_loss_trg = anomal_map.view(1, 1, int(pix_num ** 0.5),int(pix_num ** 0.5))
+                    if args.adv_focal_loss: # normal map
+                        focal_loss_trg = 1-focal_loss_trg
                     focal_loss = loss_focal(focal_loss_in,focal_loss_trg.to(dtype=weight_dtype))
                     map_loss += focal_loss
 
@@ -382,6 +386,8 @@ def main(args):
                         trigger_map = trigger.view(res, res).unsqueeze(0).unsqueeze(0)
                         focal_loss_in = torch.cat([cls_map, trigger_map], 1)
                         focal_loss_trg = anomal_map.view(1, 1, int(pix_num ** 0.5), int(pix_num ** 0.5))
+                        if args.adv_focal_loss:  # normal map
+                            focal_loss_trg = 1 - focal_loss_trg
                         focal_loss = loss_focal(focal_loss_in, focal_loss_trg.to(dtype=weight_dtype))
                         map_loss += focal_loss
 
@@ -584,6 +590,7 @@ if __name__ == "__main__":
     parser.add_argument("--sample_every_n_steps", type=int, default=None, help="generate sample images every N steps ")
     parser.add_argument("--sample_every_n_epochs", type=int, default=None,
                         help="generate sample images every N epochs (overwrites n_steps)", )
+    parser.add_argument("--adv_focal_loss", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
