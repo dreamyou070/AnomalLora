@@ -9,7 +9,7 @@ output_dir="metrics"
 
 
 python ../evaluation/evaluation_code_MVTec3D-AD/evaluate_experiment.py \
-     --base_dir "../../result/${bench_mark}/${class_name}/${sub_folder}/reconstruction" \
+     --base_dir "../../result/${bench_mark}/${class_name}/${sub_folder}/reconstruction_" \
      --dataset_base_dir "${dataset_dir}" \
      --anomaly_maps_dir "${base_dir}" \
      --output_dir "${output_dir}" \
