@@ -11,6 +11,7 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train.py \
  --log_with wandb \
  --output_dir "../../result/${bench_mark}/${obj_name}/1_basic_pe_unet" \
+ --bench_mark "${bench_mark}" \
  --pretrained_model_name_or_path ../../../pretrained_stable_diffusion/stable-diffusion-v1-5/v1-5-pruned.safetensors \
  --data_path "../../../MyData/anomaly_detection/${bench_mark}" --beta_scale_factor 0.8 \
  --anomal_source_path "${anomal_source_path}" \
