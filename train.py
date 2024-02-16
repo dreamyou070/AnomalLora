@@ -421,7 +421,8 @@ def main(args):
                 normal_dist_max, normal_dist_loss, mu, cov = gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov)
                 dist_loss += normal_dist_loss.to(weight_dtype).requires_grad_()
                 if args.do_down_dim_mahal_loss:
-                    down_dim_normal_dist_max, down_dim_normal_dist_loss = gen_mahal_loss(args, down_dim_anormal_feat_list, down_dim_normal_feat_list)
+                    down_dim_normal_dist_max, down_dim_normal_dist_loss, down_mu, down_cov = gen_mahal_loss(args, down_dim_anormal_feat_list, down_dim_normal_feat_list,
+                                                                                         None, None)
                     down_dim_normal_dist_loss = down_dim_normal_dist_loss.to(weight_dtype)
                     dist_loss += down_dim_normal_dist_loss.requires_grad_()
                 loss += dist_loss.to(weight_dtype)
