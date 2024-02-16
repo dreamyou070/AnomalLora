@@ -239,7 +239,7 @@ def main(args):
                 with torch.no_grad():
 
                     img = load_image(rgb_img_dir, 512, 512)
-                    vae_latent = image2latent(img, vae, weight_dtype)
+                    vae_latent = image2latent(img, teacher_vae, weight_dtype)
                     input_ids, attention_mask = get_input_ids(tokenizer, args.prompt)
                     controller = AttentionStore()
                     encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
