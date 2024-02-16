@@ -1,9 +1,9 @@
 # !/bin/bash
 
-port_number=51209
+port_number=51210
 obj_name='carrot'
 caption='carrot'
-folder_name="9_up_2_anomal_pe_down_down_mahal_task_loss"
+folder_name="10_up_2_anomal_pe_down_down_mahal_task_loss_only_local_attn"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 
