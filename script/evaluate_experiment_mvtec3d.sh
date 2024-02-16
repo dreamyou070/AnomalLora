@@ -3,7 +3,7 @@
 class_name="carrot"
 bench_mark="MVTec3D-AD"
 dataset_dir="../../../MyData/anomaly_detection/${bench_mark}"
-sub_folder="6_up_2_anomal_pe_down"
+sub_folder="5_up_2_anomal_pe_down"
 
 output_dir="metrics"
 
