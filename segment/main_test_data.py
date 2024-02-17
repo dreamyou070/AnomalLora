@@ -44,6 +44,7 @@ def main(args):
             # [2] remove background
             rmbg_path = os.path.join(rgb_bgrm_folder, rgb_img)
             remove_bg(rgb_org_path, rmbg_path)
+            Image.open(rmbg_path).convert("RGB").save(rmbg_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Remove background from images")
