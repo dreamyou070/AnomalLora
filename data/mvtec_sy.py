@@ -168,11 +168,12 @@ class MVTecDRAEMTrainDataset(Dataset):
             perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
             # only on object
             if object_position is not None:
+                total_object_pixel = np.sum(object_position)
                 perlin_thr = perlin_thr * object_position
             # smoothing
             perlin_thr = cv2.GaussianBlur(perlin_thr, (5,5), 0)
             binary_2D_mask = (np.where(perlin_thr == 0, 0, 1)).astype(np.float32)  # [512,512,3]
-            if np.sum(binary_2D_mask) > 0.01 * self.latent_res * self.latent_res :
+            if np.sum(binary_2D_mask) > 0.01 * total_object_pixel :
                 break
         perlin_thr = np.expand_dims(perlin_thr, axis=2)  # [512,512,3]
         # if i rase beta_scale_factor,
@@ -193,10 +194,11 @@ class MVTecDRAEMTrainDataset(Dataset):
             result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
             result_thr = np.where(result < 0.5, 0, 1).astype(np.float32)
             if object_position is not None:
+                total_object_pixel = np.sum(object_position)
                 result_thr = (result_thr * object_position).astype(np.float32)
             blur_2D_mask = cv2.GaussianBlur(result_thr, (3,3), 0)
             binary_2D_mask = (np.where(blur_2D_mask == 0, 0, 1)).astype(np.float32)  # [512,512,3]
-            if np.sum(binary_2D_mask) > 0.01 * self.latent_res * self.latent_res:
+            if np.sum(binary_2D_mask) > 0.01 * total_object_pixel :
                 break
         blur_3D_mask = np.expand_dims(blur_2D_mask, axis=2)  # [512,512,3]
         A = back_img.astype(np.float32)  # merged
