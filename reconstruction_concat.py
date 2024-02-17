@@ -147,7 +147,7 @@ def main(args):
                                                             key.transpose(-1, -2), beta=0).softmax(dim=-1)
                             cls_score, trigger_score = attention_probs[:, :, 0].squeeze(), attention_probs[:, :,
                                                                                            1].squeeze()  # pix_num
-                            pix_num = cls_score.shape[1]
+                            pix_num = cls_score.shape[0]
                             res = int(pix_num ** 0.5)
                             cls_map = cls_score.unsqueeze(0).view(res, res)
                             cls_map_pil = Image.fromarray((255*cls_map).cpu().detach().numpy().astype(np.uint8)).resize((org_h, org_w))
