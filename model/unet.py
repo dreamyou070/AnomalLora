@@ -5,6 +5,10 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from einops import rearrange
+# activation_1 = torch.randn(1,320, 64, 64)
+# activation_2 = torch.randn(1,640, 32, 32)
+# activation_3 = torch.randn(1,1280, 16, 16)
+# activation_4 = torch.randn(1,1280, 8, 8)
 
 BLOCK_OUT_CHANNELS: Tuple[int] = (320, 640, 1280, 1280)
 TIMESTEP_INPUT_DIM = BLOCK_OUT_CHANNELS[0]
