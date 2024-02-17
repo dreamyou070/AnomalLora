@@ -167,20 +167,19 @@ class MVTecDRAEMTrainDataset(Dataset):
             #perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
             # 0 and more than 0.5
             perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
+            # smoothing
+            perlin_thr = cv2.GaussianBlur(perlin_thr, (15, 15), 0)
             # only on object
             if object_position is not None:
                 total_object_pixel = np.sum(object_position)
                 perlin_thr = perlin_thr * object_position
-            # smoothing
-            perlin_thr = cv2.GaussianBlur(perlin_thr, (15,15), 0)
             binary_2D_mask = (np.where(perlin_thr == 0, 0, 1)).astype(np.float32)  # [512,512,3]
             if np.sum(binary_2D_mask) > anomal_p * total_object_pixel :
                 break
-        perlin_thr = np.expand_dims(perlin_thr, axis=2)  # [512,512,3]
-        # if i rase beta_scale_factor,
+        blur_3D_mask = np.expand_dims(perlin_thr, axis=2)  # [512,512,3]
         beta = torch.rand(1).numpy()[0] * beta_scale_factor
         A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32) # merged
-        augmented_image = (image * (1 - perlin_thr) + A * perlin_thr).astype(np.float32)
+        augmented_image = (image * (1 - blur_3D_mask) + A * blur_3D_mask).astype(np.float32)
         return augmented_image, binary_2D_mask # [512,512,3], [512,512]
 
     def gaussian_augment_image(self, image, back_img, object_position):
@@ -194,10 +193,10 @@ class MVTecDRAEMTrainDataset(Dataset):
             sigma = torch.randint(25, 60, (1,)).item()
             result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
             result_thr = np.where(result < 0.5, 0, 1).astype(np.float32)
+            result_thr = cv2.GaussianBlur(result_thr, (15, 15), 0)
             if object_position is not None:
                 total_object_pixel = np.sum(object_position)
-                result_thr = (result_thr * object_position).astype(np.float32)
-            blur_2D_mask = cv2.GaussianBlur(result_thr, (15,15), 0)
+                blur_2D_mask = (result_thr * object_position).astype(np.float32)
             binary_2D_mask = (np.where(blur_2D_mask == 0, 0, 1)).astype(np.float32)  # [512,512,3]
             if np.sum(binary_2D_mask) > anomal_p * total_object_pixel :
                 break
