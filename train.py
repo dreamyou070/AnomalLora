@@ -213,6 +213,7 @@ def main(args):
 
         for step, batch in enumerate(train_dataloader):
 
+            loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
             task_loss, dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0, 0.0
             normal_feat_list, anormal_feat_list = [], []
             value_dict, loss_dict = {}, {}
@@ -276,8 +277,7 @@ def main(args):
             with torch.no_grad():
                 latents = vae.encode(batch["augmented_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-            noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                 noise_type=position_embedder).sample
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
 
             anomal_map = batch["anomaly_mask"].squeeze().flatten().squeeze()  # [64*64]
             trg_map = (1-anomal_map.view(1, 1, args.latent_res, args.latent_res))
@@ -337,8 +337,7 @@ def main(args):
                 with torch.no_grad():
                     latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor  # [1,4,64,64]
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-                noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                                                                                            noise_type=position_embedder).sample
+                unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
                 anomal_map = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
                 anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0) # [1, 64*64]
                 query_dict, attn_dict = controller.query_dict, controller.step_store
