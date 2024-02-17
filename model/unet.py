@@ -929,7 +929,8 @@ class UNetMidBlock2DCrossAttn(nn.Module):
             attn.set_use_sdpa(sdpa)
 
     def forward(self, hidden_states, temb=None, encoder_hidden_states=None,
-                trg_layer_list=None, noise_type=None,   **model_kwargs):
+                trg_layer_list=None, noise_type=None,
+                **model_kwargs):
         for i, resnet in enumerate(self.resnets):
             attn = None if i == 0 else self.attentions[i - 1]
 
@@ -1441,7 +1442,7 @@ class UNet2DConditionModel(nn.Module):
                                                        encoder_hidden_states=encoder_hidden_states,
                                                        trg_layer_list=trg_layer_list,
                                                        noise_type=noise_type,
-                                     **model_kwargs)
+                                                       **model_kwargs)
 
             else:
                 sample, res_samples = downsample_block(hidden_states=sample, temb=emb)

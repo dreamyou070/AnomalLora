@@ -190,12 +190,16 @@ def main(args):
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+
+            print(f'model_kwargs: {model_kwargs}')
             unet(noisy_latents,
                  timesteps,
                  encoder_hidden_states,
                  trg_layer_list=args.trg_layer_list,
                  noisy_type =position_embedder,
                  **model_kwargs)
+
+
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             normal_vector = img_attn.squeeze()
@@ -229,9 +233,7 @@ def main(args):
             with torch.no_grad():
                 latents = vae.encode(batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-            unet(noisy_latents, timesteps, encoder_hidden_states,
-                 trg_layer_list=args.trg_layer_list,
-                 noise_type=position_embedder,
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder,
                  **model_kwargs)
 
             anomal_vector = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
