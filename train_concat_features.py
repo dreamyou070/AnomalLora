@@ -200,6 +200,57 @@ def main(args):
                  trg_layer_list=args.trg_layer_list,
                  **model_kwargs)
             import torch.nn as nn
+            query_dict, key_dict = controller.bachshaped_query_dict, controller.bachshaped_key_dict
+            controller.reset()
+            query_list, key_list = [], []
+            normal_vector = batch['object_mask'].squeeze().flatten()  # [H*W]
+            for trg_layer in args.trg_layer_list:
+                query = query_dict[trg_layer][0]  # head, pix_num, dim
+                res = int(query.shape[1] ** 0.5)
+                query = query.view(-1, res, res, query.shape[-1])
+                query = query.permute(0, 3, 1, 2)  # 8, 320, 64, 64
+                query = nn.functional.interpolate(query, size=(64,64), mode="bilinear")
+                query_list.append(query)
+                key = key_dict[trg_layer][0]      # head, pix_num, dim
+                key_list.append(key)
+            query = torch.cat(query_list, dim=1).permute(0,2,3,1)
+            query = query.view(-1, 64 * 64, query.shape[-1])  # head, 64*64, 3520    # "dim": [12288],
+            key = torch.cat(key_list, dim=2)                  # head, 77,    3520
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
+                                                         dtype=query.dtype, device=query.device), query,
+                                             key.transpose(-1, -2), beta=0)
+            attention_probs = attention_scores.softmax(dim=-1)
+            cls_score, trigger_score = attention_probs[:, :, 0].squeeze(), attention_probs[:, :, 1].squeeze()  # head, pix_num
+            cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
+
+            normal_cls_score = cls_score * normal_vector
+            normal_trigger_score = trigger_score * normal_vector
+            normal_total_score = normal_vector.sum()
+            normal_cls_score = normal_cls_score.sum() / normal_total_score
+            normal_trigger_score = normal_trigger_score.sum() / normal_total_score
+            normal_cls_loss_list.append(normal_cls_score)
+            normal_trigger_loss_list.append((1 - normal_trigger_score))
+            # ------------------------------------------------------------------------------------------
+            # [2] Masked Sample Learning
+            with torch.no_grad():
+                latents = vae.encode(
+                    batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+            anomal_vector = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
+            an_normal_vector = (1 - normal_vector) + anomal_vector
+            normal_vector = torch.where(an_normal_vector == 0, 1, 0)
+            if args.use_object_attention_mask:
+                model_kwargs["object_attention_mask"] = img_attn
+            if args.use_normal_attention_mask:
+                model_kwargs['object_attention_mask'] = normal_vector.unsqueeze(0).repeat(b_size, 1).to(
+                    dtype=weight_dtype)
+            if args.use_anomal_attention_mask:
+                model_kwargs['object_attention_mask'] = (1 - anomal_vector).unsqueeze(0).repeat(b_size, 1).to(
+                    dtype=weight_dtype)
+
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                 noise_type=position_embedder,
+                 **model_kwargs)
             query_dict, key_dict = controller.query_dict, controller.key_dict
             controller.reset()
             query_list, key_list = [], []
@@ -219,9 +270,135 @@ def main(args):
                                                          dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0)
             attention_probs = attention_scores.softmax(dim=-1)
-            cls_score, trigger_score = attention_probs[:, :, 0], attention_probs[:, :, 1]
+            cls_score, trigger_score = attention_probs[:, :, 0].squeeze(), attention_probs[:, :, 1].squeeze()  # head, pix_num
+            cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
 
+            normal_cls_score = cls_score * normal_vector
+            normal_trigger_score = trigger_score * normal_vector
+            normal_total_score = normal_vector.sum()
+            normal_cls_score = normal_cls_score.sum() / normal_total_score
+            normal_trigger_score = normal_trigger_score.sum() / normal_total_score
 
+            anormal_cls_score = cls_score * anomal_vector
+            anormal_trigger_score = trigger_score * anomal_vector
+            anormal_total_score = anomal_vector.sum()
+            anormal_cls_score = anormal_cls_score.sum() / anormal_total_score
+            anormal_trigger_score = anormal_trigger_score.sum() / anormal_total_score
+
+            normal_cls_loss_list.append(normal_cls_score)
+            normal_trigger_loss_list.append((1 - normal_trigger_score))
+            anormal_cls_loss_list.append((1 - anormal_cls_score))
+            anormal_trigger_loss_list.append(anormal_trigger_score)
+
+            # ------------------------------------------------------------------------------------------
+            # [3] Holed Sample Learning
+            with torch.no_grad():
+                latents = vae.encode(
+                    batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+            anomal_vector = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
+            an_normal_vector = (1 - normal_vector) + anomal_vector
+            normal_vector = torch.where(an_normal_vector == 0, 1, 0)
+            if args.use_object_attention_mask:
+                model_kwargs["object_attention_mask"] = img_attn
+            if args.use_normal_attention_mask:
+                model_kwargs['object_attention_mask'] = normal_vector.unsqueeze(0).repeat(b_size, 1).to(
+                    dtype=weight_dtype)
+            if args.use_anomal_attention_mask:
+                model_kwargs['object_attention_mask'] = (1 - anomal_vector).unsqueeze(0).repeat(b_size, 1).to(
+                    dtype=weight_dtype)
+
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                 noise_type=position_embedder,
+                 **model_kwargs)
+            query_dict, key_dict = controller.query_dict, controller.key_dict
+            controller.reset()
+            query_list, key_list = [], []
+            for trg_layer in args.trg_layer_list:
+                query = query_dict[trg_layer][0]  # head, pix_num, dim
+                res = int(query.shape[1] ** 0.5)
+                query = query.view(-1, res, res, query.shape[-1])
+                query = query.permute(0, 3, 1, 2)  # 8, 320, 64, 64
+                query = nn.functional.interpolate(query, size=(64, 64), mode="bilinear")
+                query_list.append(query)
+                key = key_dict[trg_layer][0]  # head, pix_num, dim
+                key_list.append(key)
+            query = torch.cat(query_list, dim=1).permute(0, 2, 3, 1)
+            query = query.view(-1, 64 * 64, query.shape[-1])  # head, 64*64, 3520    # "dim": [12288],
+            key = torch.cat(key_list, dim=2)  # head, 77,    3520
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
+                                                         dtype=query.dtype, device=query.device), query,
+                                             key.transpose(-1, -2), beta=0)
+            attention_probs = attention_scores.softmax(dim=-1)
+            cls_score, trigger_score = attention_probs[:, :, 0].squeeze(), attention_probs[:, :,
+                                                                           1].squeeze()  # head, pix_num
+            cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
+
+            normal_cls_score = cls_score * normal_vector
+            normal_trigger_score = trigger_score * normal_vector
+            normal_total_score = normal_vector.sum()
+            normal_cls_score = normal_cls_score.sum() / normal_total_score
+            normal_trigger_score = normal_trigger_score.sum() / normal_total_score
+
+            anormal_cls_score = cls_score * anomal_vector
+            anormal_trigger_score = trigger_score * anomal_vector
+            anormal_total_score = anomal_vector.sum()
+            anormal_cls_score = anormal_cls_score.sum() / anormal_total_score
+            anormal_trigger_score = anormal_trigger_score.sum() / anormal_total_score
+
+            normal_cls_loss_list.append(normal_cls_score)
+            normal_trigger_loss_list.append((1 - normal_trigger_score))
+            anormal_cls_loss_list.append((1 - anormal_cls_score))
+            anormal_trigger_loss_list.append(anormal_trigger_score)
+
+            # ------------------------------------------------------------------------------------------
+            # back prop
+            normal_cls_loss = torch.tensor(normal_cls_loss_list).mean()
+            normal_trigger_loss = torch.tensor(normal_trigger_loss_list).mean()
+            anormal_cls_loss = torch.tensor(anormal_cls_loss_list).mean()
+            anormal_trigger_loss = torch.tensor(anormal_trigger_loss_list).mean()
+            attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
+            if args.do_cls_train:
+                attn_loss += args.normal_weight * normal_cls_loss.mean() + args.anormal_weight * anormal_cls_loss.mean()
+            loss += attn_loss.mean().to(weight_dtype)
+            loss_dict['attn_loss'] = attn_loss.mean().item()
+            loss = loss.to(weight_dtype)
+            current_loss = loss.detach().item()
+            if epoch == args.start_epoch:
+                loss_list.append(current_loss)
+            else:
+                epoch_loss_total -= loss_list[step]
+                loss_list[step] = current_loss
+            epoch_loss_total += current_loss
+            avr_loss = epoch_loss_total / len(loss_list)
+            loss_dict['avr_loss'] = avr_loss
+            accelerator.backward(loss)
+            optimizer.step()
+            lr_scheduler.step()
+            optimizer.zero_grad(set_to_none=True)
+            if accelerator.sync_gradients:
+                progress_bar.update(1)
+                global_step += 1
+            if is_main_process:
+                progress_bar.set_postfix(**loss_dict)
+            if global_step >= args.max_train_steps:
+                break
+            # ----------------------------------------------------------------------------------------------------------- #
+            # [6] epoch final
+        accelerator.wait_for_everyone()
+        if args.save_every_n_epochs is not None:
+            saving = (epoch + 1) % args.save_every_n_epochs == 0 and (
+                    epoch + 1) < args.start_epoch + args.max_train_epochs
+            if is_main_process and saving:
+                ckpt_name = get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
+                save_model(args, ckpt_name, accelerator.unwrap_model(network), save_dtype)
+                if position_embedder is not None:
+                    position_embedder_base_save_dir = os.path.join(args.output_dir, 'position_embedder')
+                    os.makedirs(position_embedder_base_save_dir, exist_ok=True)
+                    p_save_dir = os.path.join(position_embedder_base_save_dir,
+                                              f'position_embedder_{epoch + 1}.safetensors')
+                    pe_model_save(accelerator.unwrap_model(position_embedder), save_dtype, p_save_dir)
+    accelerator.end_training()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

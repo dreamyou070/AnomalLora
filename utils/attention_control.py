@@ -98,6 +98,11 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
 
+            if trg_layer_list is not None and layer_name in trg_layer_list:
+                controller.save_backshaped_query(query, layer_name)
+                controller.save_backshaped_key(key, layer_name)
+
+
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()

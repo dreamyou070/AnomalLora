@@ -22,6 +22,8 @@ class AttentionStore :
         self.map_dict = {}
         self.query_dict_sub = {}
         self.classification_map_dict = {}
+        self.bachshaped_query_dict = {}
+        self.bachshaped_key_dict = {}
     def get_empty_store(self):
         return {}
 
@@ -72,6 +74,19 @@ class AttentionStore :
             self.step_store[layer_name].append(attn)
             #self.step_store[layer_name] = self.step_store[layer_name] + attn
         return attn
+
+    def save_backshaped_query(self, query, layer_name):
+        if layer_name not in self.bachshaped_query_dict.keys():
+            self.bachshaped_query_dict[layer_name] = []
+            self.bachshaped_query_dict[layer_name].append(query)
+        else:
+            self.bachshaped_query_dict[layer_name].append(query)
+    def save_backshaped_key(self, key, layer_name):
+        if layer_name not in self.bachshaped_key_dict.keys():
+            self.bachshaped_key_dict[layer_name] = []
+            self.bachshaped_key_dict[layer_name].append(key)
+        else:
+            self.bachshaped_key_dict[layer_name].append(key)
 
 
 
@@ -126,3 +141,5 @@ class AttentionStore :
         self.map_dict = {}
         self.query_dict_sub = {}
         self.classification_map_dict = {}
+        self.bachshaped_query_dict = {}
+        self.bachshaped_key_dict = {}
