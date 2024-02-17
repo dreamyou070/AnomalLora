@@ -184,8 +184,8 @@ def main(args):
                 encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
 
                 b_size = batch["image"].shape[0]
-                img_attn = batch['object_mask'].squeeze().flatten()
-                img_attn = img_attn.unsqueeze(0).repeat(b_size, 1).to(dtype=weight_dtype)
+                img_attn = batch['object_mask'].squeeze().flatten() # [H*W]
+                img_attn = img_attn.unsqueeze(0).repeat(b_size, 1).to(dtype=weight_dtype) # [B, H*W]
                 model_kwargs = {"object_attention_mask": img_attn,
                                 "position_embedder" : position_embedder}
 

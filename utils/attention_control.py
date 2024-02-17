@@ -107,7 +107,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             #batch, pix_num, sen_len
             if do_attn :
                 sen_len = attention_scores.shape[2]
-                object_attention_mask = object_attention_mask.unsqueeze(-1).expand(1,1, sen_len)
+                object_attention_mask = object_attention_mask.unsqueeze(-1).repeat(1,1, sen_len)
                 attention_scores = attention_scores + object_attention_mask
 
             attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)
