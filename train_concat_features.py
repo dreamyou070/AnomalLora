@@ -251,7 +251,7 @@ def main(args):
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder,
                  **model_kwargs)
-            query_dict, key_dict = controller.query_dict, controller.key_dict
+            query_dict, key_dict = controller.bachshaped_query_dict, controller.bachshaped_key_dict
             controller.reset()
             query_list, key_list = [], []
             for trg_layer in args.trg_layer_list:
@@ -311,7 +311,7 @@ def main(args):
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder,
                  **model_kwargs)
-            query_dict, key_dict = controller.query_dict, controller.key_dict
+            query_dict, key_dict = controller.bachshaped_query_dict, controller.bachshaped_key_dict
             controller.reset()
             query_list, key_list = [], []
             for trg_layer in args.trg_layer_list:
