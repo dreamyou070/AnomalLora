@@ -201,7 +201,7 @@ def main(args):
                  **model_kwargs)
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
-            normal_vector = img_attn.squeeze()
+            normal_vector = batch['object_mask'].squeeze().flatten()  # [H*W]
             for trg_layer in args.trg_layer_list:
                 query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                 pix_num = query.shape[0]
