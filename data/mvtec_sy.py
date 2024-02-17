@@ -288,7 +288,11 @@ class MVTecDRAEMTrainDataset(Dataset):
                 anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0], self.resize_shape[1])
                 augmented_image, mask = self.augment_image(img,anomaly_source_img, beta_scale_factor=self.beta_scale_factor,object_position=object_position) # [512,512,3], [512,512]
                 anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
-                anomal_mask_torch = self.down_sizer(torch.tensor(mask).unsqueeze(0)) # [1,64,64]
+
+                binary_2d_pil = Image.fromarray((mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
+                _binary_2d_torch = torch.tensor(np.array(binary_2d_pil)) / 255
+                anomal_mask_torch = torch.where(_binary_2d_torch > 0.5, 1, 0)
+
                 # [4.2] holed img
                 if self.do_anomal_hole:
                     if self.bgrm_test:
@@ -297,9 +301,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                         background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],type='RGB')
                     back_augmented_image, back_mask = self.gaussian_augment_image(img, aug(image=background_img),
                                                                                   object_position = object_position)
-
-                    back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
-                    back_anomal_mask_torch = self.down_sizer(torch.tensor(back_mask).unsqueeze(0)) # [1,64,64]
+                    back_binary_2d_pil = Image.fromarray((back_mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
+                    back__binary_2d_torch = torch.tensor(np.array(back_binary_2d_pil)) / 255
+                    back_anomal_mask_torch = torch.where(back__binary_2d_torch > 0.5, 1, 0)
 
                 else :
                     back_anomal_img = img
