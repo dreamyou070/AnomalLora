@@ -3,5 +3,7 @@ import torch.nn as nn
 import numpy as np
 from PIL import Image
 
-binary_2d_mask = np.array([[0,1],
-                           [1,0]])
+random_map = torch.randn(64*64)
+random_map = torch.softmax(random_map, dim=0)
+random_map = random_map / random_map.max()
+print(random_map.max())

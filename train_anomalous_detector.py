@@ -182,12 +182,13 @@ def main(args):
 
             with torch.set_grad_enabled(True):
                 encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
+                model_kwargs = {"position_embedder": position_embedder}
 
-                b_size = batch["image"].shape[0]
-                img_attn = batch['object_mask'].squeeze().flatten() # [H*W]
-                img_attn = img_attn.unsqueeze(0).repeat(b_size, 1).to(dtype=weight_dtype) # [B, H*W]
-                model_kwargs = {"object_attention_mask": img_attn,
-                                "position_embedder" : position_embedder}
+                if args.use_object_attention_mask :
+                    b_size = batch["image"].shape[0]
+                    img_attn = batch['object_mask'].squeeze().flatten() # [H*W]
+                    img_attn = img_attn.unsqueeze(0).repeat(b_size, 1).to(dtype=weight_dtype) # [B, H*W]
+                    model_kwargs["object_attention_mask"] = img_attn
 
             # [1] normal sample
             with torch.no_grad():
@@ -231,13 +232,20 @@ def main(args):
             with torch.no_grad():
                 latents = vae.encode(batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+
+            anomal_vector = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
+            an_normal_vector = (1 - normal_vector) + anomal_vector
+            normal_vector = torch.where(an_normal_vector == 0, 1, 0)
+            if args.use_object_attention_mask:
+                model_kwargs["object_attention_mask"] = img_attn
+            if args.use_normal_attention_mask :
+                model_kwargs['object_attention_mask'] = normal_vector.unsqueeze(0).repeat(b_size, 1).to(dtype=weight_dtype)
+            if args.use_anomal_attention_mask:
+                model_kwargs['object_attention_mask'] = (1-anomal_vector).unsqueeze(0).repeat(b_size, 1).to(dtype=weight_dtype)
+
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder,
                  **model_kwargs)
 
-            anomal_vector = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
-            anomal_pix_num = anomal_vector.sum().item()
-            an_normal_vector = (1-normal_vector) + anomal_vector
-            normal_vector = torch.where(an_normal_vector == 0, 1, 0)
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
@@ -279,14 +287,20 @@ def main(args):
             with torch.no_grad():
                 latents = vae.encode(batch['bg_anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+            anomal_vector = batch['bg_anomal_mask'].squeeze().flatten().squeeze()  # [64*64]
+            an_normal_vector = (1 - normal_vector) + anomal_vector
+            normal_vector = torch.where(an_normal_vector == 0, 1, 0)
+            if args.use_object_attention_mask:
+                model_kwargs["object_attention_mask"] = img_attn
+            if args.use_normal_attention_mask:
+                model_kwargs['object_attention_mask'] = normal_vector.unsqueeze(0).repeat(b_size, 1).to(dtype=weight_dtype)
+            if args.use_anomal_attention_mask:
+                model_kwargs['object_attention_mask'] = (1-anomal_vector).unsqueeze(0).repeat(b_size, 1).to(dtype=weight_dtype)
             unet(noisy_latents, timesteps, encoder_hidden_states,
                  trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder,
                  **model_kwargs)
-            anomal_vector = batch['bg_anomal_mask'].squeeze().flatten().squeeze()  # [64*64]
-            anomal_pix_num = anomal_vector.sum().item()
-            an_normal_vector = (1 - normal_vector) + anomal_vector
-            normal_vector = torch.where(an_normal_vector == 0, 1, 0)
+
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
@@ -514,6 +528,11 @@ if __name__ == "__main__":
     parser.add_argument("--do_task_loss", action='store_true')
     parser.add_argument("--task_loss_weight", type=float, default=1.0)
     parser.add_argument("--do_query_shuffle_loss", action='store_true')
+    parser.add_argument("--use_object_attention_mask", action='store_true')
+    parser.add_argument("--use_normal_attention_mask", action='store_true')
+    parser.add_argument("--use_qnormal_attention_mask", action='store_true')
+
+
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
