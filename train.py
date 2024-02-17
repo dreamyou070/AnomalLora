@@ -281,10 +281,6 @@ def main(args):
 
             anomal_map = batch["anomaly_mask"].squeeze().flatten().squeeze()  # [64*64]
             trg_map = (1-anomal_map.view(1, 1, args.latent_res, args.latent_res))
-            loss = torch.nn.functional.mse_loss((noise_pred * trg_map).float(),
-                                                (target*trg_map).float(), reduction="none")
-            loss = loss.mean([1, 2, 3])
-            task_loss += loss.mean() * args.task_loss_weight
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
@@ -407,10 +403,6 @@ def main(args):
 
             # ----------------------------------------------------------------------------------------------------------
             # [5] backprop
-            if args.do_task_loss:
-                loss += task_loss.to(weight_dtype)
-                loss_dict['task_loss'] = task_loss.item()
-
             if args.do_dist_loss:
                 normal_dist_max, normal_dist_loss, mu, cov = gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov)
                 dist_loss += normal_dist_loss.to(weight_dtype).requires_grad_()
