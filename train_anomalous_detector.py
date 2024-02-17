@@ -183,9 +183,9 @@ def main(args):
             with torch.set_grad_enabled(True):
                 encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
                 model_kwargs = {"position_embedder": position_embedder}
+                b_size = batch["image"].shape[0]
 
                 if args.use_object_attention_mask :
-                    b_size = batch["image"].shape[0]
                     img_attn = batch['object_mask'].squeeze().flatten() # [H*W]
                     img_attn = img_attn.unsqueeze(0).repeat(b_size, 1).to(dtype=weight_dtype) # [B, H*W]
                     model_kwargs["object_attention_mask"] = img_attn
