@@ -168,7 +168,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             # 0 and more than 0.5
             perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
             # smoothing
-            perlin_thr = cv2.GaussianBlur(perlin_thr, (10,10), 0)
+            # perlin_thr = cv2.GaussianBlur(perlin_thr, (10, 10), 0)
             # only on object
             if object_position is not None:
                 total_object_pixel = np.sum(object_position)
@@ -193,7 +193,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             sigma = torch.randint(25, 60, (1,)).item()
             result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
             result_thr = np.where(result < 0.5, 0, 1).astype(np.float32)
-            result_thr = cv2.GaussianBlur(result_thr, (10,10), 0)
+            result_thr = cv2.GaussianBlur(result_thr, (5,5), 0)
             if object_position is not None:
                 total_object_pixel = np.sum(object_position)
                 blur_2D_mask = (result_thr * object_position).astype(np.float32)
