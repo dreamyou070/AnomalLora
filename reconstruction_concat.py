@@ -128,10 +128,9 @@ def main(args):
                             unet(vae_latent, 0, encoder_hidden_states,
                                  trg_layer_list=args.trg_layer_list, noise_type=position_embedder,
                                  **model_kwargs)
-                            query_dict, key_dict = controller.bachshaped_query_dict, controller.bachshaped_key_dict
+                            query_dict, key_dict = controller.query_dict, controller.key_dict
                             controller.reset()
                             query_list, key_list = [], []
-
                             for trg_layer in args.trg_layer_list:
                                 query = query_dict[trg_layer][0]  # head, pix_num, dim
                                 res = int(query.shape[1] ** 0.5)
@@ -144,17 +143,20 @@ def main(args):
                             query = torch.cat(query_list, dim=1).permute(0, 2, 3, 1)
                             query = query.view(-1, 64 * 64, query.shape[-1])  # head, 64*64, 3520    # "dim": [12288],
                             key = torch.cat(key_list, dim=2)  # head, 77,    3520
-                            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
-                                                                         dtype=query.dtype, device=query.device), query,
-                                                             key.transpose(-1, -2), beta=0)
-                            attention_probs = attention_scores.softmax(dim=-1)
+                            attention_probs = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
+                                                                        dtype=query.dtype, device=query.device), query,
+                                                            key.transpose(-1, -2), beta=0).softmax(dim=-1)
                             cls_score, trigger_score = attention_probs[:, :, 0].squeeze(), attention_probs[:, :,
-                                                                                           1].squeeze()  # head, pix_num
+                                                                                           1].squeeze()  # pix_num
                             pix_num = cls_score.shape[1]
                             res = int(pix_num ** 0.5)
                             cls_map = cls_score.unsqueeze(0).view(res, res)
                             cls_map_pil = Image.fromarray((255*cls_map).cpu().detach().numpy().astype(np.uint8)).resize((org_h, org_w))
                             cls_map_pil.save(os.path.join(save_base_folder, f'{name}_cls_map.png'))
+
+                            trigger_map = trigger_score.unsqueeze(0).view(res, res)
+                            trigger_map_pil = Image.fromarray((255*trigger_map).cpu().detach().numpy().astype(np.uint8)).resize((org_h, org_w))
+                            trigger_map_pil.save(os.path.join(save_base_folder, f'{name}_trigger_map.png'))
 
                             gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
                             Image.open(gt_img_dir).resize((org_h, org_w)).save(gt_img_save_dir)
