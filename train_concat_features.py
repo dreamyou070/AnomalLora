@@ -362,7 +362,7 @@ def main(args):
                 attn_loss += args.normal_weight * normal_cls_loss.mean() + args.anormal_weight * anormal_cls_loss.mean()
             loss += attn_loss.mean().to(weight_dtype)
             loss_dict['attn_loss'] = attn_loss.mean().item()
-            loss = loss.to(weight_dtype)
+            loss = loss.to(weight_dtype).requires_grad_(True)
             current_loss = loss.detach().item()
             if epoch == args.start_epoch:
                 loss_list.append(current_loss)
