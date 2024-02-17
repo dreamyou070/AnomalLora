@@ -1,6 +1,6 @@
 # !/bin/bash
 
-port_number=51218
+port_number=51777
 obj_name='carrot'
 caption='carrot'
 folder_name="17_local_attn_test"
