@@ -121,6 +121,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             do_attn = False
             object_attention_mask = None
+            print(f'model_kwargs: {model_kwargs}')
+            print(f'type of model_kwargs: {type(model_kwargs)}')
             if 'object_attention_mask' in model_kwargs:
                 object_attention_mask = model_kwargs['object_attntion_mask']
                 b_, pix_num = object_attention_mask.shape
