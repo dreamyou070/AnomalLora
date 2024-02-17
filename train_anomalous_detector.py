@@ -236,7 +236,6 @@ def main(args):
 
             anomal_vector = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
             anomal_pix_num = anomal_vector.sum().item()
-            print(f' [2] anomal_pix_num: {anomal_pix_num}')
             an_normal_vector = (1-normal_vector) + anomal_vector
             normal_vector = torch.where(an_normal_vector == 0, 1, 0)
             query_dict, attn_dict = controller.query_dict, controller.step_store
@@ -286,7 +285,6 @@ def main(args):
                  **model_kwargs)
             anomal_vector = batch['bg_anomal_mask'].squeeze().flatten().squeeze()  # [64*64]
             anomal_pix_num = anomal_vector.sum().item()
-            print(f' [3] anomal_pix_num: {anomal_pix_num}')
             an_normal_vector = (1 - normal_vector) + anomal_vector
             normal_vector = torch.where(an_normal_vector == 0, 1, 0)
             query_dict, attn_dict = controller.query_dict, controller.step_store
