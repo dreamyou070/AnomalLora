@@ -51,26 +51,24 @@ def main(args):
         pil_object_mask = Image.fromarray((np_object_mask * 255).astype(np.uint8))
         pil_object_mask.save(os.path.join(check_base_dir, f'{image_name}_object_mask.png'))
 
-        merged_src = sample['augmented_image'].squeeze()
+        merged_src = sample['anomal_image'].squeeze()
         np_merged_src = np.array(((merged_src + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
-        print(f'np_merged_src.shape: {np_merged_src.shape}')
         pil_merged_src = Image.fromarray(np_merged_src)
         pil_merged_src.save(os.path.join(check_base_dir, f'{image_name}_merged_src.png'))
-        anomaly_mask = sample['anomaly_mask']
+        anomaly_mask = sample['anomal_mask']
         np_anomaly_mask = anomaly_mask.squeeze().numpy()
         pil_anomaly_mask = (np_anomaly_mask * 255).astype(np.uint8)
         pil_anomaly_mask = Image.fromarray(pil_anomaly_mask)
         pil_anomaly_mask.save(os.path.join(check_base_dir, f'{image_name}_anomaly_mask.png'))
 
-        masked_image = sample['masked_image'].squeeze()
+        masked_image = sample['bg_anomal_image'].squeeze()
         np_masked_image = np.array(((masked_image + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
-        print(f'np_masked_image.shape: {np_masked_image.shape}')
 
 
         pil_masked_image = Image.fromarray(np_masked_image)
         pil_masked_image.save(os.path.join(check_base_dir, f'{image_name}_hole_image.png'))
 
-        masked_image_mask = sample['masked_image_mask']
+        masked_image_mask = sample['bg_anomal_mask']
         np_masked_image_mask = masked_image_mask.squeeze().numpy()
         pil_masked_image_mask = (np_masked_image_mask * 255).astype(np.uint8)
         pil_masked_image_mask = Image.fromarray(pil_masked_image_mask)
