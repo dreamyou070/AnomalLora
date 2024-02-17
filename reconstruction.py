@@ -123,8 +123,10 @@ def main(args):
                             network.load_state_dict(raw_state_dict)
                             network.to(accelerator.device, dtype=weight_dtype)
                             encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
+                            model_kwargs = {"position_embedder": position_embedder}
                             unet(vae_latent, 0, encoder_hidden_states,
-                                 trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
+                                 trg_layer_list=args.trg_layer_list, noise_type=position_embedder,
+                                 **model_kwargs)
                             attn_dict = controller.step_store
                             controller.reset()
                             for layer_name in args.trg_layer_list:
