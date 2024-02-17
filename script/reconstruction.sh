@@ -1,9 +1,9 @@
 # !/bin/bash
 
-port_number=50002
+port_number=50004
 obj_name='carrot'
 caption='carrot'
-folder_name="1_3_train_anomalous_detector_not_small_anomal_use_normal_attention_mask"
+folder_name="1_4_concat_feature_attntion"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 # --do_local_self_attn --window_size 8
