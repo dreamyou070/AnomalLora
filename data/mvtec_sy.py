@@ -197,7 +197,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             if object_position is not None:
                 total_object_pixel = np.sum(object_position)
                 result_thr = (result_thr * object_position).astype(np.float32)
-            blur_2D_mask = cv2.GaussianBlur(result_thr, (3,3), 0)
+            blur_2D_mask = cv2.GaussianBlur(result_thr, (15,15), 0)
             binary_2D_mask = (np.where(blur_2D_mask == 0, 0, 1)).astype(np.float32)  # [512,512,3]
             if np.sum(binary_2D_mask) > anomal_p * total_object_pixel :
                 break
