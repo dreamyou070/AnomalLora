@@ -296,7 +296,6 @@ def main(args):
                     p_save_dir = os.path.join(position_embedder_base_save_dir,
                                               f'position_embedder_{epoch + 1}.safetensors')
                     pe_model_save(accelerator.unwrap_model(position_embedder), save_dtype, p_save_dir)
-
     accelerator.end_training()
 
 if __name__ == "__main__":
