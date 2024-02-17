@@ -81,7 +81,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                  perlin_max_scale : int = 8,
                  kernel_size : int = 5,
                  beta_scale_factor : float = 0.8,
-                 do_anomal_hole : bool = False,
+                 do_anomal_hole : bool = True,
                  bgrm_test : bool = True):
 
         self.root_dir = root_dir
@@ -305,7 +305,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                     print(f'(2) background_img shape : {background_img.shape}')
                     back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, object_position)
                     back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
-                    print(f'(3) back_anomal_img shape : {back_anomal_img.shape}')
+                    print(f'(3) ** back_anomal_img shape : {back_anomal_img.shape}')
                     back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0)) # [1,64,64]
                     masked_image_mask = back_anomal_mask_torch
                 else :
