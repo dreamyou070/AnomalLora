@@ -2,9 +2,8 @@ import os
 import argparse, torch
 from model.lora import LoRANetwork
 from attention_store import AttentionStore
-from utils.attention_control import add_attn_argument, passing_argument
 from model.unet import unet_passing_argument
-from utils.attention_control import register_attention_control
+from utils.original_attention_control import register_attention_control, add_attn_argument, passing_argument
 from accelerate import Accelerator
 from model.tokenizer import load_tokenizer
 from utils import prepare_dtype
