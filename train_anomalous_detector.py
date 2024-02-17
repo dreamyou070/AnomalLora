@@ -88,6 +88,8 @@ def main(args):
     if args.use_position_embedder:
         position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res, d_model=args.d_dim)
 
+    print(f'position_embedder : {position_embedder}')
+
     print(f'\n step 5. optimizer')
     trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
     if position_embedder is not None:
@@ -184,19 +186,18 @@ def main(args):
                 b_size = batch["image"].shape[0]
                 img_attn = batch['object_mask'].squeeze().flatten()
                 img_attn = img_attn.unsqueeze(0).repeat(b_size, 1).to(dtype=weight_dtype)
-                model_kwargs = {"object_attention_mask": img_attn}
+                model_kwargs = {"object_attention_mask": img_attn,
+                                "position_embedder" : position_embedder}
 
             # [1] normal sample
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
 
-            print(f'model_kwargs: {model_kwargs}')
             unet(noisy_latents,
                  timesteps,
                  encoder_hidden_states,
                  trg_layer_list=args.trg_layer_list,
-                 noisy_type =position_embedder,
                  **model_kwargs)
 
 
