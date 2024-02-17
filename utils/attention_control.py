@@ -58,14 +58,12 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             hidden_states = hidden_states.view(B, H, W, C)
             # [2]  window partitioning
             x_windows = window_partition(hidden_states, argument.window_size)  # nW*B, window_size, window_size, C
-            x_windows = x_windows.view(-1, argument.window_size * argument.window_size,
-                                       C)  # nW*B, window_size*window_size, C
+            x_windows = x_windows.view(-1, self.window_size[0] * self.window_size[1], C)  # nW*B, window_size*window_size, C
             B_, N, C = x_windows.shape  # 4, 64, 320
             query = self.to_q(hidden_states)
             key = self.to_k(hidden_states)
             value = self.to_v(hidden_states)
-            query = query.reshape(B_, N, self.heads, C // self.heads).permute(0, 2, 1,
-                                                                              3)  # batch_num / head / len / dim
+            query = query.reshape(B_, N, self.heads, C // self.heads).permute(0, 2, 1, 3)  # batch_num / head / len / dim
             key = key.reshape(B_, N, self.heads, C // self.heads).permute(0, 2, 1, 3)
             value = value.reshape(B_, N, self.heads, C // self.heads).permute(0, 2, 1, 3)
             if self.upcast_attention:
@@ -80,8 +78,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)
             hidden_states = (attention_probs @ value).transpose(1, 2).reshape(B_, N,
                                                                               C)  # nW*B, window_size*window_size, C
-            attn_windows = hidden_states.view(-1, argument.window_size, argument.window_size, C)  # 64, 7, 7, 96
-            window_attn = window_reverse(attn_windows, argument.window_size, H, W)  # batch, w_size, w_size, c
+            attn_windows = hidden_states.view(-1, self.window_size[0], self.window_size[1], C)  # 64, 7, 7, 96
+            window_attn = window_reverse(attn_windows, self.window_size[0], H, W)  # batch, w_size, w_size, c
             hidden_states = window_attn.view(B, H * W, C)
             local_hidden_states = self.to_out[0](hidden_states)
             return local_hidden_states
@@ -163,10 +161,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
         def add_window_argument(window_size) :
             print('2 adding window argument')
-            self.window_size = window_size
+            self.window_size = (window_size, window_size)
             num_heads = self.heads
             #head_dim = dim // num_heads
-            self.relative_position_bias_table = nn.Parameter(torch.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads))
+            self.relative_position_bias_table = nn.Parameter(torch.zeros((2 * self.window_size[0] - 1) * (2 * self.window_size[1] - 1), num_heads))
 
             # get pair-wise relative position index for each token inside the window
             coords_h = torch.arange(self.window_size[0])
