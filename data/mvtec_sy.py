@@ -81,35 +81,28 @@ class MVTecDRAEMTrainDataset(Dataset):
                  perlin_max_scale : int = 8,
                  kernel_size : int = 5,
                  beta_scale_factor : float = 0.8,
-                 use_sharpen_aug : bool = True,
-                 do_anomal_hole : bool = False,):
+                 do_anomal_hole : bool = False,
+                 bgrm_test : bool = True):
 
         self.root_dir = root_dir
         self.resize_shape=resize_shape
-
         if anomaly_source_path is not None:
             self.anomaly_source_paths = []
             for ext in ["png", "jpg"]:
                 self.anomaly_source_paths.extend(sorted(glob.glob(anomaly_source_path + f"/*/*/*.{ext}")))
         else :
             self.anomaly_source_paths = []
-        print(f'anomal_source_paths: {len(self.anomaly_source_paths)}')
 
         self.caption = caption
         self.tokenizer = tokenizer
-        self.transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5]),])
+        self.transform = transforms.Compose([transforms.ToTensor(),
+                                             transforms.Normalize([0.5], [0.5]),])
         self.use_perlin = use_perlin
         self.rot_augmenters = [iaa.Affine(rotate=(0, 0)),
-                           iaa.Affine(rotate=(180, 180)),
-                           iaa.Affine(rotate=(90, 90)),
-                           iaa.Affine(rotate=(270, 270))]
-        self.sharpen_augmenters = [iaa.Sharpen(alpha=(0.0,0.0), ),
-                                   iaa.Sharpen(alpha=(0.3,0.3), )]
-        self.use_sharpen_aug = use_sharpen_aug
-        if self.use_sharpen_aug:
-            num_repeat = len(self.rot_augmenters) * len(self.sharpen_augmenters)
-        else:
-            num_repeat = len(self.rot_augmenters)
+                               iaa.Affine(rotate=(180, 180)),
+                               iaa.Affine(rotate=(90, 90)),
+                               iaa.Affine(rotate=(270, 270))]
+        num_repeat = len(self.rot_augmenters)
 
         image_paths = sorted(glob.glob(root_dir + "/*.png"))
         self.image_paths = [image_path for image_path in image_paths for i in range(num_repeat)]
@@ -119,9 +112,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.perlin_max_scale = perlin_max_scale
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
-        self.down_sizer = transforms.Resize(size=(64, 64), antialias=True)
+        self.down_sizer = transforms.Resize(size=(self.latent_res,self.latent_res), antialias=True)
         self.do_anomal_hole = do_anomal_hole
-
+        self.bgrm_test = bgrm_test
 
     def __len__(self):
         if len(self.anomaly_source_paths) > 0 :
@@ -134,20 +127,25 @@ class MVTecDRAEMTrainDataset(Dataset):
         # torch_img = [3, H, W], from -1 to 1
         np_img = np.array(((torch_img + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
         pil = Image.fromarray(np_img)
+    def get_img_name(self, img_path):
+        parent, name = os.path.split(img_path)
+        class_name = os.path.split(parent)[1]
+        class_name = os.path.split(class_name)[1]
+        name, ext = os.path.splitext(name)
+        final_name = f'{class_name}_{name}'
+        return final_name
+
+    def get_object_mask_dir(self, img_path):
+        parent, name = os.path.split(img_path)
+        parent, _ = os.path.split(parent)
+        object_mask_dir = os.path.join(parent, f"back_rm_object_mask/{name}")
+        return object_mask_dir
 
     def randAugmenter(self, idx):
         rot_aug_ind = idx % len(self.rot_augmenters)
-        sharpen_aug_ind = idx % len(self.sharpen_augmenters)
-
         rot_aug = self.rot_augmenters[rot_aug_ind]
-        sharpen_aug = self.sharpen_augmenters[sharpen_aug_ind]
-        if self.use_sharpen_aug:
-            aug = iaa.Sequential([rot_aug,
-                                  sharpen_aug])
-        else:
-            aug = iaa.Sequential([rot_aug])
+        aug = iaa.Sequential([rot_aug])
         return aug
-
 
     def get_input_ids(self, caption):
         tokenizer_output = self.tokenizer(caption, padding="max_length", truncation=True,return_tensors="pt")
@@ -210,8 +208,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         mask = np.squeeze(mask, axis=2)  # [512,512
         return augmented_image, mask  # [512,512,3], [512,512]
 
-    def load_image(self, image_path, trg_h, trg_w,
-                   type='RGB'):
+    def load_image(self, image_path, trg_h, trg_w, type='RGB'):
         image = Image.open(image_path)
         if type == 'RGB' :
             if not image.mode == "RGB":
@@ -224,23 +221,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         img = np.array(image, np.uint8)
         return img
 
-    def get_img_name(self, img_path):
-        parent, name = os.path.split(img_path)
-        class_name = os.path.split(parent)[1]
-        class_name = os.path.split(class_name)[1]
-        name, ext = os.path.splitext(name)
-        final_name = f'{class_name}_{name}'
-        return final_name
-
-    def get_object_mask_dir(self, img_path):
-        parent, name = os.path.split(img_path)
-        parent, _ = os.path.split(parent)
-        object_mask_dir = os.path.join(parent, f"object_mask/{name}")
-        return object_mask_dir
-
-
     def __getitem__(self, idx):
 
+        # [0] augmenter
         aug = self.randAugmenter(idx)
 
         # [1] base
@@ -248,16 +231,18 @@ class MVTecDRAEMTrainDataset(Dataset):
         img_path = self.image_paths[img_idx]
         img = self.load_image(img_path, self.resize_shape[0], self.resize_shape[1]) # np.array,
         img = aug(image=img)
-        dtype = img.dtype
         final_name = self.get_img_name(img_path)
 
         # [2] background
-        if self.do_anomal_hole :
-            parent, name = os.path.split(img_path)
-            parent, _ = os.path.split(parent)
-            background_dir = os.path.join(parent, f"background/{name}")
-        else :
+        if self.bgrm_test :
             background_dir = None
+        else :
+            if self.do_anomal_hole :
+                parent, name = os.path.split(img_path)
+                parent, _ = os.path.split(parent)
+                background_dir = os.path.join(parent, f"background/{name}")
+            else :
+                background_dir = None
 
         # [3] object mask
         object_mask_dir = self.get_object_mask_dir(img_path)
@@ -266,6 +251,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         object_mask_np = np.where((np.array(object_img, np.uint8) / 255) == 0, 0, 1)
         object_mask = torch.tensor(object_mask_np) # shape = [64,64], 0 = background, 1 = object
 
+        # [4] augment image (pseudo anomal)
         if len(self.anomaly_source_paths) > 0:
             anomal_src_idx = idx % len(self.anomaly_source_paths)
             anomal_src_path = self.anomaly_source_paths[anomal_src_idx]
@@ -273,10 +259,7 @@ class MVTecDRAEMTrainDataset(Dataset):
 
             if not self.anomal_only_on_object:
 
-                object_img_aug = aug(
-                    image=self.load_image(object_mask_dir, self.resize_shape[0], self.resize_shape[1], type='L'))
-                object_position = np.where((np.array(object_img_aug)) == 0, 0, 1)  # [512,512]
-                # [1] anomal img
+                # [4.1] anomal img
                 anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0],
                                                      self.resize_shape[1])
                 augmented_image, mask = self.augment_image(img, anomaly_source_img,
@@ -285,10 +268,12 @@ class MVTecDRAEMTrainDataset(Dataset):
                 anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
                 anomal_mask_torch = self.down_sizer(torch.tensor(mask).unsqueeze(0))  # [1,64,64]
 
-                # [2] anomal img
+                # [4.2] holed img
                 if self.do_anomal_hole:
-                    background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],
-                                                     type='RGB')
+                    if self.bgrm_test:
+                        background_img = (img * 0).astype(img.dtype)
+                    else :
+                        background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],type='RGB')
                     background_img = aug(image=background_img)
                     back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, None)
                     back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
@@ -300,18 +285,20 @@ class MVTecDRAEMTrainDataset(Dataset):
                     masked_image_mask = object_mask
 
             if self.anomal_only_on_object:
-
                 object_img_aug = aug(image=self.load_image(object_mask_dir, self.resize_shape[0], self.resize_shape[1], type='L') )
                 object_position = np.where((np.array(object_img_aug)) == 0, 0, 1)             # [512,512]
-                # [1] anomal img
+                # [4.1] anomal img
                 anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0], self.resize_shape[1])
-                augmented_image, mask = self.augment_image(img,anomaly_source_img, beta_scale_factor=self.beta_scale_factor,object_position=object_position) # [512,512,3], [512,512]
+                augmented_image, mask = self.augment_image(img,anomaly_source_img, beta_scale_factor=self.beta_scale_factor,
+                                                           object_position=object_position) # [512,512,3], [512,512]
                 anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
                 anomal_mask_torch = self.down_sizer(torch.tensor(mask).unsqueeze(0)) # [1,64,64]
-
-                # [2] anomal img
+                # [4.2] holed img
                 if self.do_anomal_hole:
-                    background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1], type='RGB')
+                    if self.bgrm_test:
+                        background_img = img * 0
+                    else :
+                        background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],type='RGB')
                     background_img = aug(image=background_img)
                     back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, object_position)
                     back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
@@ -323,7 +310,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                     masked_image_mask = object_mask
         else :
             anomal_img = img
-            anomal_mask = object_mask # [64,64]
+            anomal_mask_torch = object_mask # [64,64]
             masked_image = img
             masked_image_mask = object_mask
 
@@ -332,13 +319,10 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         return {'image': self.transform(img),               # original image
                 "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]
-
                 'augmented_image': self.transform(anomal_img),
                 "anomaly_mask": anomal_mask_torch,   # [1, 64, 64] ################################
-
                 'masked_image': masked_image,          # masked image
                 'masked_image_mask': masked_image_mask,# hold position
-
                 'idx': idx,
                 'input_ids': input_ids.squeeze(0),
                 'caption': self.caption,
