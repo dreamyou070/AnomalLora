@@ -96,7 +96,8 @@ def main(args):
                                      kernel_size=args.kernel_size,
                                      beta_scale_factor=args.beta_scale_factor,
                                      use_sharpen_aug=args.use_sharpen_aug,
-                                     do_anomal_hole = args.do_anomal_hole)
+                                     do_anomal_hole = args.do_anomal_hole,
+                                     bgrm_test = args.bgrm_test)
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     print(f'\n step 3. preparing accelerator')
@@ -231,7 +232,6 @@ def main(args):
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,noise_type=position_embedder)
-
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
@@ -275,11 +275,11 @@ def main(args):
             # --------------------------------------------------------------------------------------------------------- #
             # [2] Masked Sample Learning
             with torch.no_grad():
-                latents = vae.encode(batch["augmented_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+                latents = vae.encode(batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
 
-            anomal_map = batch["anomaly_mask"].squeeze().flatten().squeeze()  # [64*64]
+            anomal_map = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
             trg_map = (1-anomal_map.view(1, 1, args.latent_res, args.latent_res))
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
@@ -335,10 +335,10 @@ def main(args):
             # [3] Masked Sample Learning
             if args.do_anomal_hole :
                 with torch.no_grad():
-                    latents = vae.encode(batch["masked_image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor  # [1,4,64,64]
+                    latents = vae.encode(batch['bg_anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor  # [1,4,64,64]
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
                 unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
-                anomal_map = batch["masked_image_mask"].squeeze().flatten().squeeze()  # [64*64]
+                anomal_map = batch['bg_anomal_mask'].squeeze().flatten().squeeze()  # [64*64]
                 anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0) # [1, 64*64]
                 query_dict, attn_dict = controller.query_dict, controller.step_store
                 controller.reset()
@@ -479,8 +479,7 @@ if __name__ == "__main__":
 
     # step 2. dataset
     parser.add_argument('--data_path', type=str, default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
-    parser.add_argument('--use_sharpen_aug', action='store_true')
-
+    parser.add_argument('--bgrm_test', action='store_true')
     parser.add_argument('--obj_name', type=str, default='bottle')
     parser.add_argument("--anomal_source_path", type=str)
     parser.add_argument('--batch_size', type=int, default=1)
@@ -585,6 +584,7 @@ if __name__ == "__main__":
     parser.add_argument("--do_anomal_hole", action='store_true')
     parser.add_argument("--do_down_dim_mahal_loss", action='store_true')
     parser.add_argument("--use_focal_loss", action='store_true')
+    parser.add_argument("--bgrm_test", action='store_true')
     # ---------------------------------------------------------------------------------------------------------------- #
     parser.add_argument("--num_ddim_steps", type=int, default=30)
     parser.add_argument("--do_local_self_attn", action='store_true')
