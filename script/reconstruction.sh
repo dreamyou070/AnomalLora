@@ -1,9 +1,9 @@
 # !/bin/bash
 
-port_number=51215
+port_number=51216
 obj_name='carrot'
 caption='carrot'
-folder_name="15_up_2_anomal_pe_down_do_query_shuffle_loss"
+folder_name="16_up_2_anomal_pe_down_use_small_anomal"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 
