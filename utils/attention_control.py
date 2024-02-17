@@ -111,8 +111,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
             #batch, pix_num, sen_len
             if do_attn :
-                sen_len = attention_scores.shape[2]
-                object_attention_mask = object_attention_mask.unsqueeze(-1).repeat(1,1, sen_len)
+                #sen_len = attention_scores.shape[2]
+                #object_attention_mask = object_attention_mask.unsqueeze(-1).repeat(1,1, sen_len)
                 attention_scores = attention_scores + object_attention_mask
 
             attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)
@@ -126,17 +126,18 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             do_attn = False
             object_attention_mask = None
-            if 'object_attention_mask' in model_kwargs:
-                object_attention_mask = model_kwargs['object_attention_mask']
-                b_, pix_num = object_attention_mask.shape
-                hidden_states_pix_num = hidden_states.shape[1]
-                if pix_num == hidden_states_pix_num:
-                    do_attn = True
-
-
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
+
+            if 'object_attention_mask' in model_kwargs and not is_cross_attention :
+                object_attention_mask = model_kwargs['object_attention_mask']
+                b_, pix_num = object_attention_mask.shape
+                res = int(pix_num ** 0.5)
+                hidden_states_pix_num = hidden_states.shape[1]
+                if pix_num == hidden_states_pix_num:
+                    do_attn = True
+                    object_attention_mask.view(b_, res, res).repeat(self.heads, 1, 1)
 
             # [1] position embedding
             if layer_name == argument.position_embedding_layer :
