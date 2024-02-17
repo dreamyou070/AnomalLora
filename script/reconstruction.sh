@@ -3,7 +3,7 @@
 port_number=57777
 obj_name='carrot'
 caption='carrot'
-folder_name="17_local_attn_test"
+folder_name="18_anomal_pe_down_bgtest"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 # --do_local_self_attn --window_size 8
