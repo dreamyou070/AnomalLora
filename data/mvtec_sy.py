@@ -296,7 +296,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                 # [4.2] holed img
                 if self.do_anomal_hole:
                     if self.bgrm_test:
-                        background_img = img * 0
+                        background_img = (img * 0).astype(img.dtype)
                     else :
                         background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],type='RGB')
                     background_img = aug(image=background_img)
