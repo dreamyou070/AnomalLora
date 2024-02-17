@@ -213,7 +213,6 @@ def main(args):
 
         for step, batch in enumerate(train_dataloader):
 
-            loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
             task_loss, dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0, 0.0
             normal_feat_list, anormal_feat_list = [], []
             value_dict, loss_dict = {}, {}
@@ -226,19 +225,11 @@ def main(args):
             with torch.set_grad_enabled(True):
                 encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
 
-            # --------------------------------------------------------------------------------------------------------- #
             # [1] normal sample
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-            noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                              noise_type=position_embedder).sample
-            target = noise
-            loss = torch.nn.functional.mse_loss(noise_pred.float(), target.float(), reduction="none")
-            loss = loss.mean([1, 2, 3])
-            task_loss += loss.mean()  * args.task_loss_weight
-
-
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,noise_type=position_embedder)
 
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
