@@ -3,6 +3,7 @@ import argparse, os
 from PIL import Image
 import numpy as np
 from rembg import remove
+import shutil
 def remove_bg(input_path, output_path):
     with open(input_path, 'rb') as i:
         with open(output_path, 'wb') as o:
@@ -38,7 +39,7 @@ def main(args):
             # [1] copy
             rgb_img_path = os.path.join(rgb_folder, rgb_img)
             rgb_org_path = os.path.join(rgb_origin_folder, rgb_img)
-            os.copy(rgb_img_path, rgb_org_path)
+            shutil.copy(rgb_img_path, rgb_org_path)
 
             # [2] remove background
             rmbg_path = os.path.join(rgb_bgrm_folder, rgb_img)
