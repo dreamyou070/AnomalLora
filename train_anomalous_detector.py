@@ -530,7 +530,7 @@ if __name__ == "__main__":
     parser.add_argument("--do_query_shuffle_loss", action='store_true')
     parser.add_argument("--use_object_attention_mask", action='store_true')
     parser.add_argument("--use_normal_attention_mask", action='store_true')
-    parser.add_argument("--use_qnormal_attention_mask", action='store_true')
+    parser.add_argument("--use_anomal_attention_mask", action='store_true')
 
 
     args = parser.parse_args()
