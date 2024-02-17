@@ -168,7 +168,7 @@ class MVTecDRAEMTrainDataset(Dataset):
             # 0 and more than 0.5
             perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
             # smoothing
-            # perlin_thr = cv2.GaussianBlur(perlin_thr, (10, 10), 0)
+            perlin_thr = cv2.GaussianBlur(perlin_thr, (3,3), 0)
             # only on object
             if object_position is not None:
                 total_object_pixel = np.sum(object_position)

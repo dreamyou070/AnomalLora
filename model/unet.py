@@ -473,7 +473,7 @@ class CrossAttention(nn.Module):
         tensor = tensor.permute(0, 2, 1, 3).reshape(batch_size // head_size, seq_len, dim * head_size)
         return tensor
 
-    def forward(self, hidden_states, context=None, trg_layer_list=None, noise_type=None):
+    def forward(self, hidden_states, context=None, trg_layer_list=None, noise_type=None, **model_kwargs):
         if self.use_memory_efficient_attention_xformers:
             return self.forward_memory_efficient_xformers(hidden_states, context, mask)
         if self.use_memory_efficient_attention_mem_eff:
@@ -676,19 +676,19 @@ class BasicTransformerBlock(nn.Module):
                 hidden_states, context=None,
                 timestep=None,
                 trg_layer_list=None,
-                noise_type=None) :
+                noise_type=None,**model_kwargs) :
 
         # 1. Self-Attention
         norm_hidden_states = self.norm1(hidden_states)
         hidden_states = self.attn1(norm_hidden_states,
                                    trg_layer_list=trg_layer_list,
-                                   noise_type=noise_type) + hidden_states
+                                   noise_type=noise_type,**model_kwargs) + hidden_states
 
         # 2. Cross-Attention
         norm_hidden_states = self.norm2(hidden_states)
         hidden_states = self.attn2(norm_hidden_states,
                                    context=context,trg_layer_list=trg_layer_list,
-                                   noise_type=noise_type) + hidden_states
+                                   noise_type=noise_type,**model_kwargs) + hidden_states
 
 
         # 3. Feed-forward
@@ -749,7 +749,7 @@ class Transformer2DModel(nn.Module):
     def forward(self, hidden_states, encoder_hidden_states=None,
                 timestep=None, return_dict: bool = True,
                 trg_layer_list=None,
-                noise_type=None):
+                noise_type=None,**model_kwargs):
         # 1. Input
         batch, _, height, weight = hidden_states.shape
         residual = hidden_states
@@ -772,7 +772,7 @@ class Transformer2DModel(nn.Module):
                                   context=encoder_hidden_states,
                                   timestep=timestep,
                                   trg_layer_list=trg_layer_list,
-                                  noise_type=noise_type)
+                                  noise_type=noise_type,**model_kwargs)
 
         # 3. Output
         if not self.use_linear_projection:
@@ -841,7 +841,8 @@ class CrossAttnDownBlock2D(nn.Module):
                 hidden_states, temb=None,
                 encoder_hidden_states=None,
                 trg_layer_list=None,
-                noise_type=None,):
+                noise_type=None,
+                **model_kwargs):
         output_states = ()
         for resnet, attn in zip(self.resnets, self.attentions):
 
@@ -852,7 +853,8 @@ class CrossAttnDownBlock2D(nn.Module):
                             return module(*inputs,
                                           trg_layer_list=trg_layer_list,
                                           noise_type=noise_type,
-                                          return_dict=return_dict)
+                                          return_dict=return_dict,
+                                          **model_kwargs)
                         else:
                             return module(*inputs)
                     return custom_forward
@@ -865,7 +867,8 @@ class CrossAttnDownBlock2D(nn.Module):
                 hidden_states = resnet(hidden_states, temb)
                 hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,
                                      trg_layer_list=trg_layer_list, noise_type=noise_type,
-                                     timestep=temb).sample
+                                     timestep=temb,
+                                     **model_kwargs).sample
 
             output_states += (hidden_states,)
 
@@ -926,7 +929,7 @@ class UNetMidBlock2DCrossAttn(nn.Module):
             attn.set_use_sdpa(sdpa)
 
     def forward(self, hidden_states, temb=None, encoder_hidden_states=None,
-                trg_layer_list=None, noise_type=None):
+                trg_layer_list=None, noise_type=None,   **model_kwargs):
         for i, resnet in enumerate(self.resnets):
             attn = None if i == 0 else self.attentions[i - 1]
 
@@ -937,7 +940,7 @@ class UNetMidBlock2DCrossAttn(nn.Module):
                         if return_dict is not None:
                             return module(*inputs,
                                           trg_layer_list=trg_layer_list, noise_type=noise_type,
-                                          return_dict=return_dict)
+                                          return_dict=return_dict,**model_kwargs)
                         else:
                             return module(*inputs)
 
@@ -952,7 +955,7 @@ class UNetMidBlock2DCrossAttn(nn.Module):
                 if attn is not None:
                     hidden_states = attn(hidden_states, encoder_hidden_states,
                                          trg_layer_list=trg_layer_list, noise_type=noise_type,
-                                         timestep=temb).sample
+                                         timestep=temb,**model_kwargs).sample
                 hidden_states = resnet(hidden_states, temb)
 
         return hidden_states
@@ -1125,7 +1128,7 @@ class CrossAttnUpBlock2D(nn.Module):
         encoder_hidden_states=None,
         upsample_size=None,
             trg_layer_list=None,
-            noise_type=None,):
+            noise_type=None,**model_kwargs):
 
         j = 0
         for resnet, attn in zip(self.resnets, self.attentions):
@@ -1142,7 +1145,8 @@ class CrossAttnUpBlock2D(nn.Module):
                             return module(*inputs,
                                           trg_layer_list=trg_layer_list,
                                           noise_type=noise_type,
-                                          return_dict=return_dict)
+                                          return_dict=return_dict,
+                                          **model_kwargs)
                         else:
                             return module(*inputs)
 
@@ -1159,7 +1163,8 @@ class CrossAttnUpBlock2D(nn.Module):
                 hidden_states = attn(hidden_states, encoder_hidden_states=encoder_hidden_states,
                                      trg_layer_list=trg_layer_list,
                                      noise_type=noise_type,
-                                     timestep=temb).sample
+                                     timestep=temb,
+                                     **model_kwargs).sample
             j += 1
 
         if self.upsamplers is not None:
@@ -1392,7 +1397,8 @@ class UNet2DConditionModel(nn.Module):
         down_block_additional_residuals: Optional[Tuple[torch.Tensor]] = None,
         mid_block_additional_residual: Optional[torch.Tensor] = None,
         trg_layer_list=None,
-        noise_type='perline') -> Union[Dict, Tuple]:
+        noise_type: Optional[str] = None,
+        **model_kwargs,) -> Union[Dict, Tuple]:
 
 
         default_overall_up_factor = 2**self.num_upsamplers
@@ -1434,7 +1440,8 @@ class UNet2DConditionModel(nn.Module):
                                                        temb=emb,
                                                        encoder_hidden_states=encoder_hidden_states,
                                                        trg_layer_list=trg_layer_list,
-                                                       noise_type=noise_type)
+                                                       noise_type=noise_type,
+                                     **model_kwargs)
 
             else:
                 sample, res_samples = downsample_block(hidden_states=sample, temb=emb)
@@ -1452,7 +1459,8 @@ class UNet2DConditionModel(nn.Module):
                                 temb=emb,
                                 encoder_hidden_states=encoder_hidden_states,
                                 trg_layer_list=trg_layer_list,
-                                noise_type=noise_type,)
+                                noise_type=noise_type,
+                                     **model_kwargs)
 
         # ControlNetの出力を追加する
         if mid_block_additional_residual is not None:
@@ -1473,7 +1481,8 @@ class UNet2DConditionModel(nn.Module):
                                         encoder_hidden_states=encoder_hidden_states, # text information
                                         upsample_size=upsample_size,
                                         trg_layer_list=trg_layer_list,
-                                        noise_type=noise_type)
+                                        noise_type=noise_type,
+                                     **model_kwargs)
             else:
                 sample = upsample_block(hidden_states=sample,
                                         temb=emb,

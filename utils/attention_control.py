@@ -84,7 +84,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             local_hidden_states = self.to_out[0](hidden_states)
             return local_hidden_states
 
-        def global_self_attn(hidden_states, context, trg_layer_list):
+        def global_self_attn(hidden_states, context, trg_layer_list, do_attn, object_attention_mask):
 
             query = self.to_q(hidden_states)
 
@@ -104,6 +104,12 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
                                                          dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
+            #batch, pix_num, sen_len
+            if do_attn :
+                sen_len = attention_scores.shape[2]
+                object_attention_mask = object_attention_mask.unsqueeze(-1).expand(1,1, sen_len)
+                attention_scores = attention_scores + object_attention_mask
+
             attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)
             hidden_states = torch.bmm(input=attention_probs, mat2=value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
@@ -111,7 +117,18 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             return global_hidden_states, attention_scores, attention_probs
 
 
-        def forward(hidden_states, context=None, trg_layer_list=None, noise_type=None):
+        def forward(hidden_states, context=None, trg_layer_list=None, noise_type=None, **model_kwargs):
+
+            do_attn = False
+            object_attention_mask = None
+            if 'object_attention_mask' in model_kwargs:
+                object_attention_mask = model_kwargs['object_attntion_mask']
+                b_, pix_num = object_attention_mask.shape
+                hidden_states_pix_num = hidden_states.shape[1]
+                if pix_num == hidden_states_pix_num:
+                    do_attn = True
+
+
             is_cross_attention = False
             if context is not None:
                 is_cross_attention = True
@@ -122,10 +139,12 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 hidden_states = hidden_states_pos
 
             if not is_cross_attention and argument.do_local_self_attn:
-                local_hidden_states = local_self_attn(hidden_states)
+                local_hidden_states = local_self_attn(hidden_states,)
             global_hidden_states, attention_scores, attention_probs = global_self_attn(hidden_states,
                                                                                        context,
-                                                                                       trg_layer_list)
+                                                                                       trg_layer_list,
+                                                                                       do_attn,
+                                                                                       object_attention_mask)
 
             if is_cross_attention :
                 hidden_states = global_hidden_states
