@@ -309,7 +309,6 @@ class MVTecDRAEMTrainDataset(Dataset):
                     masked_image = img
                     masked_image_mask = object_mask
 
-
         else :
             anomal_img = img
             anomal_mask_torch = object_mask # [64,64]
