@@ -51,28 +51,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
     def ca_forward(self, layer_name):
 
-        def add_window_argument(window_size) :
-            self.window_size = window_size
-            num_heads = self.heads
-            #head_dim = dim // num_heads
-            self.relative_position_bias_table = nn.Parameter(torch.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads))
-
-            # get pair-wise relative position index for each token inside the window
-            coords_h = torch.arange(self.window_size[0])
-            coords_w = torch.arange(self.window_size[1])
-            coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
-            coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
-
-            relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
-            relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
-            relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
-            relative_coords[:, :, 1] += self.window_size[1] - 1
-            relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
-            relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
-            self.register_buffer("relative_position_index", relative_position_index)
-            trunc_normal_(self.relative_position_bias_table, std=.02)
-
-
         def local_self_attn(hidden_states):
 
             B, L, C = hidden_states.shape
@@ -179,10 +157,36 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
         return forward
 
+    def register_window_function(self,)  :
+
+        def add_window_argument(window_size) :
+            self.window_size = window_size
+            num_heads = self.heads
+            #head_dim = dim // num_heads
+            self.relative_position_bias_table = nn.Parameter(torch.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads))
+
+            # get pair-wise relative position index for each token inside the window
+            coords_h = torch.arange(self.window_size[0])
+            coords_w = torch.arange(self.window_size[1])
+            coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
+            coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
+
+            relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
+            relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
+            relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
+            relative_coords[:, :, 1] += self.window_size[1] - 1
+            relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
+            relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
+            self.register_buffer("relative_position_index", relative_position_index)
+            trunc_normal_(self.relative_position_bias_table, std=.02)
+
+        return add_window_argument
+
     def register_recr(net_, count, layer_name):
         if net_.__class__.__name__ == 'CrossAttention':
             net_.forward = ca_forward(net_, layer_name)
-            net_.add_window_argument(argument.window_size)
+            register_window_function(net_)
+
             return count + 1
         elif hasattr(net_, 'children'):
             for name__, net__ in net_.named_children():
