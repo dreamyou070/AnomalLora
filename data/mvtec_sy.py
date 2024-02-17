@@ -193,14 +193,14 @@ class MVTecDRAEMTrainDataset(Dataset):
             result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
             result_thr = np.where(result < 0.5, 0, 1).astype(np.float32)
             if object_position is not None:
-                result_thr = (result * object_position).astype(np.float32)
-            result_thr = cv2.GaussianBlur(result_thr, (3,3), 0)
-            binary_2D_mask = (np.where(result_thr == 0, 0, 1)).astype(np.float32)  # [512,512,3]
+                result_thr = (result_thr * object_position).astype(np.float32)
+            blur_2D_mask = cv2.GaussianBlur(result_thr, (3,3), 0)
+            binary_2D_mask = (np.where(blur_2D_mask == 0, 0, 1)).astype(np.float32)  # [512,512,3]
             if np.sum(binary_2D_mask) > 0.01 * self.latent_res * self.latent_res:
                 break
-        result_thr = np.expand_dims(result_thr, axis=2)  # [512,512,3]
+        blur_3D_mask = np.expand_dims(blur_2D_mask, axis=2)  # [512,512,3]
         A = back_img.astype(np.float32)  # merged
-        augmented_image = (image * (1 - result_thr) + A * result_thr).astype(np.float32)
+        augmented_image = (image * (1 - blur_3D_mask) + A * blur_3D_mask).astype(np.float32)
         return augmented_image, binary_2D_mask  # [512,512,3], [512,512]
 
     def load_image(self, image_path, trg_h, trg_w, type='RGB'):
@@ -293,10 +293,12 @@ class MVTecDRAEMTrainDataset(Dataset):
                         background_img = (img * 0).astype(img.dtype)
                     else :
                         background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],type='RGB')
-                    background_img = aug(image=background_img)
-                    back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img,object_position = object_position)
+                    back_augmented_image, back_mask = self.gaussian_augment_image(img, aug(image=background_img),
+                                                                                  object_position = object_position)
+
                     back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
-                    back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0)) # [1,64,64]
+                    back_anomal_mask_torch = self.down_sizer(torch.tensor(back_mask).unsqueeze(0)) # [1,64,64]
+
                 else :
                     back_anomal_img = img
                     back_anomal_mask_torch = torch.randn(self.latent_res, self.latent_res)
