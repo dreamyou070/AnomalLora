@@ -159,7 +159,10 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
     def register_window_function(self,)  :
 
+        print('adding window argument')
+
         def add_window_argument(window_size) :
+            print('2 adding window argument')
             self.window_size = window_size
             num_heads = self.heads
             #head_dim = dim // num_heads
@@ -180,7 +183,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             self.register_buffer("relative_position_index", relative_position_index)
             trunc_normal_(self.relative_position_bias_table, std=.02)
 
-        return add_window_argument
+        return add_window_argument(argument.window_size)
 
     def register_recr(net_, count, layer_name):
         if net_.__class__.__name__ == 'CrossAttention':
