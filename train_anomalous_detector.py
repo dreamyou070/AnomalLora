@@ -193,14 +193,11 @@ def main(args):
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-
             unet(noisy_latents,
                  timesteps,
                  encoder_hidden_states,
                  trg_layer_list=args.trg_layer_list,
                  **model_kwargs)
-
-
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             normal_vector = img_attn.squeeze()
@@ -221,8 +218,8 @@ def main(args):
 
                 normal_cls_score = cls_score * normal_vector
                 normal_trigger_score = trigger_score * normal_vector
-
                 total_score = normal_vector.sum()
+
                 normal_cls_score = normal_cls_score.sum() / total_score # 1dim
                 normal_trigger_score = normal_trigger_score.sum() / total_score # 1dim
 
