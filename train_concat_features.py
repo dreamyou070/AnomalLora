@@ -225,7 +225,7 @@ def main(args):
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
             anomal_vector = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
             object_vector = normal_vector
-            normal_vector = torch.where((object_vector == 1 and anomal_vector == 0), 1, 0)
+            normal_vector = torch.where((object_vector == 1) & (anomal_vector == 0), 1, 0)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,noise_type=position_embedder,)
             query_dict, key_dict = controller.query_dict, controller.key_dict
             controller.reset()
@@ -267,7 +267,7 @@ def main(args):
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
             anomal_vector = batch["bg_anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
             object_vector = normal_vector
-            normal_vector = torch.where((object_vector == 1 and anomal_vector == 0), 1, 0)
+            normal_vector = torch.where((object_vector == 1) & (anomal_vector == 0), 1, 0)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
                  noise_type=position_embedder, )
             query_dict, key_dict = controller.query_dict, controller.key_dict
