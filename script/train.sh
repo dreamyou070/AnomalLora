@@ -10,7 +10,7 @@ anomal_source_path="../../../MyData/anomal_source"
 #
 # --use_focal_loss
 
-accelerate launch --config_file ../../../gpu_config/gpu_0_config \
+accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --main_process_port $port_number ../train.py --log_with wandb \
  --output_dir "../../result/${bench_mark}/${obj_name}/17_local_attn_test" \
  --train_unet --train_text_encoder --start_epoch 0 --max_train_epochs 30 \
