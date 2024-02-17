@@ -133,7 +133,7 @@ def main(args):
                             object_mask_np = np.where((np.array(object_mask_pil, np.uint8) / 255) == 0, 0, 1)
                             img_attn = torch.tensor(object_mask_np)  # shape = [64,64], 0 = background, 1 = object
                             img_attn = img_attn.flatten().unsqueeze(0).to(dtype=weight_dtype)  # [1, H*W]
-                            model_kwargs["object_attention_mask"] = img_attn
+                            model_kwargs["object_attention_mask"] = img_attn.to(encoder_hidden_states.device
                             unet(vae_latent, 0, encoder_hidden_states,
                                  trg_layer_list=args.trg_layer_list, noise_type=position_embedder,
                                  **model_kwargs)
