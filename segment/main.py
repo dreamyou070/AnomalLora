@@ -23,17 +23,17 @@ def main(args):
     source_folder = os.path.join(args.source_folder, f'{args.bench_mark}/{args.obj_name}/train/good')
     rgb_folder = os.path.join(source_folder, f'rgb')
 
-    back_rm_rgb_folder = os.path.join(args.source_folder, f'back_rm_rgb')
+    back_rm_rgb_folder = os.path.join(source_folder, f'back_rm_rgb')
     os.makedirs(back_rm_rgb_folder, exist_ok=True)
 
-    back_rm_object_mask_folder = os.path.join(args.source_folder, f'back_rm_object_mask')
+    back_rm_object_mask_folder = os.path.join(source_folder, f'back_rm_object_mask')
     os.makedirs(back_rm_object_mask_folder, exist_ok=True)
 
     images = os.listdir(rgb_folder)
     for img in images:
 
         # [1] remove background
-        input_path = os.path.join(source_folder, img)
+        input_path = os.path.join(rgb_folder, img)
         rmbg_path = os.path.join(back_rm_rgb_folder, img)
         remove_bg(input_path, rmbg_path)
         rmgb_pil = Image.open(rmbg_path).convert("RGB")
