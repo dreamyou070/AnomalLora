@@ -479,7 +479,6 @@ if __name__ == "__main__":
 
     # step 2. dataset
     parser.add_argument('--data_path', type=str, default=r'../../../MyData/anomaly_detection/MVTec3D-AD')
-    parser.add_argument('--bgrm_test', action='store_true')
     parser.add_argument('--obj_name', type=str, default='bottle')
     parser.add_argument("--anomal_source_path", type=str)
     parser.add_argument('--batch_size', type=int, default=1)
