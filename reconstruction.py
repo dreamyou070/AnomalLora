@@ -160,8 +160,8 @@ def main(args):
                                 anomaly_map_pil.save(os.path.join(save_base_folder, f'{name}_anomaly_score_map_{layer_name}.png'))
                                 anomaly_map_pil.save(os.path.join(answer_anomal_folder, f'{name}.tiff'))
 
-                            gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
-                            Image.open(gt_img_dir).resize((org_h, org_w)).save(gt_img_save_dir)
+                            #gt_img_save_dir = os.path.join(save_base_folder, f'{name}_gt.png')
+                            #Image.open(gt_img_dir).resize((org_h, org_w)).save(gt_img_save_dir)
                             for k in raw_state_dict_orig.keys():
                                 raw_state_dict[k] = raw_state_dict_orig[k]
                             network.load_state_dict(raw_state_dict)
