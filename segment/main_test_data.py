@@ -22,14 +22,17 @@ def main(args):
     source_folder = os.path.join(args.source_folder, f'{args.bench_mark}/{args.obj_name}/test')
     defect_folders = os.listdir(source_folder)
     for defect_folder in defect_folders:
-        rgb_folder = os.path.join(defect_folder, f'rgb')
 
-        rgb_origin_folder = os.path.join(defect_folder, f'rgb_origin')
+        defect_folder_dir = os.path.join(source_folder, defect_folder)
+
+        rgb_folder = os.path.join(defect_folder_dir, f'rgb')
+        rgb_origin_folder = os.path.join(defect_folder_dir, f'rgb_origin')
         os.makedirs(rgb_origin_folder, exist_ok=True)
-        rgb_bgrm_folder = os.path.join(defect_folder, f'rgb_bgrm')
+        rgb_bgrm_folder = os.path.join(defect_folder_dir, f'rgb_bgrm')
         os.makedirs(rgb_bgrm_folder, exist_ok=True)
 
         rgb_imgs = os.listdir(rgb_folder)
+
         for rgb_img in rgb_imgs :
 
             # [1] copy
