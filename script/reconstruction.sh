@@ -1,9 +1,9 @@
 # !/bin/bash
 
-port_number=51777
+port_number=57777
 obj_name='carrot'
 caption='carrot'
-folder_name="16_up_2_anomal_pe_down_use_small_anomal_do_anomal_hole"
+folder_name="17_local_attn_test"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 # --do_local_self_attn --window_size 8
