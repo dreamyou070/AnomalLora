@@ -302,8 +302,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                     background_img = aug(image=background_img)
                     back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, object_position)
                     back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
-                    back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0)) # [1,64,64]
                     masked_image = self.transform(back_anomal_img)
+
+                    back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0)) # [1,64,64]
                     masked_image_mask = back_anomal_mask_torch
                 else :
                     masked_image = img

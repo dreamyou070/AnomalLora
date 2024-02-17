@@ -52,6 +52,7 @@ def main(args):
 
         merged_src = sample['augmented_image'].squeeze()
         np_merged_src = np.array(((merged_src + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
+        print(f'np_merged_src.shape: {np_merged_src.shape}')
         pil_merged_src = Image.fromarray(np_merged_src)
         pil_merged_src.save(os.path.join(check_base_dir, f'{image_name}_merged_src.png'))
         anomaly_mask = sample['anomaly_mask']
@@ -62,6 +63,9 @@ def main(args):
 
         masked_image = sample['masked_image'].squeeze()
         np_masked_image = np.array(((masked_image + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
+        print(f'np_masked_image.shape: {np_masked_image.shape}')
+
+
         pil_masked_image = Image.fromarray(np_masked_image)
         pil_masked_image.save(os.path.join(check_base_dir, f'{image_name}_hole_image.png'))
 
