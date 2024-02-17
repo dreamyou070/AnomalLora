@@ -155,7 +155,6 @@ class MVTecDRAEMTrainDataset(Dataset):
 
     def augment_image(self, image, anomaly_source_img, beta_scale_factor, object_position):
 
-
         # [2] perlin noise
         while True :
             perlin_scale = 6
@@ -180,7 +179,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         beta = torch.rand(1).numpy()[0] * beta_scale_factor
         A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32) # merged
         augmented_image = (image * (1 - perlin_thr) + A * perlin_thr).astype(np.float32)
-        mask = (perlin_thr).astype(np.float32) # [512,512,3]
+        mask = (np.where(perlin_thr == 0, 0, 1)).astype(np.float32) # [512,512,3]
         mask = np.squeeze(mask, axis=2)        # [512,512
         return augmented_image, mask # [512,512,3], [512,512]
 
