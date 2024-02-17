@@ -100,9 +100,13 @@ def main(args):
                 anomal_folder_dir = os.path.join(test_img_folder, anomal_folder)
                 rgb_folder = os.path.join(anomal_folder_dir, 'rgb')
                 gt_folder = os.path.join(anomal_folder_dir, 'gt')
+                object_mask_folder = os.path.join(anomal_folder_dir, 'back_rm_object_mask')
+
                 rgb_imgs = os.listdir(rgb_folder)
 
                 for rgb_img in rgb_imgs:
+
+                    object_mask_dir = os.path.join(object_mask_folder, rgb_img)
 
                     name, ext = os.path.splitext(rgb_img)
                     rgb_img_dir = os.path.join(rgb_folder, rgb_img)
@@ -124,6 +128,12 @@ def main(args):
                             network.to(accelerator.device, dtype=weight_dtype)
                             encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                             model_kwargs = {"position_embedder": position_embedder}
+                            # [2] img attn mask
+                            object_mask_pil = Image.open(object_mask_dir).resize(64,64).convert('L')
+                            object_mask_np = np.where((np.array(object_mask_pil, np.uint8) / 255) == 0, 0, 1)
+                            img_attn = torch.tensor(object_mask_np)  # shape = [64,64], 0 = background, 1 = object
+                            img_attn = img_attn.flatten().unsqueeze(0).to(dtype=weight_dtype)  # [1, H*W]
+                            model_kwargs["object_attention_mask"] = img_attn
                             unet(vae_latent, 0, encoder_hidden_states,
                                  trg_layer_list=args.trg_layer_list, noise_type=position_embedder,
                                  **model_kwargs)
