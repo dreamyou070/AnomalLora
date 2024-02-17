@@ -171,7 +171,9 @@ class MVTecDRAEMTrainDataset(Dataset):
                 perlin_thr = perlin_thr * object_position
             # smoothing
             perlin_thr = cv2.GaussianBlur(perlin_thr, (5,5), 0)
-            if np.sum(perlin_thr) > 0:
+            mask = (np.where(perlin_thr == 0, 0, 1)).astype(np.float32)  # [512,512,3]
+            total_pixel = self.latent_res * self.latent_res
+            if np.sum(mask) > 0.01 * total_pixel:
                 break
         perlin_thr = np.expand_dims(perlin_thr, axis=2)  # [512,512,3]
 
@@ -179,7 +181,6 @@ class MVTecDRAEMTrainDataset(Dataset):
         beta = torch.rand(1).numpy()[0] * beta_scale_factor
         A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32) # merged
         augmented_image = (image * (1 - perlin_thr) + A * perlin_thr).astype(np.float32)
-        mask = (np.where(perlin_thr == 0, 0, 1)).astype(np.float32) # [512,512,3]
         mask = np.squeeze(mask, axis=2)        # [512,512
         return augmented_image, mask # [512,512,3], [512,512]
 
