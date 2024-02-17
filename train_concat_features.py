@@ -305,10 +305,10 @@ def main(args):
 
             # ------------------------------------------------------------------------------------------
             # back prop
-            normal_cls_loss = torch.tensor(normal_cls_loss_list).mean()
-            normal_trigger_loss = torch.tensor(normal_trigger_loss_list).mean()
-            anormal_cls_loss = torch.tensor(anormal_cls_loss_list).mean()
-            anormal_trigger_loss = torch.tensor(anormal_trigger_loss_list).mean()
+            normal_cls_loss = torch.stack(normal_cls_loss_list, dim=0).mean()
+            normal_trigger_loss = torch.stack(normal_trigger_loss_list, dim=0).mean()
+            anormal_cls_loss = torch.stack(anormal_cls_loss_list, dim=0).mean()
+            anormal_trigger_loss = torch.stack(anormal_trigger_loss_list, dim=0).mean()
             attn_loss = args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
             if args.do_cls_train:
                 attn_loss += args.normal_weight * normal_cls_loss.mean() + args.anormal_weight * anormal_cls_loss.mean()
