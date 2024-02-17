@@ -152,7 +152,7 @@ def main(args):
                                                                                            1].squeeze()  # head, pix_num
                             pix_num = cls_score.shape[1]
                             res = int(pix_num ** 0.5)
-                            cls_map = cls_map.unsqueeze(0).view(res, res)
+                            cls_map = cls_score.unsqueeze(0).view(res, res)
                             cls_map_pil = Image.fromarray((255*cls_map).cpu().detach().numpy().astype(np.uint8)).resize((org_h, org_w))
                             cls_map_pil.save(os.path.join(save_base_folder, f'{name}_cls_map.png'))
 
