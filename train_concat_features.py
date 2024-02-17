@@ -226,7 +226,8 @@ def main(args):
             anomal_vector = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
             object_vector = normal_vector
             normal_vector = torch.where((object_vector == 1) & (anomal_vector == 0), 1, 0)
-            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,noise_type=position_embedder,)
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                 noise_type=position_embedder,**model_kwargs)
             query_dict, key_dict = controller.query_dict, controller.key_dict
             controller.reset()
             query_list, key_list = [], []
@@ -269,7 +270,7 @@ def main(args):
             object_vector = normal_vector
             normal_vector = torch.where((object_vector == 1) & (anomal_vector == 0), 1, 0)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
-                 noise_type=position_embedder, )
+                 noise_type=position_embedder,**model_kwargs)
             query_dict, key_dict = controller.query_dict, controller.key_dict
             controller.reset()
             query_list, key_list = [], []
