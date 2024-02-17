@@ -137,7 +137,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             if layer_name == argument.position_embedding_layer :
                 position_embedder = model_kwargs['position_embedder']
                 if position_embedder is not None:
-                    hidden_states = noise_type(hidden_states)
+                    hidden_states = position_embedder(hidden_states)
 
             if not is_cross_attention and argument.do_local_self_attn:
                 local_hidden_states = local_self_attn(hidden_states,)
