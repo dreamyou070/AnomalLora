@@ -73,7 +73,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
                 self.window_size[0] * self.window_size[1],
                 self.window_size[0] * self.window_size[1], -1)  # Wh*Ww,Wh*Ww,nH
-            relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()
+            relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous().to(attention_scores.device)
             attention_scores = attention_scores + relative_position_bias.unsqueeze(0)  # attn = [64, 3, 49, 49] + [1, 3, 49, 49]
             attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)
             hidden_states = (attention_probs @ value).transpose(1, 2).reshape(B_, N,
@@ -157,10 +157,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
     def register_window_function(self,)  :
 
-        print('adding window argument')
-
         def add_window_argument(window_size) :
-            print('2 adding window argument')
             self.window_size = (window_size, window_size)
             num_heads = self.heads
             #head_dim = dim // num_heads
