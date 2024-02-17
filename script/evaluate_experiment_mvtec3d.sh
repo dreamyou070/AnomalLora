@@ -18,4 +18,5 @@ python ../evaluation/evaluation_code_MVTec3D-AD/evaluate_experiment.py \
      --anomaly_maps_dir "${base_dir}" \
      --output_dir "${output_dir}" \
      --evaluated_objects "${class_name}" \
+     --sub_folder "${sub_folder}" \
      --pro_integration_limit 0.3
