@@ -95,7 +95,6 @@ def main(args):
                                      perlin_max_scale=args.perlin_max_scale,
                                      kernel_size=args.kernel_size,
                                      beta_scale_factor=args.beta_scale_factor,
-                                     use_sharpen_aug=args.use_sharpen_aug,
                                      do_anomal_hole = args.do_anomal_hole,
                                      bgrm_test = args.bgrm_test)
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
