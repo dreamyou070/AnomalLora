@@ -5,7 +5,7 @@ def mahal(u, v, cov):
     m = torch.dot(delta, torch.matmul(cov, delta))
     return torch.sqrt(m)
 
-def gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov):
+def gen_mahal_loss(args, anormal_feat_list, normal_feat_list):
 
     normal_feats = torch.cat(normal_feat_list, dim=0)
 
@@ -30,4 +30,4 @@ def gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov):
 
     normal_dist_loss = normal_dist_loss * args.dist_loss_weight
 
-    return normal_dist_max, normal_dist_loss, mu, cov
+    return normal_dist_max, normal_dist_loss
