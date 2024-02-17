@@ -292,6 +292,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                 augmented_image, mask = self.augment_image(img,anomaly_source_img, beta_scale_factor=self.beta_scale_factor,
                                                            object_position=object_position) # [512,512,3], [512,512]
                 anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
+                print(f'(3) anomal_img shape : {anomal_img.shape}')
                 anomal_mask_torch = self.down_sizer(torch.tensor(mask).unsqueeze(0)) # [1,64,64]
                 # [4.2] holed img
                 if self.do_anomal_hole:
@@ -299,20 +300,21 @@ class MVTecDRAEMTrainDataset(Dataset):
                         background_img = (img * 0).astype(img.dtype)
                     else :
                         background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],type='RGB')
+                    print(f'(1) background_img shape : {background_img.shape}')
                     background_img = aug(image=background_img)
+                    print(f'(2) background_img shape : {background_img.shape}')
                     back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, object_position)
                     back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
-                    masked_image = self.transform(back_anomal_img)
-
+                    print(f'(3) back_anomal_img shape : {back_anomal_img.shape}')
                     back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0)) # [1,64,64]
                     masked_image_mask = back_anomal_mask_torch
                 else :
-                    masked_image = img
+                    back_anomal_img = img
                     masked_image_mask = object_mask
         else :
             anomal_img = img
             anomal_mask_torch = object_mask # [64,64]
-            masked_image = img
+            back_anomal_img = img
             masked_image_mask = object_mask
 
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
@@ -322,7 +324,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                 "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]
                 'augmented_image': self.transform(anomal_img),
                 "anomaly_mask": anomal_mask_torch,   # [1, 64, 64] ################################
-                'masked_image': masked_image,          # masked image
+                'masked_image': self.transform(back_anomal_img),          # masked image
                 'masked_image_mask': masked_image_mask,# hold position
                 'idx': idx,
                 'input_ids': input_ids.squeeze(0),
