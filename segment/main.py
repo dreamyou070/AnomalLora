@@ -2,59 +2,66 @@ from segment_anything import SamPredictor, sam_model_registry
 import argparse, os
 from PIL import Image
 import numpy as np
+from rembg import remove
+def remove_bg(input_path, output_path):
+    with open(input_path, 'rb') as i:
+        with open(output_path, 'wb') as o:
+            input = i.read()
+            output = remove(input)
+            o.write(output)
 
 def main(args):
 
 
     print(f'step 1. prepare model')
-
     model_type = "vit_h"
     path_to_checkpoint= r'/home/dreamyou070/pretrained_stable_diffusion/sam_vit_h_4b8939.pth'
     sam = sam_model_registry[model_type](checkpoint=path_to_checkpoint)
     predictor = SamPredictor(sam)
 
     print(f'step 2. prepare images')
-    base_folder = args.base_folder
-    cats = os.listdir(base_folder)
+    source_folder = os.path.join(args.source_folder, f'{args.bench_mark}/{args.obj_name}/train/good')
+    rgb_folder = os.path.join(source_folder, f'rgb')
 
-    for cat in cats:
-        if cat == args.trg_cat:
+    back_rm_rgb_folder = os.path.join(args.source_folder, f'back_rm_rgb')
+    os.makedirs(back_rm_rgb_folder, exist_ok=True)
 
-            cat_dir = os.path.join(base_folder, f'{cat}')
-            train_good_dir = os.path.join(cat_dir, 'train/good')
+    back_rm_object_mask_folder = os.path.join(args.source_folder, f'back_rm_object_mask')
+    os.makedirs(back_rm_object_mask_folder, exist_ok=True)
 
-            train_rgb_dir = os.path.join(train_good_dir, 'rgb')
-            train_object_mask_dir = os.path.join(train_good_dir, 'object_mask')
-            os.makedirs(train_object_mask_dir, exist_ok=True)
+    images = os.listdir(rgb_folder)
+    for img in images:
 
-            images = os.listdir(train_rgb_dir)
-            for image in images:
-                save_dir = os.path.join(train_object_mask_dir, image)
-                img_dir = os.path.join(train_rgb_dir, image)
-                pil_img = Image.open(img_dir)
-                org_h, org_w = pil_img.size
+        # [1] remove background
+        input_path = os.path.join(source_folder, img)
+        rmbg_path = os.path.join(back_rm_rgb_folder, img)
+        remove_bg(input_path, rmbg_path)
+        rmgb_pil = Image.open(rmbg_path).convert("RGB")
+        rmgb_pil.save(rmbg_path)
+        org_h, org_w = rmgb_pil.size
 
-                np_img = np.array(pil_img)
-                predictor.set_image(np_img)
-
-                h, w, c = np_img.shape
-                input_point = np.array([[0,0]])
-                input_label = np.array([1])
-                masks, scores, logits = predictor.predict(point_coords=input_point,
-                                                          point_labels=input_label,
-                                                          multimask_output=True, )
-                for i, (mask, score) in enumerate(zip(masks, scores)):
-                    if i == 1 :
-                        np_mask = (mask * 1)
-                        np_mask = np.where(np_mask == 1, 0, 1) * 255
-                        sam_result_pil = Image.fromarray(np_mask.astype(np.uint8))
-                        sam_result_pil = sam_result_pil.resize((org_h, org_w))
-                        sam_result_pil.save(save_dir)
+        # [2] object segment
+        rmbg_np = np.array(rmgb_pil)
+        predictor.set_image(rmbg_np)
+        h, w, c = rmbg_np.shape
+        input_point = np.array([[0,0]])
+        input_label = np.array([1])
+        masks, scores, logits = predictor.predict(point_coords=input_point,
+                                                  point_labels=input_label,
+                                                  multimask_output=True, )
+        for i, (mask, score) in enumerate(zip(masks, scores)):
+            if i == 1 :
+                np_mask = (mask * 1)
+                np_mask = np.where(np_mask == 1, 0, 1) * 255
+                sam_result_pil = Image.fromarray(np_mask.astype(np.uint8))
+                sam_result_pil = sam_result_pil.resize((org_h, org_w))
+                sam_result_pil.save(os.path.join(back_rm_object_mask_folder, img))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--base_folder', type=str,
-                        default=r'/home/dreamyou070/MyData/anomaly_detection/MVTec')
-    parser.add_argument('--trg_cat', type=str, default='bottle')
+    parser = argparse.ArgumentParser(description="Remove background from images")
+    parser.add_argument("--source_folder", help="Path to the input image",
+                        default="/home/dreamyou070/MyData/anomaly_detection")
+    parser.add_argument("--bench_mark", default="MVTec3D-AD", type=str, help="MVTec3D-AD or MVTecAD")
+    parser.add_argument("--obj_name", default="carrot", type=str)
     args = parser.parse_args()
     main(args)
