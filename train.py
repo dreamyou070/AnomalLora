@@ -167,8 +167,11 @@ def main(args):
         for step, batch in enumerate(train_dataloader):
 
             device = accelerator.device
-            loss, dist_loss = 0.0, 0.0
-            attn_loss, map_loss = 0.0, 0.0
+            loss = torch.tensor(0.0, device=device, dtype=weight_dtype)
+            dist_loss = torch.tensor(0.0, device=device, dtype=weight_dtype)
+            map_loss = torch.tensor(0.0, device=device, dtype=weight_dtype)
+            attn_loss = torch.tensor(0.0, device=device, dtype=weight_dtype)
+
             normal_feat_list, anormal_feat_list = [], []
             activating_loss_dict, loss_dict = {}, {}
             value_dict = {}
@@ -262,7 +265,7 @@ def main(args):
             if args.do_dist_loss:
                 normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
                 dist_loss += normal_dist_loss.to(weight_dtype).requires_grad_()
-                loss += dist_loss.to(weight_dtype)
+                loss += dist_loss.to(weight_dtype, device=accelerator.device)
                 loss_dict['dist_loss'] = dist_loss.item()
 
             if args.do_attn_loss:
@@ -278,11 +281,11 @@ def main(args):
                     if anormal_cls_loss is not None:
                         attn_loss += args.anormal_weight * anormal_cls_loss.to(device).mean()
 
-                loss += attn_loss.to(device).mean().to(weight_dtype)
+                loss += attn_loss.to(weight_dtype, device=accelerator.device).mean().to(weight_dtype)
                 loss_dict['attn_loss'] = attn_loss.mean().item()
 
             if args.do_map_loss:
-                loss += map_loss.mean().to(weight_dtype) * args.map_loss_weight
+                loss += map_loss.mean().to(weight_dtype, device=accelerator.device) * args.map_loss_weight
                 loss_dict['map_loss'] = map_loss.mean().item()
 
             loss = loss.to(weight_dtype)
