@@ -129,11 +129,12 @@ def main(args):
                             encoder_hidden_states = text_encoder(input_ids.to(text_encoder.device))["last_hidden_state"]
                             model_kwargs = {"position_embedder": position_embedder}
                             # [2] img attn mask
-                            object_mask_pil = Image.open(object_mask_dir).resize((64,64)).convert('L')
-                            object_mask_np = np.where((np.array(object_mask_pil, np.uint8) / 255) == 0, 0, 1)
-                            img_attn = torch.tensor(object_mask_np)  # shape = [64,64], 0 = background, 1 = object
-                            img_attn = img_attn.flatten().unsqueeze(0).to(dtype=weight_dtype)  # [1, H*W]
-                            model_kwargs["object_attention_mask"] = img_attn.to(encoder_hidden_states.device)
+                            if args.use_object_mask :
+                                object_mask_pil = Image.open(object_mask_dir).resize((64,64)).convert('L')
+                                object_mask_np = np.where((np.array(object_mask_pil, np.uint8) / 255) == 0, 0, 1)
+                                img_attn = torch.tensor(object_mask_np)  # shape = [64,64], 0 = background, 1 = object
+                                img_attn = img_attn.flatten().unsqueeze(0).to(dtype=weight_dtype)  # [1, H*W]
+                                model_kwargs["object_attention_mask"] = img_attn.to(encoder_hidden_states.device)
                             unet(vae_latent, 0, encoder_hidden_states,
                                  trg_layer_list=args.trg_layer_list, noise_type=position_embedder,
                                  **model_kwargs)
@@ -188,6 +189,7 @@ if __name__ == '__main__':
     parser.add_argument("--guidance_scale", type=float, default=8.5)
     parser.add_argument("--latent_res", type=int, default=64)
     parser.add_argument("--truncating", action='store_true')
+    parser.add_argument("--use_object_mask", action='store_true')
     # step 8. test
     import ast
     def arg_as_list(arg):
