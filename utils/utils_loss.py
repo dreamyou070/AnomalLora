@@ -92,20 +92,29 @@ def gen_attn_loss(value_dict):
     return normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss
 
 def generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2):
-    trigger_score = attn_score[:, :, 1].squeeze(0)
+
+    device = attn_score.device
+
+    trigger_score = attn_score[:, :, 1].squeeze(0) # 8, pix_num, 1
+    head_num = trigger_score.shape[0]
+    res = int(trigger_score.shape[1] ** 0.5)
+    trigger_score = trigger_score.view(head_num, res, res).unsqueeze(1)
+
+    cls_score = attn_score[:, :, 0].squeeze(0)
+    cls_score = cls_score.view(head_num, res, res).unsqueeze(1)
+
+    normal_position = normal_position.view(1, 1, res, res)
+    normal_position = normal_position.repeat(head_num, 1, 1, 1).to(device) # 8, 1, 64, 64
+
     if args.use_focal_loss:
-        cls_score = attn_score[:, :, 0].squeeze(0)
-        res = int(cls_score.shape[0] ** 0.5)
-        cls_map = cls_score.view(res, res).unsqueeze(0).unsqueeze(0)
-        trigger_map = trigger_score.view(res, res).unsqueeze(0).unsqueeze(0)
-        focal_loss_in = torch.cat([cls_map, trigger_map], 1)
-        focal_loss_trg = torch.zeros_like(focal_loss_in)[:, 0, :, :]
+        focal_loss_in = torch.cat([cls_score, trigger_score], 1) # 8, 2, 64,64
+        focal_loss_trg = 1 - normal_position
         if args.adv_focal_loss:
             focal_loss_trg = 1 - focal_loss_trg
         loss = loss_focal(focal_loss_in, focal_loss_trg)
     else:
-        trigger_score = trigger_score.mean(dim=0).flatten()
         loss = loss_l2(trigger_score.float(), normal_position.float())
+
     return loss
 
 class FocalLoss(nn.Module):
