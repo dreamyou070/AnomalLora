@@ -219,13 +219,13 @@ def main(args):
 
                 normal_cls_score = cls_score * normal_vector
                 normal_trigger_score = trigger_score * normal_vector
-                total_score = normal_vector.sum()
+                total_score = torch.ones_like(normal_vector)
 
-                normal_cls_score = normal_cls_score.sum() / total_score # 1dim
-                normal_trigger_score = normal_trigger_score.sum() / total_score # 1dim
+                normal_cls_score_loss = normal_cls_score / total_score # 1dim
+                normal_trigger_score_loss = 1 - (normal_trigger_score / total_score) # 1dim
 
-                normal_cls_loss_list.append(normal_cls_score)
-                normal_trigger_loss_list.append((1-normal_trigger_score))
+                normal_cls_loss_list.append(normal_cls_score_loss ** 2)
+                normal_trigger_loss_list.append(normal_trigger_score_loss ** 2)
 
             # --------------------------------------------------------------------------------------------------------- #
             # [2] Masked Sample Learning
@@ -267,20 +267,21 @@ def main(args):
 
                 normal_cls_score = cls_score * normal_vector
                 normal_trigger_score = trigger_score * normal_vector
-                normal_total_score = normal_vector.sum()
-                normal_cls_score = normal_cls_score.sum() / normal_total_score
-                normal_trigger_score = normal_trigger_score.sum() / normal_total_score
+                normal_total_score = torch.ones_like(normal_vector)
+                normal_cls_score_loss = normal_cls_score / normal_total_score
+                normal_trigger_score_loss = 1 - (normal_trigger_score / normal_total_score)  # 1dim
 
                 anormal_cls_score = cls_score * anomal_vector
                 anormal_trigger_score = trigger_score * anomal_vector
-                anormal_total_score = anomal_vector.sum()
-                anormal_cls_score = anormal_cls_score.sum() / anormal_total_score
-                anormal_trigger_score = anormal_trigger_score.sum() / anormal_total_score
+                anormal_total_score = torch.ones_like(anomal_vector)
+                anormal_cls_score_loss = 1 - (anormal_cls_score / anormal_total_score)
+                anormal_trigger_score_loss =  (anormal_trigger_score / anormal_total_score)  # 1dim
 
-                normal_cls_loss_list.append(normal_cls_score)
-                normal_trigger_loss_list.append((1-normal_trigger_score))
-                anormal_cls_loss_list.append((1-anormal_cls_score))
-                anormal_trigger_loss_list.append(anormal_trigger_score)
+
+                normal_cls_loss_list.append(normal_cls_score_loss ** 2)
+                normal_trigger_loss_list.append(normal_trigger_score_loss ** 2)
+                anormal_cls_loss_list.append(anormal_cls_score_loss ** 2)
+                anormal_trigger_loss_list.append(anormal_trigger_score_loss ** 2)
 
 
             # [3] Masked Sample Learning
@@ -322,21 +323,20 @@ def main(args):
 
                 normal_cls_score = cls_score * normal_vector
                 normal_trigger_score = trigger_score * normal_vector
-                normal_total_score = normal_vector.sum()
-                normal_cls_score = normal_cls_score.sum() / normal_total_score
-                normal_trigger_score = normal_trigger_score.sum() / normal_total_score
+                normal_total_score = torch.ones_like(normal_vector)
+                normal_cls_score_loss = normal_cls_score / normal_total_score
+                normal_trigger_score_loss = 1 - (normal_trigger_score / normal_total_score)  # 1dim
 
                 anormal_cls_score = cls_score * anomal_vector
                 anormal_trigger_score = trigger_score * anomal_vector
-                anormal_total_score = anomal_vector.sum()
-                anormal_cls_score = anormal_cls_score.sum() / anormal_total_score
-                anormal_trigger_score = anormal_trigger_score.sum() / anormal_total_score
+                anormal_total_score = torch.ones_like(anomal_vector)
+                anormal_cls_score_loss = 1 - (anormal_cls_score / anormal_total_score)
+                anormal_trigger_score_loss = (anormal_trigger_score / anormal_total_score)  # 1dim
 
-                normal_cls_loss_list.append(normal_cls_score)
-                normal_trigger_loss_list.append((1 - normal_trigger_score))
-                anormal_cls_loss_list.append((1 - anormal_cls_score))
-                anormal_trigger_loss_list.append(anormal_trigger_score)
-
+                normal_cls_loss_list.append(normal_cls_score_loss ** 2)
+                normal_trigger_loss_list.append(normal_trigger_score_loss ** 2)
+                anormal_cls_loss_list.append(anormal_cls_score_loss ** 2)
+                anormal_trigger_loss_list.append(anormal_trigger_score_loss ** 2)
             # ----------------------------------------------------------------------------------------------------------
             # [5] backprop
             if args.do_dist_loss:
@@ -346,13 +346,15 @@ def main(args):
                 loss_dict['dist_loss'] = dist_loss.item()
 
             if args.do_attn_loss:
-                normal_cls_loss = torch.tensor(normal_cls_loss_list).mean()
-                normal_trigger_loss = torch.tensor(normal_trigger_loss_list).mean()
-                anormal_cls_loss = torch.tensor(anormal_cls_loss_list).mean()
-                anormal_trigger_loss = torch.tensor(anormal_trigger_loss_list).mean()
+                normal_cls_loss = torch.stack(normal_cls_loss_list, dim=0).mean()
+                normal_trigger_loss = torch.stack(normal_trigger_loss_list, dim=0).mean()
+                anormal_cls_loss = torch.stack(anormal_cls_loss_list, dim=0).mean()
+                anormal_trigger_loss = torch.stack(anormal_trigger_loss_list, dim=0).mean()
+
                 attn_loss += args.normal_weight * normal_trigger_loss + args.anormal_weight * anormal_trigger_loss
                 if args.do_cls_train:
                     attn_loss += args.normal_weight * normal_cls_loss.mean() + args.anormal_weight * anormal_cls_loss.mean()
+
                 loss += attn_loss.mean().to(weight_dtype)
                 loss_dict['attn_loss'] = attn_loss.mean().item()
 
