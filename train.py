@@ -218,7 +218,6 @@ def main(args):
                         feat = query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
                         if anomal_flag == 1:
-                            print(f'anomal_flag : {anomal_flag}')
                             anormal_feat_list.append(feat.unsqueeze(0))
                         else:
                             normal_feat_list.append(feat.unsqueeze(0))
@@ -279,7 +278,7 @@ def main(args):
                     if anormal_cls_loss is not None:
                         attn_loss += args.anormal_weight * anormal_cls_loss.to(device).mean()
 
-                loss += attn_loss.mean().to(weight_dtype)
+                loss += attn_loss.to(device).mean().to(weight_dtype)
                 loss_dict['attn_loss'] = attn_loss.mean().item()
 
             if args.do_map_loss:
