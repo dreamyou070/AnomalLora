@@ -247,6 +247,7 @@ def main(args):
                     for pix_idx in range(pix_num):
                         feat = query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
+                        print(f'anomal_flag : {anomal_flag}')
                         if anomal_flag == 1:
                             anormal_feat_list.append(feat.unsqueeze(0))
                         else:
@@ -260,6 +261,7 @@ def main(args):
                     map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
 
             if args.do_dist_loss:
+                print(f'Before Cal, len(normal_feat_list) : {len(normal_feat_list)}, len(anormal_feat_list) : {len(anormal_feat_list)}')
                 normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
                 dist_loss += normal_dist_loss.to(weight_dtype).requires_grad_()
                 loss += dist_loss.to(weight_dtype)
