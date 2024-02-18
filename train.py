@@ -169,10 +169,10 @@ def main(args):
             device = accelerator.device
             loss = torch.tensor(0.0, device=device, dtype=weight_dtype)
             dist_loss = torch.tensor(0.0, device=device, dtype=weight_dtype)
-            map_loss = torch.tensor(0.0, device=device, dtype=weight_dtype)
             attn_loss = torch.tensor(0.0, device=device, dtype=weight_dtype)
 
             normal_feat_list, anormal_feat_list = [], []
+            map_loss_list = []
             activating_loss_dict, loss_dict = {}, {}
             value_dict = {}
 
@@ -201,8 +201,7 @@ def main(args):
                                                                                          normal_position,
                                                                                          do_calculate_anomal=False)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, None, None)
-                    ma = generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
-                    map_loss += ma
+                    map_loss_list.append(generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2))
 
             # --------------------------------------------------------------------------------------------------------- #
             if args.do_anomal_sample :
@@ -231,9 +230,7 @@ def main(args):
                         do_calculate_anomal=True)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
                                                 anormal_trigger_loss, anormal_cls_loss)
-                    ma = generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
-                    print(f'anomal sample map loss : {ma.shape}')
-                    map_loss += ma
+                    map_loss_list.append(generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2))
 
             # [3] Masked Sample Learning
             if args.do_holed_sample :
@@ -263,9 +260,8 @@ def main(args):
                         do_calculate_anomal=True)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
                                                 anormal_trigger_loss, anormal_cls_loss)
-                    ma = generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
-                    print(f'holed sample map loss : {ma.shape}')
-                    map_loss += ma
+                    map_loss_list.append(
+                        generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2))
 
             if args.do_dist_loss:
                 normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
@@ -290,8 +286,9 @@ def main(args):
                 loss_dict['attn_loss'] = attn_loss.mean().item()
 
             if args.do_map_loss:
-                loss += map_loss.mean().to(weight_dtype, device=accelerator.device) * args.map_loss_weight
-                loss_dict['map_loss'] = map_loss.mean().item()
+                map_loss = torch.stack(map_loss_list, dim=0).mean().to(weight_dtype, device=accelerator.device)
+                loss += map_loss * args.map_loss_weight
+                loss_dict['map_loss'] = map_loss.item()
 
             loss = loss.to(weight_dtype)
             current_loss = loss.detach().item()
