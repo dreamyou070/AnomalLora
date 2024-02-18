@@ -19,114 +19,8 @@ from utils.attention_control import passing_argument
 from model.pe import PositionalEmbedding
 from utils import arg_as_list
 from utils.model_utils import pe_model_save
-import einops
-from utils.utils_loss import FocalLoss
-
-from random import sample
-
-def mahal(u, v, cov):
-    delta = u - v
-    m = torch.dot(delta, torch.matmul(cov, delta))
-    return torch.sqrt(m)
-def gen_mahal_loss(args, anormal_feat_list, normal_feat_list):
-
-    normal_feats = torch.cat(normal_feat_list, dim=0)
-
-    mu = torch.mean(normal_feats, dim=0)
-    cov = torch.cov(normal_feats.transpose(0, 1))
-
-    if anormal_feat_list is not None:
-        anormal_feats = torch.cat(anormal_feat_list, dim=0)
-        anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
-        anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
-
-    normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
-    normal_dist_max = torch.tensor(normal_mahalanobis_dists).max()
-
-    # [4] loss
-    if anormal_feat_list is not None:
-        total_dist = normal_dist_max + anormal_dist_mean
-        normal_dist_loss = normal_dist_max / total_dist
-
-    else:
-        normal_dist_loss = normal_dist_max
-
-    normal_dist_loss = normal_dist_loss * args.dist_loss_weight
-
-    return normal_dist_max, normal_dist_loss
-
-def generate_attention_loss(attn_score, normal_position, do_calculate_anomal):
-
-
-
-    # [1] preprocessing
-    cls_score, trigger_score = attn_score.chunk(2, dim=-1)
-    cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-    cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
-    # [2]
-    normal_cls_score, normal_trigger_score = cls_score * normal_position, trigger_score * normal_position
-    anomal_cls_score, anomal_trigger_score = cls_score * (1 - normal_position), trigger_score * (1 - normal_position)
-    total_score = torch.ones_like(cls_score)
-    normal_cls_score, normal_trigger_score = normal_cls_score / total_score, normal_trigger_score / total_score
-    anomal_cls_score, anomal_trigger_score = anomal_cls_score / total_score, anomal_trigger_score / total_score
-    # [3] loss calculating
-    normal_trigger_loss = (1 - normal_trigger_score) ** 2
-    normal_cls_loss = normal_cls_score ** 2
-
-    anomal_trigger_loss, anomal_cls_loss = 0, 0
-    if do_calculate_anomal:
-        anomal_trigger_loss = (1 - anomal_trigger_score) ** 2
-        anomal_cls_loss = anomal_cls_score ** 2
-
-    return normal_trigger_loss, normal_cls_loss, anomal_trigger_loss, anomal_cls_loss
-
-def gen_value_dict(value_dict,
-                   normal_trigger_loss, normal_cls_loss,
-                   anormal_trigger_loss, anormal_cls_loss, ):
-    if normal_cls_loss is not None:
-        if 'normal_cls_loss' not in value_dict.keys():
-            value_dict['normal_cls_loss'] = []
-        value_dict['normal_cls_loss'].append(normal_cls_loss)
-    if anormal_cls_loss is not None:
-        if 'anormal_cls_loss' not in value_dict.keys():
-            value_dict['anormal_cls_loss'] = []
-        value_dict['anormal_cls_loss'].append(anormal_cls_loss)
-    if normal_trigger_loss is not None:
-        if 'normal_trigger_loss' not in value_dict.keys():
-            value_dict['normal_trigger_loss'] = []
-        value_dict['normal_trigger_loss'].append(normal_trigger_loss)
-    if anormal_trigger_loss is not None:
-        if 'anormal_trigger_loss' not in value_dict.keys():
-            value_dict['anormal_trigger_loss'] = []
-        value_dict['anormal_trigger_loss'].append(anormal_trigger_loss)
-    return value_dict
-
-
-def gen_attn_loss(value_dict):
-    normal_cls_loss = torch.stack(value_dict['normal_cls_loss'], dim=0).mean(dim=0)
-    anormal_cls_loss = torch.stack(value_dict['anormal_cls_loss'], dim=0).mean(dim=0)
-    normal_trigger_loss = torch.stack(value_dict['normal_trigger_loss'], dim=0).mean(dim=0)
-    anormal_trigger_loss = torch.stack(value_dict['anormal_trigger_loss'], dim=0).mean(dim=0)
-    return normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss
-
-def generate_anomal_map_loss(attn_score, normal_position, loss_focal, loss_l2):
-    trigger_score = attn_score[:, :, 1].squeeze(0)
-    if args.use_focal_loss:
-        cls_score = attn_score[:, :, 0].squeeze(0)
-        res = int(cls_score.shape[0] ** 0.5)
-        cls_map = cls_score.view(res, res).unsqueeze(0).unsqueeze(0)
-        trigger_map = trigger_score.view(res, res).unsqueeze(0).unsqueeze(0)
-        focal_loss_in = torch.cat([cls_map, trigger_map], 1)
-        focal_loss_trg = torch.zeros_like(focal_loss_in)[:, 0, :, :]
-        if args.adv_focal_loss:
-            focal_loss_trg = 1 - focal_loss_trg
-        loss = loss_focal(focal_loss_in, focal_loss_trg)
-    else:
-        trigger_score = trigger_score.mean(dim=0).flatten()
-        loss = loss_l2(trigger_score.float(), normal_position.float())
-    return loss
-
-
+from utils.utils_loss import (generate_attention_loss, generate_anomal_map_loss, gen_value_dict,
+                              gen_mahal_loss, gen_attn_loss, FocalLoss)
 
 def main(args):
 
@@ -273,10 +167,9 @@ def main(args):
 
         for step, batch in enumerate(train_dataloader):
 
-            dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0
+            loss, dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0, 0.0
             normal_feat_list, anormal_feat_list = [], []
             activating_loss_dict, loss_dict = {}, {}
-            mu, cov = 0, 0
             value_dict = {}
 
             with torch.set_grad_enabled(True):
@@ -303,7 +196,7 @@ def main(args):
                 normal_trigger_loss, normal_cls_loss, _, _ = generate_attention_loss(attn_score,normal_position,
                                                                                      do_calculate_anomal=False)
                 value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, None, None)
-                map_loss += generate_anomal_map_loss(attn_score, normal_position,loss_focal, loss_l2)
+                map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
             """
             # --------------------------------------------------------------------------------------------------------- #
             """
@@ -331,7 +224,7 @@ def main(args):
                 normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(attn_score, normal_position,
                                                                                      do_calculate_anomal=True)
                 value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss)
-                map_loss += generate_anomal_map_loss(attn_score, normal_position,loss_focal, loss_l2)
+                map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
             """
 
             # [3] Masked Sample Learning
@@ -361,7 +254,7 @@ def main(args):
                         do_calculate_anomal=True)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
                                                 anormal_trigger_loss,anormal_cls_loss)
-                    map_loss += generate_anomal_map_loss(attn_score, normal_position,loss_focal, loss_l2)
+                    map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
 
             if args.do_dist_loss:
                 normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
