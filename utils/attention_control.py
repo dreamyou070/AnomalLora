@@ -107,6 +107,8 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             return hidden_states
 
+        return forward
+
     def register_recr(net_, count, layer_name):
         if net_.__class__.__name__ == 'CrossAttention':
             net_.forward = ca_forward(net_, layer_name)
