@@ -328,7 +328,7 @@ def main(args):
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(attn_score, normal_position,
                                                                                      do_calculate_anomal=True)
-                value_dict = gen_value_dict(normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss)
+                value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss)
                 map_loss += generate_anomal_map_loss(attn_score, normal_position,loss_focal, loss_l2)
             """
             # [3] Masked Sample Learning
@@ -356,8 +356,8 @@ def main(args):
                     normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(
                         attn_score, normal_position,
                         do_calculate_anomal=True)
-                    value_dict = gen_value_dict(normal_trigger_loss, normal_cls_loss, anormal_trigger_loss,
-                                                anormal_cls_loss)
+                    value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
+                                                anormal_trigger_loss,anormal_cls_loss)
                     map_loss += generate_anomal_map_loss(attn_score, normal_position,loss_focal, loss_l2)
 
             if args.do_dist_loss:
