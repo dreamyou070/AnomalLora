@@ -283,6 +283,7 @@ def main(args):
 
             # --------------------------------------------------------------------------------------------------------- #
             # [1] normal sample
+            """
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
@@ -302,7 +303,7 @@ def main(args):
                                                                                      do_calculate_anomal=False)
                 value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, None, None)
                 map_loss += generate_anomal_map_loss(attn_score, normal_position,loss_focal, loss_l2)
-
+            
             # --------------------------------------------------------------------------------------------------------- #
             # [2] Masked Sample Learning
             with torch.no_grad():
@@ -329,7 +330,7 @@ def main(args):
                                                                                      do_calculate_anomal=True)
                 value_dict = gen_value_dict(normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss)
                 map_loss += generate_anomal_map_loss(attn_score, normal_position,loss_focal, loss_l2)
-
+            """
             # [3] Masked Sample Learning
             if args.do_anomal_hole :
                 with torch.no_grad():
