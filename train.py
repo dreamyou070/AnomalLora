@@ -197,12 +197,11 @@ def main(args):
                     attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                     normal_trigger_loss, normal_cls_loss, _, _ = generate_attention_loss(attn_score,normal_position,
                                                                                          do_calculate_anomal=False)
-                    value_dict = gen_value_dict(value_dict,normal_trigger_loss, normal_cls_loss, None, None)
+                    value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, None, None)
                     map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
 
             # --------------------------------------------------------------------------------------------------------- #
             if args.do_anomal_sample :
-
                 with torch.no_grad():
                     latents = vae.encode(batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
@@ -223,10 +222,11 @@ def main(args):
                         else:
                             normal_feat_list.append(feat.unsqueeze(0))
                     attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
-                    normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(attn_score, normal_position,
-                                                                                         do_calculate_anomal=True)
-                    value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss)
-                    map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
+                    normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(
+                                                                attn_score, normal_position, do_calculate_anomal=True)
+                    value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
+                                                anormal_trigger_loss, anormal_cls_loss)
+                    map_loss += generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
 
             # [3] Masked Sample Learning
             if args.do_holed_sample :
@@ -237,8 +237,6 @@ def main(args):
                 query_dict, attn_dict = controller.query_dict, controller.step_store
                 controller.reset()
                 anomal_map = batch['bg_anomal_mask'].squeeze().flatten().squeeze()  # [64*64]
-                anomal_position_num = anomal_map.sum().item()
-                print(f"anomal_position_num : {anomal_position_num}")
                 normal_position = 1 - anomal_map
                 for trg_layer in args.trg_layer_list:
                     anomal_position = anomal_map.squeeze(0)  # [64*64]
@@ -247,8 +245,8 @@ def main(args):
                     for pix_idx in range(pix_num):
                         feat = query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
-                        print(f'anomal_flag : {anomal_flag}')
                         if anomal_flag == 1:
+                            print(f'anomal_flag : {anomal_flag}')
                             anormal_feat_list.append(feat.unsqueeze(0))
                         else:
                             normal_feat_list.append(feat.unsqueeze(0))
@@ -258,14 +256,9 @@ def main(args):
                         do_calculate_anomal=True)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
                                                 anormal_trigger_loss,anormal_cls_loss)
-
-                    print(f' Calculate Map Loss !! ')
-                    m_loss = generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
-                    print(f' m_loss : {m_loss}')
-                    map_loss += m_loss
+                    map_loss += generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
 
             if args.do_dist_loss:
-                print(f'Before Cal, len(normal_feat_list) : {len(normal_feat_list)}, len(anormal_feat_list) : {len(anormal_feat_list)}')
                 normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
                 dist_loss += normal_dist_loss.to(weight_dtype).requires_grad_()
                 loss += dist_loss.to(weight_dtype)
