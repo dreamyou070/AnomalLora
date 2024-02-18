@@ -1,9 +1,9 @@
 # !/bin/bash
 
-port_number=50003
+port_number=52020
 obj_name='carrot'
 caption='carrot'
-folder_name="0_4_anomal_bgtest_small_anomal_data"
+folder_name="20_anomal_bgrm_many_anomal_background_with_normal"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 # --do_local_self_attn --window_size 8
