@@ -303,7 +303,7 @@ def main(args):
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
                 trigger_score = trigger_score.squeeze().mean(dim=0)  # pix_num
                 normal_position = 1 - anomal_position
-                value_dict = calculate_attention_activation_loss(attn_score, normal_position, False, value_dict)
+                value_dict = calculate_attention_activation_loss(attn_score, normal_position, True, value_dict)
                 map_loss += calculate_anomal_map_loss(trigger_score, normal_position, pix_num)
 
             # [3] Masked Sample Learning
@@ -333,7 +333,7 @@ def main(args):
                     cls_score, trigger_score = attn_score.chunk(2, dim=-1)
                     trigger_score = trigger_score.squeeze().mean(dim=0)  # pix_num
                     normal_position = 1 - anomal_position
-                    value_dict = calculate_attention_activation_loss(attn_score, normal_position, False, value_dict)
+                    value_dict = calculate_attention_activation_loss(attn_score, normal_position, True, value_dict)
                     map_loss += calculate_anomal_map_loss(trigger_score, normal_position, pix_num)
 
             # ----------------------------------------------------------------------------------------------------------
