@@ -184,7 +184,7 @@ def main():
     args = parse_user_arguments()
 
     args.base_dir = os.path.join(args.base_dir, args.sub_folder)
-    args.base_dir = os.path.join(args.base_dir, 'reconstruction_eval')
+    args.base_dir = os.path.join(args.base_dir, 'reconstruction')
 
     lora_folders = os.listdir(args.base_dir)
     for lora_folder in lora_folders:
