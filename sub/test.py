@@ -1,5 +1,7 @@
-img_list = [1,2,3,1,2,3,1,2,3]
-aug = [3,4,5]
-for i in range(len(img_list)):
-    aug_index = i % len(aug)
-    print(aug_index)
+import torch
+import torch.nn as nn
+import numpy as np
+from PIL import Image
+
+
+print(object_attention_mask.shape)
