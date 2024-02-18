@@ -89,8 +89,38 @@ def main(args):
         position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res, d_model=args.d_dim)
 
     print(f'len of unet.up_blocks : {len(unet.up_blocks)}')
-    for idx, block in enumerate(unet.up_blocks):
-        print(f'block {idx} : {block}')
+    import torch.nn as nn
+
+    def save_tensors(module: nn.Module, features, name: str):
+        if type(features) in [list, tuple]:
+            features = [f.detach().float() if f is not None else None
+                        for f in features]
+            setattr(module, name, features)
+        elif isinstance(features, dict):
+            features = {k: f.detach().float() for k, f in features.items()}
+            setattr(module, name, features)
+        else:
+            setattr(module, name, features.detach().float())
+
+    def save_out_hook(self, out):
+        save_tensors(self, out, 'activations')
+        return out
+
+    for block_idx, block in enumerate(unet.up_blocks):
+        if block_idx != 0 :
+            attention_blocks = block.attentions
+            resnet_blocks = block.resnets
+            block_pair = [(res,attn) for res, attn in zip(resnet_blocks, attention_blocks)]
+        else :
+            block_pair = block.resnets
+        for i, sub_block in enumerate(block_pair) :
+            if type(sub_block) == tuple :
+                sub_block = sub_block[-1]
+            print(f'{i} block register forward hook')
+            sub_block.register_forward_hook(save_out_hook)
+
+
+
 
 
 
