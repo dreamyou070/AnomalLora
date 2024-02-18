@@ -29,12 +29,11 @@ def main(args):
                                      perlin_max_scale=args.perlin_max_scale,
                                      kernel_size=args.kernel_size,
                                      beta_scale_factor=args.beta_scale_factor,
-                                     do_anomal_hole = True,
                                      bgrm_test = True)
 
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
     beta_scale_factor = args.beta_scale_factor
-    check_base_dir = f'/home/dreamyou070/data_check/{obj_name}/beta_scale_factor_{beta_scale_factor}_self_aug'
+    check_base_dir = f'/home/dreamyou070/data_check/{obj_name}/beta_scale_factor_{beta_scale_factor}_self_aug_20240219_datacheck'
     os.makedirs(check_base_dir, exist_ok=True)
 
     for sample in train_dataloader :

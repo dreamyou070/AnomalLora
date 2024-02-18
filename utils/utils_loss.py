@@ -90,7 +90,7 @@ def generate_attention_loss(attn_score, normal_position, do_calculate_anomal):
     res = int(np.sqrt(pix_num))
 
     # [2] position
-    normal_position = normal_position.unsqueeze()
+    normal_position = normal_position.unsqueeze(dim=0)
     normal_position = normal_position.repeat(head_num, 1).to(device)  # [head, pix_num]
 
     # [2] partial score
