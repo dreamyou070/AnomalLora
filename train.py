@@ -238,6 +238,8 @@ def main(args):
                 query_dict, attn_dict = controller.query_dict, controller.step_store
                 controller.reset()
                 anomal_map = batch['bg_anomal_mask'].squeeze().flatten().squeeze()  # [64*64]
+                anomal_position_num = anomal_map.sum().item()
+                print(f"anomal_position_num : {anomal_position_num}")
                 normal_position = 1 - anomal_map
                 for trg_layer in args.trg_layer_list:
                     anomal_position = anomal_map.squeeze(0)  # [64*64]
