@@ -23,6 +23,7 @@ class FeatureExtractor(nn.Module):
                  **kwargs):
         super().__init__(**kwargs)
         self.model = model
+        self.feature_blocks = []
         # Save decoder activations
         for block_idx, block in enumerate(model.up_blocks):
             if block_idx != 0:
