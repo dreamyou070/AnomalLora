@@ -196,6 +196,8 @@ def main(args):
                         feat = query[pix_idx].squeeze(0)
                         normal_feat_list.append(feat.unsqueeze(0))
                     attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+
+
                     normal_trigger_loss, normal_cls_loss, _, _ = generate_attention_loss(attn_score,
                                                                                          normal_position,
                                                                                          do_calculate_anomal=False)
@@ -210,7 +212,7 @@ def main(args):
                 unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,noise_type=position_embedder)
                 query_dict, attn_dict = controller.query_dict, controller.step_store
                 controller.reset()
-                anomal_map = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
+                anomal_map = batch["anomal_mask"].squeeze().flatten() # [64*64]
                 normal_position = 1 - anomal_map
                 for trg_layer in args.trg_layer_list:
                     anomal_position = anomal_map.squeeze(0)  # [64*64]
@@ -224,9 +226,13 @@ def main(args):
                         else:
                             normal_feat_list.append(feat.unsqueeze(0))
                     attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
-                    normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(
-                        attn_score, normal_position,
-                        do_calculate_anomal=True)
+                    normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(attn_score, normal_position,
+                                                                                                                           do_calculate_anomal=True)
+
+
+
+
+
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
                                                 anormal_trigger_loss, anormal_cls_loss)
                     map_loss_list.append(generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2))
@@ -240,7 +246,7 @@ def main(args):
                      noise_type=position_embedder)
                 query_dict, attn_dict = controller.query_dict, controller.step_store
                 controller.reset()
-                anomal_map = batch['bg_anomal_mask'].squeeze().flatten().squeeze()  # [64*64]
+                anomal_map = batch['bg_anomal_mask'].squeeze().flatten()
                 normal_position = 1 - anomal_map
                 for trg_layer in args.trg_layer_list:
                     anomal_position = anomal_map.squeeze(0)  # [64*64]
