@@ -166,8 +166,7 @@ def main(args):
 
         for step, batch in enumerate(train_dataloader):
 
-
-
+            device = accelerator.device
             loss, dist_loss = 0.0, 0.0
             attn_loss, map_loss = 0.0, 0.0
             normal_feat_list, anormal_feat_list = [], []
