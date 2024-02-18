@@ -273,7 +273,7 @@ def main(args):
                 loss_dict['attn_loss'] = attn_loss.mean().item()
 
             if args.do_map_loss:
-                loss += map_loss.mean().to(weight_dtype)
+                loss += map_loss.mean().to(weight_dtype) * args.map_loss_weight
                 loss_dict['map_loss'] = map_loss.mean().item()
 
             loss = loss.to(weight_dtype)
@@ -418,6 +418,7 @@ if __name__ == "__main__":
     parser.add_argument("--d_dim", default=320, type=int)
     parser.add_argument("--beta_scale_factor", type=float, default=0.4)
     parser.add_argument("--do_map_loss", action='store_true')
+    parser.add_argument("--map_loss_weight", type=float, default=1)
     parser.add_argument("--use_small_anomal", action='store_true')
     parser.add_argument("--use_focal_loss", action='store_true')
     parser.add_argument("--do_local_self_attn", action='store_true')
