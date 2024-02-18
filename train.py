@@ -207,6 +207,7 @@ def main(args):
             f.write(logging_info + '\n')
 
     for epoch in range(args.start_epoch, args.max_train_epochs):
+
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.max_train_epochs}")
 
@@ -217,21 +218,14 @@ def main(args):
             normal_feat_list, anormal_feat_list = [], []
             value_dict, loss_dict = {}, {}
 
-            if args.do_down_dim_mahal_loss :
-                original_dim = 320
-                down_dim_idx = torch.tensor(sample(range(0, original_dim), args.down_dim))
-                down_dim_normal_feat_list, down_dim_anormal_feat_list = [], []
-
             with torch.set_grad_enabled(True):
                 encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
 
             # [1] normal sample
             with torch.no_grad():
                 latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
-            model_kwargs = {}
-            model_kwargs['position_embedder'] = position_embedder
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,**model_kwargs)
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
@@ -240,21 +234,25 @@ def main(args):
                 for pix_idx in range(pix_num):
                     feat = query[pix_idx].squeeze(0)
                     normal_feat_list.append(feat.unsqueeze(0))
-                    if args.do_down_dim_mahal_loss :
-                        down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
-                        down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
+
                 # (2) attn loss
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
-                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()     # head, pix_num
-                cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0) # pix_num
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+                cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
                 normal_cls_score, normal_trigger_score = cls_score, trigger_score
                 total_score = torch.ones_like(cls_score)
                 anomal_position = torch.zeros_like(cls_score)
-                normal_trigger_loss = generate_attn_loss(normal_trigger_score, anomal_position, total_score, do_lowering=False)
+                normal_trigger_loss = generate_attn_loss(normal_trigger_score, anomal_position, total_score,
+                                                         do_lowering=False)
                 normal_cls_loss = generate_attn_loss(normal_cls_score, anomal_position, total_score, do_lowering=True)
                 value_dict = gen_value_dict(value_dict, normal_cls_loss, None, normal_trigger_loss, None)
                 # (3)
+                if not args.use_focal_loss:
+                    normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                    trg_normal_map = torch.ones_like(normal_map)  # [64,64]
+                    l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
+                    map_loss += l2_loss
                 if args.use_focal_loss:
                     attn_score = attn_score.mean(dim=0)  # 64*64, 2
                     res = int(attn_score.shape[0] ** 0.5)
@@ -262,23 +260,22 @@ def main(args):
                     cls_map = cls.view(res, res).unsqueeze(0).unsqueeze(0)
                     trigger_map = trigger.view(res, res).unsqueeze(0).unsqueeze(0)
                     focal_loss_in = torch.cat([cls_map, trigger_map], 1)
-                    focal_loss_trg = torch.zeros_like(focal_loss_in)[:,0,:,:]
+                    focal_loss_trg = torch.zeros_like(focal_loss_in)[:, 0, :, :]
                     if args.adv_focal_loss:
-                        focal_loss_trg = 1-focal_loss_trg
+                        focal_loss_trg = 1 - focal_loss_trg
                     focal_loss = loss_focal(focal_loss_in, focal_loss_trg.to(dtype=weight_dtype))
                     map_loss += focal_loss
-                else :
-                    normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                    trg_normal_map = torch.ones_like(normal_map)  # [64,64]
-                    l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
-                    map_loss += l2_loss
             # --------------------------------------------------------------------------------------------------------- #
             # [2] Masked Sample Learning
             with torch.no_grad():
-                latents = vae.encode(batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+                latents = vae.encode(
+                    batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, **model_kwargs)
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                 noise_type=position_embedder)
+
             anomal_map = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
+            trg_map = (1 - anomal_map.view(1, 1, args.latent_res, args.latent_res))
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
@@ -287,17 +284,10 @@ def main(args):
                 for pix_idx in range(query.shape[0]):
                     feat = query[pix_idx].squeeze(0)
                     anomal_flag = anomal_position[pix_idx].item()
-                    if args.do_down_dim_mahal_loss:
-                        down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
-                        down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                     if anomal_flag != 0:
                         anormal_feat_list.append(feat.unsqueeze(0))
-                        if args.do_down_dim_mahal_loss:
-                            down_dim_anormal_feat_list.append(down_dim_feat.unsqueeze(0))
                     else:
                         normal_feat_list.append(feat.unsqueeze(0))
-                        if args.do_down_dim_mahal_loss:
-                            down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                 # [2] attn score
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                 cls_score, trigger_score = attn_score.chunk(2, dim=-1)
@@ -312,6 +302,11 @@ def main(args):
                 value_dict = gen_value_dict(value_dict, normal_cls_loss, anormal_cls_loss, normal_trigger_loss,
                                             anormal_trigger_loss)
                 # [3] normal map
+                if not args.use_focal_loss:
+                    normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                    trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                    l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
+                    map_loss += l2_loss
                 if args.use_focal_loss:
                     attn_score = attn_score.mean(dim=0)  # 64*64, 2
                     res = int(attn_score.shape[0] ** 0.5)
@@ -319,59 +314,56 @@ def main(args):
                     cls_map = cls.view(res, res).unsqueeze(0).unsqueeze(0)
                     trigger_map = trigger.view(res, res).unsqueeze(0).unsqueeze(0)
                     focal_loss_in = torch.cat([cls_map, trigger_map], 1)
-                    focal_loss_trg = anomal_map.view(1, 1, int(pix_num ** 0.5),int(pix_num ** 0.5))
-                    if args.adv_focal_loss: # normal map
-                        focal_loss_trg = 1-focal_loss_trg
-                    focal_loss = loss_focal(focal_loss_in,focal_loss_trg.to(dtype=weight_dtype))
+                    focal_loss_trg = anomal_map.view(1, 1, int(pix_num ** 0.5), int(pix_num ** 0.5))
+                    if args.adv_focal_loss:  # normal map
+                        focal_loss_trg = 1 - focal_loss_trg
+                    focal_loss = loss_focal(focal_loss_in, focal_loss_trg.to(dtype=weight_dtype))
                     map_loss += focal_loss
 
-                else :
-                    normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                    trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                    l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
-                    map_loss += l2_loss
-
             # [3] Masked Sample Learning
-            if args.do_anomal_hole :
+            if args.do_anomal_hole:
                 with torch.no_grad():
-                    latents = vae.encode(batch['bg_anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor  # [1,4,64,64]
+                    latents = vae.encode(batch['bg_anomal_image'].to(
+                        dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor  # [1,4,64,64]
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-                unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, **model_kwargs)
+                unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                     noise_type=position_embedder)
                 anomal_map = batch['bg_anomal_mask'].squeeze().flatten().squeeze()  # [64*64]
-                anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0) # [1, 64*64]
+                anomal_map = torch.where(anomal_map > 0, 1, 0).to(accelerator.device).unsqueeze(0)  # [1, 64*64]
                 query_dict, attn_dict = controller.query_dict, controller.step_store
                 controller.reset()
                 for trg_layer in args.trg_layer_list:
-                    anomal_position = anomal_map.squeeze(0)      # [64*64]
+                    anomal_position = anomal_map.squeeze(0)  # [64*64]
                     query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
                     for pix_idx in range(query.shape[0]):
                         feat = query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
-                        if args.do_down_dim_mahal_loss :
-                            down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
-                            down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
-                        if anomal_flag != 0 :
+                        if anomal_flag != 0:
                             anormal_feat_list.append(feat.unsqueeze(0))
-                            if args.do_down_dim_mahal_loss :
-                                down_dim_anormal_feat_list.append(down_dim_feat.unsqueeze(0))
-                        else :
+                        else:
                             normal_feat_list.append(feat.unsqueeze(0))
-                            if args.do_down_dim_mahal_loss :
-                                down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
                     # [2] attn score
                     attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                     cls_score, trigger_score = attn_score.chunk(2, dim=-1)
-                    cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()     # head, pix_num
-                    cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0) # pix_num
+                    cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+                    cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
                     total_score = torch.ones_like(cls_score)
                     anormal_cls_loss = generate_attn_loss(cls_score, anomal_position, total_score, do_lowering=False)
-                    anormal_trigger_loss = generate_attn_loss(trigger_score, anomal_position, total_score, do_lowering=True)
+                    anormal_trigger_loss = generate_attn_loss(trigger_score, anomal_position, total_score,
+                                                              do_lowering=True)
 
-                    normal_cls_loss = generate_attn_loss(cls_score, 1-anomal_position, total_score, do_lowering=True)
-                    normal_trigger_loss = generate_attn_loss(trigger_score, 1-anomal_position, total_score, do_lowering=False)
+                    normal_cls_loss = generate_attn_loss(cls_score, 1 - anomal_position, total_score, do_lowering=True)
+                    normal_trigger_loss = generate_attn_loss(trigger_score, 1 - anomal_position, total_score,
+                                                             do_lowering=False)
 
-                    value_dict = gen_value_dict(value_dict, normal_cls_loss, anormal_cls_loss, normal_trigger_loss,anormal_trigger_loss)
+                    value_dict = gen_value_dict(value_dict, normal_cls_loss, anormal_cls_loss, normal_trigger_loss,
+                                                anormal_trigger_loss)
                     # [3] normal map
+                    if not args.use_focal_loss:
+                        normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                        trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                        l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
+                        map_loss += l2_loss
                     if args.use_focal_loss:
                         attn_score = attn_score.mean(dim=0)  # 64*64, 2
                         res = int(attn_score.shape[0] ** 0.5)
@@ -384,21 +376,21 @@ def main(args):
                             focal_loss_trg = 1 - focal_loss_trg
                         focal_loss = loss_focal(focal_loss_in, focal_loss_trg.to(dtype=weight_dtype))
                         map_loss += focal_loss
-                    else :
-                        normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                        trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                        l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
-                        map_loss += l2_loss
+
+            # querry permute
+            if args.do_query_shuffle_loss:
+                queries = torch.cat(normal_feat_list, dim=0)  #
+                p_shuffle = torch.randperm(queries.size(0))
+                shuffled_queries = queries[p_shuffle]
+                normal_query_loss = loss_l2(queries.float(), shuffled_queries.float()).to(weight_dtype).mean()
+                loss += normal_query_loss
+                loss_dict['query_loss'] = normal_query_loss.item()
+
             # ----------------------------------------------------------------------------------------------------------
             # [5] backprop
             if args.do_dist_loss:
                 normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
                 dist_loss += normal_dist_loss.to(weight_dtype).requires_grad_()
-                if args.do_down_dim_mahal_loss:
-                    down_dim_normal_dist_max, down_dim_normal_dist_loss, down_mu, down_cov = gen_mahal_loss(args, down_dim_anormal_feat_list, down_dim_normal_feat_list,
-                                                                                         None, None)
-                    down_dim_normal_dist_loss = down_dim_normal_dist_loss.to(weight_dtype)
-                    dist_loss += down_dim_normal_dist_loss.requires_grad_()
                 loss += dist_loss.to(weight_dtype)
                 loss_dict['dist_loss'] = dist_loss.item()
 
@@ -441,8 +433,8 @@ def main(args):
                 progress_bar.set_postfix(**loss_dict)
             if global_step >= args.max_train_steps:
                 break
-        # ----------------------------------------------------------------------------------------------------------- #
-        # [6] epoch final
+            # ----------------------------------------------------------------------------------------------------------- #
+            # [6] epoch final
         accelerator.wait_for_everyone()
         if args.save_every_n_epochs is not None:
             saving = (epoch + 1) % args.save_every_n_epochs == 0 and (
