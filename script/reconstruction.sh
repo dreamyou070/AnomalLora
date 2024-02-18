@@ -3,7 +3,7 @@
 port_number=52020
 obj_name='carrot'
 caption='carrot'
-folder_name="20_4_anomal_bgrm_small_anomal_background_with_normal_again"
+folder_name="20_4_origin_code"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 # --do_local_self_attn --window_size 8
