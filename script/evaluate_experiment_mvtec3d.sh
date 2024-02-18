@@ -7,7 +7,7 @@ dataset_dir="../../../MyData/anomaly_detection/${bench_mark}"
 #sub_folder="10_up_2_anomal_pe_down_down_mahal_task_loss_only_local_attn"
 #sub_folder="11_up_2_anomal_pe_down_down_mahal_task_loss_global_local_attn"
 #sub_folder="14_up_2_anomal_pe_down_focal_loss"
-sub_folder="0_2_anomal_small_anomal_bgtest"
+sub_folder="0_3_anomal_bgtest"
 
 output_dir="metrics"
 
