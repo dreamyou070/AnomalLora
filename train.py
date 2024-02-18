@@ -206,7 +206,6 @@ def main(args):
         with open(logging_file, 'a') as f:
             f.write(logging_info + '\n')
 
-    mu, cov = None, None
     for epoch in range(args.start_epoch, args.max_train_epochs):
         epoch_loss_total = 0
         accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.max_train_epochs}")
@@ -254,11 +253,6 @@ def main(args):
                 normal_cls_loss = generate_attn_loss(normal_cls_score, anomal_position, total_score, do_lowering=True)
                 value_dict = gen_value_dict(value_dict, normal_cls_loss, None, normal_trigger_loss, None)
                 # (3)
-                if not args.use_focal_loss:
-                    normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                    trg_normal_map = torch.ones_like(normal_map)  # [64,64]
-                    l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
-                    map_loss += l2_loss
                 if args.use_focal_loss:
                     attn_score = attn_score.mean(dim=0)  # 64*64, 2
                     res = int(attn_score.shape[0] ** 0.5)
@@ -271,15 +265,18 @@ def main(args):
                         focal_loss_trg = 1-focal_loss_trg
                     focal_loss = loss_focal(focal_loss_in, focal_loss_trg.to(dtype=weight_dtype))
                     map_loss += focal_loss
+                else :
+                    normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                    trg_normal_map = torch.ones_like(normal_map)  # [64,64]
+                    l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
+                    map_loss += l2_loss
             # --------------------------------------------------------------------------------------------------------- #
             # [2] Masked Sample Learning
             with torch.no_grad():
                 latents = vae.encode(batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
             noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
-
             anomal_map = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
-            trg_map = (1-anomal_map.view(1, 1, args.latent_res, args.latent_res))
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
             for trg_layer in args.trg_layer_list:
@@ -313,11 +310,6 @@ def main(args):
                 value_dict = gen_value_dict(value_dict, normal_cls_loss, anormal_cls_loss, normal_trigger_loss,
                                             anormal_trigger_loss)
                 # [3] normal map
-                if not args.use_focal_loss:
-                    normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                    trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                    l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
-                    map_loss += l2_loss
                 if args.use_focal_loss:
                     attn_score = attn_score.mean(dim=0)  # 64*64, 2
                     res = int(attn_score.shape[0] ** 0.5)
@@ -330,6 +322,12 @@ def main(args):
                         focal_loss_trg = 1-focal_loss_trg
                     focal_loss = loss_focal(focal_loss_in,focal_loss_trg.to(dtype=weight_dtype))
                     map_loss += focal_loss
+
+                else :
+                    normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                    trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                    l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
+                    map_loss += l2_loss
 
             # [3] Masked Sample Learning
             if args.do_anomal_hole :
@@ -372,11 +370,6 @@ def main(args):
 
                     value_dict = gen_value_dict(value_dict, normal_cls_loss, anormal_cls_loss, normal_trigger_loss,anormal_trigger_loss)
                     # [3] normal map
-                    if not args.use_focal_loss:
-                        normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                        trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
-                        l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
-                        map_loss += l2_loss
                     if args.use_focal_loss:
                         attn_score = attn_score.mean(dim=0)  # 64*64, 2
                         res = int(attn_score.shape[0] ** 0.5)
@@ -389,16 +382,11 @@ def main(args):
                             focal_loss_trg = 1 - focal_loss_trg
                         focal_loss = loss_focal(focal_loss_in, focal_loss_trg.to(dtype=weight_dtype))
                         map_loss += focal_loss
-
-            # querry permute
-            if args.do_query_shuffle_loss :
-                queries = torch.cat(normal_feat_list, dim=0) #
-                p_shuffle = torch.randperm(queries.size(0))
-                shuffled_queries = queries[p_shuffle]
-                normal_query_loss = loss_l2(queries.float(), shuffled_queries.float()).to(weight_dtype).mean()
-                loss += normal_query_loss
-                loss_dict['query_loss'] = normal_query_loss.item()
-
+                    else :
+                        normal_map = trigger_score.unsqueeze(0).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                        trg_normal_map = (1 - anomal_map).view(int(math.sqrt(pix_num)), int(math.sqrt(pix_num)))
+                        l2_loss = loss_l2(normal_map.float(), trg_normal_map.float())
+                        map_loss += l2_loss
             # ----------------------------------------------------------------------------------------------------------
             # [5] backprop
             if args.do_dist_loss:
