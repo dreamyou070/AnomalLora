@@ -156,52 +156,69 @@ class MVTecDRAEMTrainDataset(Dataset):
 
         # [2] perlin noise
         while True :
-            perlin_scale = 6
-            min_perlin_scale = 0
-            perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
-            perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
-            perlin_noise = rand_perlin_2d_np((self.resize_shape[0], self.resize_shape[1]), (perlin_scalex, perlin_scaley))
-            threshold = 0.5
-            #perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
-            # 0 and more than 0.5
-            perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
-            # smoothing
-            perlin_thr = cv2.GaussianBlur(perlin_thr, (3,3), 0)
-            # only on object
-            if object_position is not None:
-                total_object_pixel = np.sum(object_position)
-                perlin_thr = perlin_thr * object_position
-            binary_2D_mask = (np.where(perlin_thr == 0, 0, 1)).astype(np.float32)  # [512,512,3]
-            if np.sum(binary_2D_mask) > anomal_p * total_object_pixel :
+
+            while True :
+                perlin_scale = 6
+                min_perlin_scale = 0
+                perlin_scalex = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
+                perlin_scaley = 2 ** (torch.randint(min_perlin_scale, perlin_scale, (1,)).numpy()[0])
+                perlin_noise = rand_perlin_2d_np((self.resize_shape[0], self.resize_shape[1]), (perlin_scalex, perlin_scaley))
+                threshold = 0.5
+                #perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
+                # 0 and more than 0.5
+                perlin_thr = np.where(perlin_noise > threshold, np.ones_like(perlin_noise), np.zeros_like(perlin_noise))
+                # smoothing
+                perlin_thr = cv2.GaussianBlur(perlin_thr, (3,3), 0)
+                # only on object
+                if object_position is not None:
+                    total_object_pixel = np.sum(object_position)
+                    perlin_thr = perlin_thr * object_position
+                binary_2D_mask = (np.where(perlin_thr == 0, 0, 1)).astype(np.float32)  # [512,512,3]
+                if np.sum(binary_2D_mask) > anomal_p * total_object_pixel :
+                    break
+            blur_3D_mask = np.expand_dims(perlin_thr, axis=2)  # [512,512,3]
+            beta = torch.rand(1).numpy()[0] * beta_scale_factor
+            A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32) # merged
+            augmented_image = (image * (1 - blur_3D_mask) + A * blur_3D_mask).astype(np.float32)
+
+            anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
+
+            binary_2d_pil = Image.fromarray((binary_2D_mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
+            anomal_mask_torch = torch.where((torch.tensor(np.array(binary_2d_pil)) / 255) > 0.5, 1, 0)
+            if anomal_mask_torch.sum() > 0:
                 break
-        blur_3D_mask = np.expand_dims(perlin_thr, axis=2)  # [512,512,3]
-        beta = torch.rand(1).numpy()[0] * beta_scale_factor
-        A = beta * image + (1 - beta) * anomaly_source_img.astype(np.float32) # merged
-        augmented_image = (image * (1 - blur_3D_mask) + A * blur_3D_mask).astype(np.float32)
-        return augmented_image, binary_2D_mask # [512,512,3], [512,512]
+
+        return anomal_img, anomal_mask_torch
 
     def gaussian_augment_image(self, image, back_img, object_position):
-        # [2] perlin noise
-        while True:
-            end_num = self.resize_shape[0]
-            x = np.arange(0, end_num, 1, float)
-            y = np.arange(0, end_num, 1, float)[:, np.newaxis]
-            x_0 = torch.randint(int(end_num / 4), int(3 * end_num / 4), (1,)).item()
-            y_0 = torch.randint(int(end_num / 4), int(3 * end_num / 4), (1,)).item()
-            sigma = torch.randint(25, 60, (1,)).item()
-            result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
-            result_thr = np.where(result < 0.5, 0, 1).astype(np.float32)
-            result_thr = cv2.GaussianBlur(result_thr, (5,5), 0)
-            if object_position is not None:
-                total_object_pixel = np.sum(object_position)
-                blur_2D_mask = (result_thr * object_position).astype(np.float32)
-            binary_2D_mask = (np.where(blur_2D_mask == 0, 0, 1)).astype(np.float32)  # [512,512,3]
-            if np.sum(binary_2D_mask) > anomal_p * total_object_pixel :
+        while True :
+            while True:
+                end_num = self.resize_shape[0]
+                x = np.arange(0, end_num, 1, float)
+                y = np.arange(0, end_num, 1, float)[:, np.newaxis]
+                x_0 = torch.randint(int(end_num / 4), int(3 * end_num / 4), (1,)).item()
+                y_0 = torch.randint(int(end_num / 4), int(3 * end_num / 4), (1,)).item()
+                sigma = torch.randint(25, 60, (1,)).item()
+                result = np.exp(-4 * np.log(2) * ((x - x_0) ** 2 + (y - y_0) ** 2) / sigma ** 2)  # 0 ~ 1
+                result_thr = np.where(result < 0.5, 0, 1).astype(np.float32)
+                result_thr = cv2.GaussianBlur(result_thr, (5,5), 0)
+                if object_position is not None:
+                    total_object_pixel = np.sum(object_position)
+                    blur_2D_mask = (result_thr * object_position).astype(np.float32)
+                binary_2D_mask = (np.where(blur_2D_mask == 0, 0, 1)).astype(np.float32)  # [512,512,3]
+                if np.sum(binary_2D_mask) > anomal_p * total_object_pixel :
+                    break
+            blur_3D_mask = np.expand_dims(blur_2D_mask, axis=2)  # [512,512,3]
+            A = back_img.astype(np.float32)  # merged
+            augmented_image = (image * (1 - blur_3D_mask) + A * blur_3D_mask).astype(np.float32)
+
+            anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
+
+            binary_2d_pil = Image.fromarray((binary_2D_mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
+            anomal_mask_torch = torch.where((torch.tensor(np.array(binary_2d_pil)) / 255) > 0.5, 1, 0)
+            if anomal_mask_torch.sum() > 0:
                 break
-        blur_3D_mask = np.expand_dims(blur_2D_mask, axis=2)  # [512,512,3]
-        A = back_img.astype(np.float32)  # merged
-        augmented_image = (image * (1 - blur_3D_mask) + A * blur_3D_mask).astype(np.float32)
-        return augmented_image, binary_2D_mask  # [512,512,3], [512,512]
+        return anomal_img,anomal_mask_torch
 
     def load_image(self, image_path, trg_h, trg_w, type='RGB'):
         image = Image.open(image_path)
@@ -253,46 +270,33 @@ class MVTecDRAEMTrainDataset(Dataset):
                 object_position = np.where((np.array(object_img_aug)) == 0, 0, 1)             # [512,512]
                 # [4.1] anomal img
                 anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0], self.resize_shape[1])
-                augmented_image, mask = self.augment_image(img,anomaly_source_img, beta_scale_factor=self.beta_scale_factor,object_position=object_position) # [512,512,3], [512,512]
-                anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
-                binary_2d_pil = Image.fromarray((mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
-                anomal_mask_torch = torch.where( (torch.tensor(np.array(binary_2d_pil)) / 255) > 0.5, 1, 0)
-
-                # [4.2] holed img
+                anomal_img, anomal_mask_torch = self.augment_image(img,
+                                                                   anomaly_source_img,
+                                                                   beta_scale_factor=self.beta_scale_factor,
+                                                                   object_position=object_position) # [512,512,3], [512,512]
                 if self.bgrm_test:
                     background_img = (img * 0).astype(img.dtype)
                 else :
                     background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],type='RGB')
-                back_augmented_image, back_mask = self.gaussian_augment_image(img, aug(image=background_img),object_position = object_position)
-                back_anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
-
-                back_binary_2d_pil = Image.fromarray((back_mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
-                back_anomal_mask_torch = torch.where((torch.tensor(np.array(back_binary_2d_pil)) / 255) > 0.5, 1, 0)
+                back_anomal_img, back_anomal_mask_torch = self.gaussian_augment_image(img,
+                                                                                      aug(image=background_img),
+                                                                                      object_position = object_position)
 
             else :
-                # [4.1] anomal img
                 anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0],
                                                      self.resize_shape[1])
-                augmented_image, mask = self.augment_image(img, anomaly_source_img,
-                                                           beta_scale_factor=self.beta_scale_factor,
-                                                           object_position=None)  # [512,512,3], [512,512]
-                anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
-                binary_2d_pil = Image.fromarray((mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
-                anomal_mask_torch = torch.where((torch.tensor(np.array(binary_2d_pil)) / 255) > 0.5, 1, 0)
-
-                # [4.2] holed img
+                anomal_img, anomal_mask_torch = self.augment_image(img,
+                                                                   anomaly_source_img,
+                                                                   beta_scale_factor=self.beta_scale_factor,
+                                                                   object_position=None)
                 if self.bgrm_test:
                     background_img = (img * 0).astype(img.dtype)
                 else:
                     background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],
                                                      type='RGB')
-                back_augmented_image, back_mask = self.gaussian_augment_image(img, aug(image=background_img),
-                                                                              object_position=None)
-                back_anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
-
-                back_binary_2d_pil = Image.fromarray((back_mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
-                back_anomal_mask_torch = torch.where((torch.tensor(np.array(back_binary_2d_pil)) / 255) > 0.5, 1, 0)
-
+                back_anomal_img, back_anomal_mask_torch = self.gaussian_augment_image(img,
+                                                                                      aug(image=background_img),
+                                                                                      object_position=None)
         else :
             anomal_img = img
             anomal_mask_torch = object_mask # [64,64]
