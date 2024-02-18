@@ -82,7 +82,6 @@ class MVTecDRAEMTrainDataset(Dataset):
                  perlin_max_scale : int = 8,
                  kernel_size : int = 5,
                  beta_scale_factor : float = 0.8,
-                 do_holed_sample : bool = True,
                  bgrm_test : bool = True):
 
         self.root_dir = root_dir
@@ -114,7 +113,6 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
         self.down_sizer = transforms.Resize(size=(self.latent_res,self.latent_res), antialias=True)
-        self.do_holed_sample = do_holed_sample
         self.bgrm_test = bgrm_test
 
     def __len__(self):
@@ -234,12 +232,9 @@ class MVTecDRAEMTrainDataset(Dataset):
         if self.bgrm_test :
             background_dir = None
         else :
-            if self.do_holed_sample :
-                parent, name = os.path.split(img_path)
-                parent, _ = os.path.split(parent)
-                background_dir = os.path.join(parent, f"background/{name}")
-            else :
-                background_dir = None
+            parent, name = os.path.split(img_path)
+            parent, _ = os.path.split(parent)
+            background_dir = os.path.join(parent, f"background/{name}")
 
         # [3] object mask
         object_mask_dir = self.get_object_mask_dir(img_path)
@@ -259,31 +254,23 @@ class MVTecDRAEMTrainDataset(Dataset):
                 object_position = np.where((np.array(object_img_aug)) == 0, 0, 1)             # [512,512]
                 # [4.1] anomal img
                 anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0], self.resize_shape[1])
-
                 augmented_image, mask = self.augment_image(img,anomaly_source_img, beta_scale_factor=self.beta_scale_factor,object_position=object_position) # [512,512,3], [512,512]
                 anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
-
                 binary_2d_pil = Image.fromarray((mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
                 anomal_mask_torch = torch.where( (torch.tensor(np.array(binary_2d_pil)) / 255) > 0.5, 1, 0)
 
                 # [4.2] holed img
-                if self.do_holed_sample :
-                    if self.bgrm_test:
-                        background_img = (img * 0).astype(img.dtype)
-                    else :
-                        background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],type='RGB')
-                    back_augmented_image, back_mask = self.gaussian_augment_image(img, aug(image=background_img),object_position = object_position)
-                    back_anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
-
-                    back_binary_2d_pil = Image.fromarray((back_mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
-                    back_anomal_mask_torch = torch.where((torch.tensor(np.array(back_binary_2d_pil)) / 255) > 0.5, 1, 0)
-
+                if self.bgrm_test:
+                    background_img = (img * 0).astype(img.dtype)
                 else :
-                    back_anomal_img = img
-                    back_anomal_mask_torch = torch.randn(self.latent_res, self.latent_res)
+                    background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],type='RGB')
+                back_augmented_image, back_mask = self.gaussian_augment_image(img, aug(image=background_img),object_position = object_position)
+                back_anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
+
+                back_binary_2d_pil = Image.fromarray((back_mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
+                back_anomal_mask_torch = torch.where((torch.tensor(np.array(back_binary_2d_pil)) / 255) > 0.5, 1, 0)
 
             else :
-
                 # [4.1] anomal img
                 anomaly_source_img = self.load_image(self.anomaly_source_paths[anomal_src_idx], self.resize_shape[0],
                                                      self.resize_shape[1])
@@ -291,32 +278,29 @@ class MVTecDRAEMTrainDataset(Dataset):
                                                            beta_scale_factor=self.beta_scale_factor,
                                                            object_position=None)  # [512,512,3], [512,512]
                 anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
-                anomal_mask_torch = self.down_sizer(torch.tensor(mask).unsqueeze(0))  # [1,64,64]
+                binary_2d_pil = Image.fromarray((mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
+                anomal_mask_torch = torch.where((torch.tensor(np.array(binary_2d_pil)) / 255) > 0.5, 1, 0)
 
                 # [4.2] holed img
-                if self.do_holed_sample :
-                    if self.bgrm_test:
-                        background_img = (img * 0).astype(img.dtype)
-                    else :
-                        background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],type='RGB')
-                    background_img = aug(image=background_img)
-                    back_augmented_image, hole_mask = self.gaussian_augment_image(img, background_img, None)
-                    back_anomal_img = np.array(Image.fromarray(back_augmented_image.astype(np.uint8)), np.uint8)
-                    back_anomal_mask_torch = self.down_sizer(torch.tensor(hole_mask).unsqueeze(0))  # [1,64,64]
-                    masked_image = self.transform(back_anomal_img)
-                    masked_image_mask = back_anomal_mask_torch
+                if self.bgrm_test:
+                    background_img = (img * 0).astype(img.dtype)
                 else:
-                    masked_image = img
-                    masked_image_mask = object_mask
+                    background_img = self.load_image(background_dir, self.resize_shape[0], self.resize_shape[1],
+                                                     type='RGB')
+                back_augmented_image, back_mask = self.gaussian_augment_image(img, aug(image=background_img),
+                                                                              object_position=None)
+                back_anomal_img = np.array(Image.fromarray(augmented_image.astype(np.uint8)), np.uint8)
+
+                back_binary_2d_pil = Image.fromarray((back_mask * 255).astype(np.uint8)).convert('L').resize((64, 64))
+                back_anomal_mask_torch = torch.where((torch.tensor(np.array(back_binary_2d_pil)) / 255) > 0.5, 1, 0)
 
         else :
             anomal_img = img
             anomal_mask_torch = object_mask # [64,64]
             back_anomal_img = img
-            back_anomal_mask_torch = torch.randn(self.latent_res, self.latent_res)
+            back_anomal_mask_torch = object_mask.unsqueeze(0) # [1, 64, 64]
 
         input_ids, attention_mask = self.get_input_ids(self.caption) # input_ids = [77]
-
 
         return {'image': self.transform(img),               # original image
                 "object_mask": object_mask.unsqueeze(0),    # [1, 64, 64]

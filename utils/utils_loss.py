@@ -113,7 +113,10 @@ def generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss
             focal_loss_trg = 1 - focal_loss_trg
         loss = loss_focal(focal_loss_in, focal_loss_trg)
     else:
-        loss = loss_l2(trigger_score.float(), normal_position.float())
+        loss = loss_l2(trigger_score.float(),
+                       normal_position.float())
+    print(f'in anomal map loss, loss: {loss}')
+    print(f'type of loss: {type(loss)}')
 
     return loss
 
