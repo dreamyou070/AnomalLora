@@ -1,9 +1,9 @@
 # !/bin/bash
 
-port_number=52021
+port_number=52024
 obj_name='carrot'
 caption='carrot'
-folder_name="20_1_do_anomal_sample_do_attn_loss"
+folder_name="20_4_do_anomal_sample_do_attn_loss_do_map_loss"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 # --do_local_self_attn --window_size 8
