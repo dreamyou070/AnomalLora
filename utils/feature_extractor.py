@@ -1,5 +1,6 @@
 import torch.nn as nn
 from typing import List
+import torch
 def save_tensors(module: nn.Module, features, name: str):
     """ Process and save activations in the module. """
     if type(features) in [list, tuple]:
@@ -9,8 +10,11 @@ def save_tensors(module: nn.Module, features, name: str):
     elif isinstance(features, dict):
         features = {k: f.detach().float() for k, f in features.items()}
         setattr(module, name, features)
-    else:
+
+    elif isinstance(features, torch.Tensor):
         setattr(module, name, features.detach().float())
+    else:
+        setattr(module, name, features.sample.shape.detach().float())
 
 def save_out_hook(self, inp, out):
     save_tensors(self, out, 'activations')
