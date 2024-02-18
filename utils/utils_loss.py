@@ -66,6 +66,7 @@ def generate_attention_loss(attn_score, normal_position, do_calculate_anomal):
 def gen_value_dict(value_dict,
                    normal_trigger_loss, normal_cls_loss,
                    anormal_trigger_loss, anormal_cls_loss, ):
+    # device = normal_trigger_loss.device
     if normal_cls_loss is not None:
         if 'normal_cls_loss' not in value_dict.keys():
             value_dict['normal_cls_loss'] = []
@@ -119,8 +120,6 @@ def generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss
     else:
         loss = loss_l2(trigger_score.float(),
                        normal_position.float())
-    print(f'in anomal map loss, loss: {loss}')
-    print(f'type of loss: {type(loss)}')
 
     return loss
 

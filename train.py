@@ -166,7 +166,7 @@ def main(args):
 
         for step, batch in enumerate(train_dataloader):
 
-            device = accelerator.device
+
 
             loss, dist_loss = 0.0, 0.0
             attn_loss, map_loss = 0.0, 0.0
@@ -219,12 +219,14 @@ def main(args):
                         feat = query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
                         if anomal_flag == 1:
+                            print(f'anomal_flag : {anomal_flag}')
                             anormal_feat_list.append(feat.unsqueeze(0))
                         else:
                             normal_feat_list.append(feat.unsqueeze(0))
                     attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                     normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(
-                                                                attn_score, normal_position, do_calculate_anomal=True)
+                        attn_score, normal_position,
+                        do_calculate_anomal=True)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
                                                 anormal_trigger_loss, anormal_cls_loss)
                     map_loss += generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
@@ -266,10 +268,18 @@ def main(args):
                 loss_dict['dist_loss'] = dist_loss.item()
 
             if args.do_attn_loss:
+
+                device = accelerator.device
                 normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss = gen_attn_loss(value_dict)
-                attn_loss += args.normal_weight * normal_trigger_loss.mean() + args.anormal_weight * anormal_trigger_loss.mean()
+
+                attn_loss += args.normal_weight * normal_trigger_loss.to(device).mean()
+                if anormal_trigger_loss is not None :
+                    attn_loss += args.anormal_weight * anormal_trigger_loss.to(device).mean()
                 if args.do_cls_train:
-                    attn_loss += args.normal_weight * normal_cls_loss.mean() + args.anormal_weight * anormal_cls_loss.mean()
+                    attn_loss += args.normal_weight * normal_cls_loss.to(device).mean()
+                    if anormal_cls_loss is not None:
+                        attn_loss += args.anormal_weight * anormal_cls_loss.to(device).mean()
+
                 loss += attn_loss.mean().to(weight_dtype)
                 loss_dict['attn_loss'] = attn_loss.mean().item()
 
