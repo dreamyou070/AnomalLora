@@ -22,6 +22,7 @@ from utils.utils_mahalanobis import gen_mahal_loss
 from utils.model_utils import pe_model_save
 from utils.utils_loss import FocalLoss
 from random import sample
+from utils.feature_extractor import FeatureExtractor
 
 def main(args):
 
@@ -88,41 +89,140 @@ def main(args):
     if args.use_position_embedder:
         position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res, d_model=args.d_dim)
 
-    print(f'len of unet.up_blocks : {len(unet.up_blocks)}')
-    import torch.nn as nn
+    print(' (4.4) feature extractor')
+    feature_extractor = FeatureExtractor(model=unet,blocks=[2,5,8,12])
 
-    def save_tensors(module: nn.Module, features, name: str):
-        if type(features) in [list, tuple]:
-            features = [f.detach().float() if f is not None else None
-                        for f in features]
-            setattr(module, name, features)
-        elif isinstance(features, dict):
-            features = {k: f.detach().float() for k, f in features.items()}
-            setattr(module, name, features)
+
+    print(f'\n step 5. optimizer')
+    trainable_params = network.prepare_optimizer_params(args.text_encoder_lr, args.unet_lr, args.learning_rate)
+    if position_embedder is not None:
+        trainable_params.append({"params": position_embedder.parameters(),
+                                 "lr": args.learning_rate})
+    optimizer_name, optimizer_args, optimizer = get_optimizer(args, trainable_params)
+
+    print(f'\n step 6. lr')
+    lr_scheduler = get_scheduler_fix(args, optimizer, accelerator.num_processes)
+
+    print(f'\n step 7. loss function')
+    loss_focal = FocalLoss()
+    loss_l2 = torch.nn.modules.loss.MSELoss(reduction='none')
+
+    print(f'\n step 8. weight dtype and network to accelerate preparing')
+    if args.full_fp16:
+        assert (args.mixed_precision == "fp16"), "full_fp16 requires mixed precision='fp16'"
+        accelerator.print("enable full fp16 training.")
+        network.to(weight_dtype)
+    elif args.full_bf16:
+        assert (args.mixed_precision == "bf16"), "full_bf16 requires mixed precision='bf16' / mixed_precision='bf16'"
+        accelerator.print("enable full bf16 training.")
+        network.to(weight_dtype)
+    unet.requires_grad_(False)
+    unet.to(dtype=weight_dtype)
+    for t_enc in text_encoders:
+        t_enc.requires_grad_(False)
+    if train_unet and train_text_encoder:
+        unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler, position_embedder = accelerator.prepare(
+            unet, text_encoder, network, optimizer, train_dataloader, lr_scheduler, position_embedder)
+        text_encoders = [text_encoder]
+    text_encoders = transform_models_if_DDP(text_encoders)
+    unet, network = transform_models_if_DDP([unet, network])
+    if args.gradient_checkpointing:
+        unet.train()
+        position_embedder.train()
+        for t_enc in text_encoders:
+            t_enc.train()
+            if train_text_encoder:
+                t_enc.text_model.embeddings.requires_grad_(True)
+        if not train_text_encoder:  # train U-Net only
+            unet.parameters().__next__().requires_grad_(True)
+    else:
+        unet.eval()
+        for t_enc in text_encoders:
+            t_enc.eval()
+    del t_enc
+    network.prepare_grad_etc(text_encoder, unet)
+    vae.requires_grad_(False)
+    vae.eval()
+    vae.to(accelerator.device, dtype=vae_dtype)
+
+    print(f'\n step 8. Training !')
+    if args.max_train_epochs is not None:
+        args.max_train_steps = args.max_train_epochs * math.ceil(
+            len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps)
+        accelerator.print(f"override steps. steps for {args.max_train_epochs} epochs / {args.max_train_steps}")
+    args.save_every_n_epochs = 1
+    max_train_steps = len(train_dataloader) * args.max_train_epochs
+    progress_bar = tqdm(range(max_train_steps),
+                        smoothing=0, disable=not accelerator.is_local_main_process, desc="steps")
+    global_step = 0
+    noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",
+                                    num_train_timesteps=1000, clip_sample=False)
+    prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
+    loss_list = []
+
+    controller = AttentionStore()
+    register_attention_control(unet, controller)
+
+    if is_main_process:
+        if args.do_down_dim_mahal_loss:
+            logging_info = f"'step', 'normal dist max', 'down dimed normal dist max'"
         else:
-            setattr(module, name, features.detach().float())
+            logging_info = f"'step', 'normal dist max'"
+        with open(logging_file, 'a') as f:
+            f.write(logging_info + '\n')
 
-    def save_out_hook(self, out):
-        save_tensors(self, out, 'activations')
-        return out
+    for epoch in range(args.start_epoch, args.max_train_epochs):
+        epoch_loss_total = 0
+        accelerator.print(f"\nepoch {epoch + 1}/{args.start_epoch + args.max_train_epochs}")
 
-    for block_idx, block in enumerate(unet.up_blocks):
-        if block_idx != 0 :
-            attention_blocks = block.attentions
-            resnet_blocks = block.resnets
-            block_pair = [(res,attn) for res, attn in zip(resnet_blocks, attention_blocks)]
-        else :
-            block_pair = block.resnets
-        for i, sub_block in enumerate(block_pair) :
-            if type(sub_block) == tuple :
-                sub_block = sub_block[-1]
-            print(f'{i} block register forward hook')
-            sub_block.register_forward_hook(save_out_hook)
+        for step, batch in enumerate(train_dataloader):
 
+            loss = torch.tensor(0.0, dtype=weight_dtype, device=accelerator.device)
+            task_loss, dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0, 0.0
+            normal_feat_list, anormal_feat_list = [], []
+            value_dict, loss_dict = {}, {}
 
+            if args.do_down_dim_mahal_loss:
+                original_dim = 320
+                down_dim_idx = torch.tensor(sample(range(0, original_dim), args.down_dim))
+                down_dim_normal_feat_list, down_dim_anormal_feat_list = [], []
 
+            with torch.set_grad_enabled(True):
+                encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
 
+            # [1] normal sample
+            with torch.no_grad():
+                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+            model_kwargs = {}
+            model_kwargs['position_embedder'] = position_embedder
+            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, **model_kwargs)
+            query_dict, attn_dict = controller.query_dict, controller.step_store
+            controller.reset()
+            for trg_layer in args.trg_layer_list:
+                query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
+                pix_num = query.shape[0]
+                for pix_idx in range(pix_num):
+                    feat = query[pix_idx].squeeze(0)
+                    normal_feat_list.append(feat.unsqueeze(0))
+                    if args.do_down_dim_mahal_loss:
+                        down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
+                        down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
+                # (2) attn loss
+                attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                cls_score, trigger_score = attn_score.chunk(2, dim=-1)
+                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
+                cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
+                normal_cls_score, normal_trigger_score = cls_score, trigger_score
+                total_score = torch.ones_like(cls_score)
+                anomal_position = torch.zeros_like(cls_score)
 
+            activations = []
+            for block in feature_extractor.feature_blocks:
+                activation = block.activations
+                activations.append(activation)
+                block.activations = None
+            print(f'len of activations : {len(activations)}')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
