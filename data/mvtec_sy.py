@@ -82,7 +82,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                  perlin_max_scale : int = 8,
                  kernel_size : int = 5,
                  beta_scale_factor : float = 0.8,
-                 do_anomal_hole : bool = True,
+                 do_holed_sample : bool = True,
                  bgrm_test : bool = True):
 
         self.root_dir = root_dir
@@ -114,7 +114,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         self.kernel_size = kernel_size
         self.beta_scale_factor = beta_scale_factor
         self.down_sizer = transforms.Resize(size=(self.latent_res,self.latent_res), antialias=True)
-        self.do_anomal_hole = do_anomal_hole
+        self.do_holed_sample = do_holed_sample
         self.bgrm_test = bgrm_test
 
     def __len__(self):
@@ -234,7 +234,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         if self.bgrm_test :
             background_dir = None
         else :
-            if self.do_anomal_hole :
+            if self.do_holed_sample :
                 parent, name = os.path.split(img_path)
                 parent, _ = os.path.split(parent)
                 background_dir = os.path.join(parent, f"background/{name}")
@@ -267,7 +267,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                 anomal_mask_torch = torch.where( (torch.tensor(np.array(binary_2d_pil)) / 255) > 0.5, 1, 0)
 
                 # [4.2] holed img
-                if self.do_anomal_hole:
+                if self.do_holed_sample :
                     if self.bgrm_test:
                         background_img = (img * 0).astype(img.dtype)
                     else :
@@ -294,7 +294,7 @@ class MVTecDRAEMTrainDataset(Dataset):
                 anomal_mask_torch = self.down_sizer(torch.tensor(mask).unsqueeze(0))  # [1,64,64]
 
                 # [4.2] holed img
-                if self.do_anomal_hole:
+                if self.do_holed_sample :
                     if self.bgrm_test:
                         background_img = (img * 0).astype(img.dtype)
                     else :

@@ -54,7 +54,7 @@ def main(args):
                                      perlin_max_scale=args.perlin_max_scale,
                                      kernel_size=args.kernel_size,
                                      beta_scale_factor=args.beta_scale_factor,
-                                     do_anomal_hole=args.do_anomal_hole,
+                                     do_holed_sample=args.do_holed_sample,
                                      bgrm_test=args.bgrm_test)
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
@@ -169,9 +169,8 @@ def main(args):
 
             device = accelerator.device
 
-            loss, dist_loss = torch.tensor(0., device=device), torch.tensor(0., device=device)
-            attn_loss, map_loss = torch.tensor(0., device=device), torch.tensor(0., device=device)
-
+            loss, dist_loss = 0.0, 0.0
+            attn_loss, map_loss = 0.0, 0.0
             normal_feat_list, anormal_feat_list = [], []
             activating_loss_dict, loss_dict = {}, {}
             value_dict = {}
@@ -212,7 +211,7 @@ def main(args):
                 query_dict, attn_dict = controller.query_dict, controller.step_store
                 controller.reset()
                 anomal_map = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
-                normal_position = 1-anomal_map
+                normal_position = 1 - anomal_map
                 for trg_layer in args.trg_layer_list:
                     anomal_position = anomal_map.squeeze(0)  # [64*64]
                     query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
@@ -220,7 +219,7 @@ def main(args):
                     for pix_idx in range(pix_num):
                         feat = query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
-                        if anomal_flag != 0:
+                        if anomal_flag == 1:
                             anormal_feat_list.append(feat.unsqueeze(0))
                         else:
                             normal_feat_list.append(feat.unsqueeze(0))
@@ -247,7 +246,7 @@ def main(args):
                     for pix_idx in range(pix_num):
                         feat = query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
-                        if anomal_flag != 0:
+                        if anomal_flag == 1:
                             anormal_feat_list.append(feat.unsqueeze(0))
                         else:
                             normal_feat_list.append(feat.unsqueeze(0))
@@ -419,7 +418,6 @@ if __name__ == "__main__":
     parser.add_argument("--beta_scale_factor", type=float, default=0.4)
     parser.add_argument("--do_map_loss", action='store_true')
     parser.add_argument("--use_small_anomal", action='store_true')
-    parser.add_argument("--do_anomal_hole", action='store_true')
     parser.add_argument("--use_focal_loss", action='store_true')
     parser.add_argument("--do_local_self_attn", action='store_true')
     parser.add_argument("--window_size", type=int, default=4)
