@@ -286,7 +286,10 @@ def main(args):
                 loss_dict['attn_loss'] = attn_loss.mean().item()
 
             if args.do_map_loss:
-                map_loss = torch.stack(map_loss_list, dim=0).mean().to(weight_dtype, device=accelerator.device)
+                map_loss = torch.stack(map_loss_list, dim=0)#.mean()#.to(weight_dtype, device=accelerator.device)
+                map_loss = map_loss.mean()
+                print(f'map_loss : {map_loss}')
+
                 loss += map_loss * args.map_loss_weight
                 loss_dict['map_loss'] = map_loss.item()
 
