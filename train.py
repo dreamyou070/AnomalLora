@@ -418,8 +418,10 @@ if __name__ == "__main__":
     parser.add_argument("--position_embedding_layer", type=str)
     parser.add_argument("--d_dim", default=320, type=int)
     parser.add_argument("--beta_scale_factor", type=float, default=0.4)
+
     parser.add_argument("--do_map_loss", action='store_true')
-    parser.add_argument("--map_loss_weight", type=float, default=1)
+    parser.add_argument("--map_loss_weight", type=float, default=1.0)
+
     parser.add_argument("--use_small_anomal", action='store_true')
     parser.add_argument("--use_focal_loss", action='store_true')
     parser.add_argument("--do_local_self_attn", action='store_true')
