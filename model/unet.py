@@ -1016,19 +1016,12 @@ class UpBlock2D(nn.Module):
         self.has_cross_attention = False
         resnets = []
 
-        for i in range(LAYERS_PER_BLOCK_UP):
+        for i in range(LAYERS_PER_BLOCK_UP):  # 3
             res_skip_channels = in_channels if (i == LAYERS_PER_BLOCK_UP - 1) else out_channels
             resnet_in_channels = prev_output_channel if i == 0 else out_channels
-
-            resnets.append(
-                ResnetBlock2D(
-                    in_channels=resnet_in_channels + res_skip_channels,
-                    out_channels=out_channels,
-                )
-            )
-
+            resnets.append(ResnetBlock2D(in_channels=resnet_in_channels + res_skip_channels,
+                                         out_channels=out_channels,))
         self.resnets = nn.ModuleList(resnets)
-
         if add_upsample:
             self.upsamplers = nn.ModuleList([Upsample2D(out_channels, out_channels)])
         else:
@@ -1091,23 +1084,14 @@ class CrossAttnUpBlock2D(nn.Module):
             res_skip_channels = in_channels if (i == LAYERS_PER_BLOCK_UP - 1) else out_channels
             resnet_in_channels = prev_output_channel if i == 0 else out_channels
 
-            resnets.append(
-                ResnetBlock2D(
-                    in_channels=resnet_in_channels + res_skip_channels,
-                    out_channels=out_channels,
-                )
-            )
-            attentions.append(
-                Transformer2DModel(
-                    attn_num_head_channels,
-                    out_channels // attn_num_head_channels,
-                    in_channels=out_channels,
-                    cross_attention_dim=cross_attention_dim,
-                    use_linear_projection=use_linear_projection,
-                    upcast_attention=upcast_attention,
-                )
-            )
-
+            resnets.append(ResnetBlock2D(in_channels=resnet_in_channels + res_skip_channels,
+                                         out_channels=out_channels,))
+            attentions.append(Transformer2DModel(attn_num_head_channels,
+                                                 out_channels // attn_num_head_channels,
+                                                 in_channels=out_channels,
+                                                 cross_attention_dim=cross_attention_dim,
+                                                 use_linear_projection=use_linear_projection,
+                                                 upcast_attention=upcast_attention,))
         self.attentions = nn.ModuleList(attentions)
         self.resnets = nn.ModuleList(resnets)
 
@@ -1314,30 +1298,28 @@ class UNet2DConditionModel(nn.Module):
         reversed_attention_head_dim = list(reversed(attention_head_dim))
         output_channel = reversed_block_out_channels[0]
         for i, up_block_type in enumerate(UP_BLOCK_TYPES):
-            is_final_block = i == len(BLOCK_OUT_CHANNELS) - 1
+            # 4 번
+            # UP_BLOCK_TYPES = ["UpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D"]
 
+            is_final_block = i == len(BLOCK_OUT_CHANNELS) - 1
             prev_output_channel = output_channel
             output_channel = reversed_block_out_channels[i]
             input_channel = reversed_block_out_channels[min(i + 1, len(BLOCK_OUT_CHANNELS) - 1)]
-
             # add upsample block for all BUT final layer
             if not is_final_block:
                 add_upsample = True
                 self.num_upsamplers += 1
             else:
                 add_upsample = False
-
-            up_block = get_up_block(
-                up_block_type,
-                in_channels=input_channel,
-                out_channels=output_channel,
-                prev_output_channel=prev_output_channel,
-                add_upsample=add_upsample,
-                attn_num_head_channels=reversed_attention_head_dim[i],
-                cross_attention_dim=cross_attention_dim,
-                use_linear_projection=use_linear_projection,
-                upcast_attention=upcast_attention,
-            )
+            up_block = get_up_block(up_block_type,
+                                    in_channels=input_channel,
+                                    out_channels=output_channel,
+                                    prev_output_channel=prev_output_channel,
+                                    add_upsample=add_upsample,
+                                    attn_num_head_channels=reversed_attention_head_dim[i],
+                                    cross_attention_dim=cross_attention_dim,
+                                    use_linear_projection=use_linear_projection,
+                                    upcast_attention=upcast_attention,)
             self.up_blocks.append(up_block)
             prev_output_channel = output_channel
 
