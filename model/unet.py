@@ -11,6 +11,7 @@ from einops import rearrange
 # activation_4 = torch.randn(1,1280, 8, 8)
 
 BLOCK_OUT_CHANNELS: Tuple[int] = (320, 640, 1280, 1280)
+#                                [128]
 TIMESTEP_INPUT_DIM = BLOCK_OUT_CHANNELS[0]
 TIME_EMBED_DIM = BLOCK_OUT_CHANNELS[0] * 4
 # IN_CHANNELS: int = 4
