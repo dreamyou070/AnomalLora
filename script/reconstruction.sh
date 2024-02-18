@@ -3,7 +3,7 @@
 port_number=50003
 obj_name='carrot'
 caption='carrot'
-folder_name="0_base"
+folder_name="0_4_anomal_bgtest_small_anomal_data"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 # --do_local_self_attn --window_size 8
