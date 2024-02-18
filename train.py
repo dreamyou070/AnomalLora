@@ -281,8 +281,10 @@ def main(args):
                     attn_loss += args.normal_weight * normal_cls_loss.to(device).mean()
                     if anormal_cls_loss is not None:
                         attn_loss += args.anormal_weight * anormal_cls_loss.to(device).mean()
-
-                loss += attn_loss.to(weight_dtype, device=accelerator.device).mean().to(weight_dtype)
+                #attn_loss.to(weight_dtype, device=accelerator.device).mean().to(weight_dtype)
+                print(f'attn_loss : {attn_loss}')
+                attn_loss = attn_loss.mean()
+                loss += attn_loss
                 loss_dict['attn_loss'] = attn_loss.mean().item()
 
             if args.do_map_loss:
