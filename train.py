@@ -133,6 +133,7 @@ def main(args):
                                      beta_scale_factor=args.beta_scale_factor,
                                      do_anomal_hole = args.do_anomal_hole,
                                      bgrm_test = args.bgrm_test)
+
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     print(f'\n step 3. preparing accelerator')
@@ -175,7 +176,6 @@ def main(args):
     lr_scheduler = get_scheduler_fix(args, optimizer, accelerator.num_processes)
 
     print(f'\n step 7. loss function')
-    loss_focal = FocalLoss()
 
 
     print(f'\n step 8. weight dtype and network to accelerate preparing')
@@ -270,7 +270,10 @@ def main(args):
                 for pix_idx in range(pix_num):
                     feat = query[pix_idx].squeeze(0)
                     normal_feat_list.append(feat.unsqueeze(0))
+
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                cls_score, trigger_score = attn_score.chunk(2, dim=-1)
+                trigger_score = trigger_score.squeeze().mean(dim=0)  # pix_num
                 normal_position = torch.ones(pix_num, dtype=weight_dtype, device=accelerator.device)
                 value_dict = calculate_attention_activation_loss(attn_score, normal_position, False, value_dict)
                 map_loss += calculate_anomal_map_loss(trigger_score, normal_position, pix_num)
@@ -296,11 +299,12 @@ def main(args):
                         anormal_feat_list.append(feat.unsqueeze(0))
                     else:
                         normal_feat_list.append(feat.unsqueeze(0))
-                # [2] attn score
                 attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                cls_score, trigger_score = attn_score.chunk(2, dim=-1)
+                trigger_score = trigger_score.squeeze().mean(dim=0)  # pix_num
                 normal_position = 1 - anomal_position
-                value_dict = calculate_attention_activation_loss(attn_score, normal_position, True, value_dict)
-                map_loss += calculate_anomal_map_loss(trigger_score, 1- anomal_position, pix_num)
+                value_dict = calculate_attention_activation_loss(attn_score, normal_position, False, value_dict)
+                map_loss += calculate_anomal_map_loss(trigger_score, normal_position, pix_num)
 
             # [3] Masked Sample Learning
             if args.do_anomal_hole:
@@ -324,11 +328,13 @@ def main(args):
                             anormal_feat_list.append(feat.unsqueeze(0))
                         else:
                             normal_feat_list.append(feat.unsqueeze(0))
-                    # [2] attn score
+
                     attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                     cls_score, trigger_score = attn_score.chunk(2, dim=-1)
-                    value_dict = calculate_attention_activation_loss(attn_score, normal_position, True, value_dict)
-                    map_loss += calculate_anomal_map_loss(trigger_score, 1 - anomal_position, pix_num)
+                    trigger_score = trigger_score.squeeze().mean(dim=0)  # pix_num
+                    normal_position = 1 - anomal_position
+                    value_dict = calculate_attention_activation_loss(attn_score, normal_position, False, value_dict)
+                    map_loss += calculate_anomal_map_loss(trigger_score, normal_position, pix_num)
 
             # ----------------------------------------------------------------------------------------------------------
             # [5] backprop
