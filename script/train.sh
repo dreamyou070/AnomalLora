@@ -1,6 +1,6 @@
 # !/bin/bash
 
-port_number=50202
+port_number=50203
 
 obj_name='carrot'
 trigger_word='carrot'
@@ -16,9 +16,10 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_1_2_3_4_5_config \
  --data_path "../../../MyData/anomaly_detection/${bench_mark}" --trigger_word "${trigger_word}" --obj_name "${obj_name}" --anomal_only_on_object \
  --position_embedding_layer 'down_blocks_0_attentions_0_transformer_blocks_0_attn1' --d_dim 320 --latent_res 64 \
  --do_holed_sample \
- --do_map_loss --use_small_anomaly_map --map_loss_weight 1.0 \
+ --do_attn_loss --attn_loss_weight 1.0 --do_cls_train --normal_weight 1.0 --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']"
+ #--do_map_loss --use_small_anomaly_map --map_loss_weight 1.0 \
  # --do_dist_loss --dist_loss_weight 1.0
- # --do_attn_loss --attn_loss_weight 1.0 --do_cls_train --normal_weight 1.0 --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']"
+ #
  #
 
 
