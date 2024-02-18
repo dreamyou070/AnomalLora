@@ -167,68 +167,71 @@ def main(args):
 
         for step, batch in enumerate(train_dataloader):
 
-            loss, dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0, 0.0
+            device = accelerator.device
+
+            loss, dist_loss = torch.tensor(0., device=device), torch.tensor(0., device=device)
+            attn_loss, map_loss = torch.tensor(0., device=device), torch.tensor(0., device=device)
+
             normal_feat_list, anormal_feat_list = [], []
             activating_loss_dict, loss_dict = {}, {}
             value_dict = {}
 
             with torch.set_grad_enabled(True):
-                encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
+                encoder_hidden_states = text_encoder(batch["input_ids"].to(device))["last_hidden_state"]
 
             # --------------------------------------------------------------------------------------------------------- #
             # [1] normal sample
-            """
-            with torch.no_grad():
-                latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
-            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
-            query_dict, attn_dict = controller.query_dict, controller.step_store
-            controller.reset()
-            object_position = batch['object_mask'].squeeze().flatten()
-            normal_position = torch.ones_like(object_position)
-            for trg_layer in args.trg_layer_list:
-                query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
-                pix_num = query.shape[0]
-                for pix_idx in range(pix_num):
-                    feat = query[pix_idx].squeeze(0)
-                    normal_feat_list.append(feat.unsqueeze(0))
-                attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
-                normal_trigger_loss, normal_cls_loss, _, _ = generate_attention_loss(attn_score,normal_position,
-                                                                                     do_calculate_anomal=False)
-                value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, None, None)
-                map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
-            """
-            # --------------------------------------------------------------------------------------------------------- #
-            """
-            # [2] Masked Sample Learning
-            with torch.no_grad():
-                latents = vae.encode(batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
-            noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-            unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,noise_type=position_embedder)
-            query_dict, attn_dict = controller.query_dict, controller.step_store
-            controller.reset()
-            anomal_map = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
-            normal_position = 1-anomal_map
-            for trg_layer in args.trg_layer_list:
-                anomal_position = anomal_map.squeeze(0)  # [64*64]
-                query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
-                pix_num = query.shape[0]
-                for pix_idx in range(pix_num):
-                    feat = query[pix_idx].squeeze(0)
-                    anomal_flag = anomal_position[pix_idx].item()
-                    if anomal_flag != 0:
-                        anormal_feat_list.append(feat.unsqueeze(0))
-                    else:
+            if args.do_normal_sample :
+                with torch.no_grad():
+                    latents = vae.encode(batch["image"].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+                noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+                unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, noise_type=position_embedder)
+                query_dict, attn_dict = controller.query_dict, controller.step_store
+                controller.reset()
+                object_position = batch['object_mask'].squeeze().flatten()
+                normal_position = torch.ones_like(object_position).to(device)
+                for trg_layer in args.trg_layer_list:
+                    query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
+                    pix_num = query.shape[0]
+                    for pix_idx in range(pix_num):
+                        feat = query[pix_idx].squeeze(0)
                         normal_feat_list.append(feat.unsqueeze(0))
-                attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
-                normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(attn_score, normal_position,
-                                                                                     do_calculate_anomal=True)
-                value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss)
-                map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
-            """
+                    attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                    normal_trigger_loss, normal_cls_loss, _, _ = generate_attention_loss(attn_score,normal_position,
+                                                                                         do_calculate_anomal=False)
+                    value_dict = gen_value_dict(value_dict,normal_trigger_loss, normal_cls_loss, None, None)
+                    map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
+
+            # --------------------------------------------------------------------------------------------------------- #
+            if args.do_anomal_sample :
+
+                with torch.no_grad():
+                    latents = vae.encode(batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
+                noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+                unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,noise_type=position_embedder)
+                query_dict, attn_dict = controller.query_dict, controller.step_store
+                controller.reset()
+                anomal_map = batch["anomal_mask"].squeeze().flatten().squeeze()  # [64*64]
+                normal_position = 1-anomal_map
+                for trg_layer in args.trg_layer_list:
+                    anomal_position = anomal_map.squeeze(0)  # [64*64]
+                    query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
+                    pix_num = query.shape[0]
+                    for pix_idx in range(pix_num):
+                        feat = query[pix_idx].squeeze(0)
+                        anomal_flag = anomal_position[pix_idx].item()
+                        if anomal_flag != 0:
+                            anormal_feat_list.append(feat.unsqueeze(0))
+                        else:
+                            normal_feat_list.append(feat.unsqueeze(0))
+                    attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
+                    normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(attn_score, normal_position,
+                                                                                         do_calculate_anomal=True)
+                    value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss)
+                    map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
 
             # [3] Masked Sample Learning
-            if args.do_anomal_hole :
+            if args.do_holed_sample :
                 with torch.no_grad():
                     latents = vae.encode(batch['bg_anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor  # [1,4,64,64]
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
@@ -428,6 +431,9 @@ if __name__ == "__main__":
     parser.add_argument("--do_task_loss", action='store_true')
     parser.add_argument("--task_loss_weight", type=float, default=1.0)
     parser.add_argument("--bgrm_test", action='store_true')
+    parser.add_argument("--do_normal_sample", action='store_true')
+    parser.add_argument("--do_anomal_sample", action='store_true')
+    parser.add_argument("--do_holed_sample", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)

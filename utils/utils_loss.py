@@ -37,6 +37,10 @@ def gen_mahal_loss(args, anormal_feat_list, normal_feat_list):
 
 def generate_attention_loss(attn_score, normal_position, do_calculate_anomal):
 
+    device = attn_score.device
+
+    normal_position = normal_position.to(device)
+
     # [1] preprocessing
     cls_score, trigger_score = attn_score.chunk(2, dim=-1)
     cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
@@ -44,7 +48,7 @@ def generate_attention_loss(attn_score, normal_position, do_calculate_anomal):
     # [2]
     normal_cls_score, normal_trigger_score = cls_score * normal_position, trigger_score * normal_position
     anomal_cls_score, anomal_trigger_score = cls_score * (1 - normal_position), trigger_score * (1 - normal_position)
-    total_score = torch.ones_like(cls_score)
+    total_score = torch.ones_like(cls_score).to(device)
     normal_cls_score, normal_trigger_score = normal_cls_score / total_score, normal_trigger_score / total_score
     anomal_cls_score, anomal_trigger_score = anomal_cls_score / total_score, anomal_trigger_score / total_score
     # [3] loss calculating
@@ -56,7 +60,7 @@ def generate_attention_loss(attn_score, normal_position, do_calculate_anomal):
         anomal_trigger_loss = (1 - anomal_trigger_score) ** 2
         anomal_cls_loss = anomal_cls_score ** 2
 
-    return normal_trigger_loss, normal_cls_loss, anomal_trigger_loss, anomal_cls_loss
+    return normal_trigger_loss.to(device), normal_cls_loss.to(device), anomal_trigger_loss.to(device), anomal_cls_loss.to(device)
 
 def gen_value_dict(value_dict,
                    normal_trigger_loss, normal_cls_loss,
