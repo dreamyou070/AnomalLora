@@ -154,7 +154,49 @@ def generate_attention_loss_third (attn_score, normal_position, do_calculate_ano
 
     return normal_trigger_loss.to(device), normal_cls_loss.to(device), anomal_trigger_loss, anomal_cls_loss
 
+def generate_attention_loss_forth(attn_score, normal_position, do_calculate_anomal):
+    # to(device)
+    ############################ Second Code Snippet ############################
+    device = attn_score.device
+    # attn_scores = [head, pix_num, 2]
 
+    # [1] preprocessing
+    cls_score, trigger_score = torch.chunk(attn_score, 2, dim=-1) # [head, pix_num]
+    cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze() # head, pix_num
+    head_num, pix_num = cls_score.size(0), cls_score.size(1)
+    res = int(np.sqrt(pix_num))
+
+    # [2] position
+    anomal_index = [i for i in range(64 * 64) if normal_position[i] == 0]
+    normal_index = [i for i in range(64 * 64) if normal_position[i] == 1]
+    normal_position = normal_position.unsqueeze(dim=0)
+    normal_position = normal_position.repeat(head_num, 1).to(device)  # [head, pix_num]
+
+    # [2] partial score
+    normal_cls_score, normal_trigger_score = cls_score * normal_position, trigger_score * normal_position
+    anomal_cls_score, anomal_trigger_score = cls_score * (1 - normal_position), trigger_score * (1 - normal_position)
+    normal_cls_score, normal_trigger_score = normal_cls_score[:,normal_index], normal_trigger_score[:,normal_index]
+    anomal_cls_score, anomal_trigger_score = anomal_cls_score[:,anomal_index], anomal_trigger_score[:,anomal_index]
+    normal_cls_total, normal_trigger_total = torch.ones_like(normal_cls_score).to(device), torch.ones_like(normal_trigger_score).to(device)
+    anomal_cls_total, anomal_trigger_total = torch.ones_like(anomal_cls_score).to(device), torch.ones_like(anomal_trigger_score).to(device)
+
+    normal_cls_activation,normal_trigger_activation = normal_cls_score.sum(dim=-1), normal_trigger_score.sum(dim=-1)
+    anomal_cls_activation,anomal_trigger_activation = anomal_cls_score.sum(dim=-1), anomal_trigger_score.sum(dim=-1)
+    normal_cls_total, normal_trigger_total = normal_cls_total.sum(dim=-1), normal_trigger_total.sum(dim=-1)
+    anomal_cls_total, anomal_trigger_total = anomal_cls_total.sum(dim=-1), anomal_trigger_total.sum(dim=-1)
+
+    # [3] loss calculating
+    normal_cls_loss = (normal_cls_activation/normal_cls_total) ** 2 # head
+    normal_trigger_loss=(1-(normal_trigger_activation/normal_trigger_total)) ** 2
+
+    anomal_trigger_loss, anomal_cls_loss = 0, 0
+    if do_calculate_anomal:
+        anomal_cls_loss = (1-(anomal_cls_activation/anomal_cls_total)) ** 2
+        anomal_trigger_loss = (anomal_trigger_activation/anomal_trigger_total) ** 2
+        anomal_cls_loss = anomal_cls_loss.to(device)
+        anomal_trigger_loss = anomal_trigger_loss.to(device)
+
+    return normal_trigger_loss.to(device), normal_cls_loss.to(device), anomal_trigger_loss, anomal_cls_loss
 def gen_value_dict(value_dict,
                    normal_trigger_loss, normal_cls_loss,
                    anormal_trigger_loss, anormal_cls_loss, ):
