@@ -266,7 +266,6 @@ def main(args):
                 normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
                 dist_loss = normal_dist_loss.to(weight_dtype).requires_grad_()
                 dist_loss = dist_loss.mean()
-                print(f'dist_loss : {dist_loss}')
                 loss += dist_loss
                 loss_dict['dist_loss'] = dist_loss.item()
 
