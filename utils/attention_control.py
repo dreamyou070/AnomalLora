@@ -3,8 +3,6 @@ from data.perlin import rand_perlin_2d_np
 import torch
 from attention_store import AttentionStore
 import argparse
-import einops
-from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
 def mahal(u, v, cov):
     delta = u - v
@@ -30,12 +28,12 @@ def window_partition(x, window_size):
     x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
     windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
     return windows
+
 def window_reverse(windows, window_size, H, W):
     B = int(windows.shape[0] / (H * W / window_size / window_size))
     x = windows.view(B, H // window_size, W // window_size, window_size, window_size, -1)
     x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1)
     return x
-
 
 def passing_argument(args):
     global down_dim
@@ -73,12 +71,13 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             value = self.reshape_heads_to_batch_dim(value)
 
             if trg_layer_list is not None and layer_name in trg_layer_list:
-                controller.save_backshaped_query(query, layer_name)
+                controller.save_backshaped_query(query, layer_name) # batch shaped query
                 controller.save_backshaped_key(key, layer_name)
 
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
+
             attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
                                                          dtype=query.dtype, device=query.device), query,
                                              key.transpose(-1, -2), beta=0, alpha=self.scale, )
