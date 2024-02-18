@@ -1,4 +1,3 @@
-
 from torch import nn
 from data.perlin import rand_perlin_2d_np
 import torch
@@ -52,9 +51,12 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
         def forward(hidden_states, context=None, trg_layer_list=None, noise_type=None, **model_kwargs):
 
+            is_cross_attention = False
+            if context is not None:
+                is_cross_attention = True
+
             # [1] position embedding
-            if layer_name == argument.position_embedding_layer:
-                print(f'Position Embedding')
+            if layer_name == argument.position_embedding_layer :
                 hidden_states = noise_type(hidden_states)
 
             query = self.to_q(hidden_states)
@@ -64,7 +66,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
             context = context if context is not None else hidden_states
             key = self.to_k(context)
             value = self.to_v(context)
-
             query = self.reshape_heads_to_batch_dim(query)
             key = self.reshape_heads_to_batch_dim(key)
             value = self.reshape_heads_to_batch_dim(value)
@@ -73,27 +74,17 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                 controller.save_backshaped_query(query, layer_name) # batch shaped query
                 controller.save_backshaped_key(key, layer_name)
 
-            # linear proj
             if self.upcast_attention:
                 query = query.float()
                 key = key.float()
 
-            attention_scores = torch.baddbmm(
-                torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
-                query,
-                key.transpose(-1, -2),
-                beta=0,
-                alpha=self.scale, )
-            attention_probs = attention_scores.softmax(dim=-1)
-
-            # cast back to the original dtype
-            attention_probs = attention_probs.to(value.dtype)
-
-            # compute attention output
-            hidden_states = torch.bmm(attention_probs, value)
-
-            # reshape hidden_states
+            attention_scores = torch.baddbmm(torch.empty(query.shape[0], query.shape[1], key.shape[1],
+                                                         dtype=query.dtype, device=query.device), query,
+                                             key.transpose(-1, -2), beta=0, alpha=self.scale, )
+            attention_probs = attention_scores.softmax(dim=-1).to(value.dtype)
+            hidden_states = torch.bmm(input=attention_probs, mat2=value)
             hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
+            hidden_states = self.to_out[0](hidden_states)
 
             if trg_layer_list is not None and layer_name in trg_layer_list :
                 if argument.use_focal_loss :
@@ -106,6 +97,7 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
                     controller.store(trg_map, layer_name)
 
             return hidden_states
+        return forward
 
     def register_recr(net_, count, layer_name):
         if net_.__class__.__name__ == 'CrossAttention':
