@@ -31,9 +31,8 @@ def main(args):
     text_encoder, vae, unet, _ = load_target_model(args, weight_dtype,
                                                    accelerator)
 
-    if args.use_position_embedder:
-        position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
-                                                d_model=args.d_dim)
+    position_embedder = PositionalEmbedding(max_len=args.latent_res * args.latent_res,
+                                            d_model=args.d_dim)
 
     print(f'\n step 2. accelerator and device')
     vae.requires_grad_(False)
