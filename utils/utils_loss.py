@@ -59,8 +59,10 @@ def generate_attention_loss(attn_score, normal_position, do_calculate_anomal):
     if do_calculate_anomal:
         anomal_trigger_loss = (1 - anomal_trigger_score) ** 2
         anomal_cls_loss = anomal_cls_score ** 2
+        anomal_trigger_loss = anomal_trigger_loss.to(device)
+        anomal_cls_loss =anomal_cls_loss.to(device)
 
-    return normal_trigger_loss.to(device), normal_cls_loss.to(device), anomal_trigger_loss.to(device), anomal_cls_loss.to(device)
+    return normal_trigger_loss.to(device), normal_cls_loss.to(device), anomal_trigger_loss, anomal_cls_loss
 
 def gen_value_dict(value_dict,
                    normal_trigger_loss, normal_cls_loss,

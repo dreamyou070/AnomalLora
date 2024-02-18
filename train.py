@@ -195,7 +195,8 @@ def main(args):
                         feat = query[pix_idx].squeeze(0)
                         normal_feat_list.append(feat.unsqueeze(0))
                     attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
-                    normal_trigger_loss, normal_cls_loss, _, _ = generate_attention_loss(attn_score,normal_position,
+                    normal_trigger_loss, normal_cls_loss, _, _ = generate_attention_loss(attn_score,
+                                                                                         normal_position,
                                                                                          do_calculate_anomal=False)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, None, None)
                     map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
