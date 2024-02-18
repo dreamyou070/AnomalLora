@@ -199,30 +199,8 @@ def main(args):
             unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list, **model_kwargs)
             query_dict, attn_dict = controller.query_dict, controller.step_store
             controller.reset()
-            for trg_layer in args.trg_layer_list:
-                query = query_dict[trg_layer][0].squeeze(0)  # pix_num, dim
-                pix_num = query.shape[0]
-                for pix_idx in range(pix_num):
-                    feat = query[pix_idx].squeeze(0)
-                    normal_feat_list.append(feat.unsqueeze(0))
-                    if args.do_down_dim_mahal_loss:
-                        down_dim_feat = torch.index_select(feat, 0, down_dim_idx.to(feat.device))
-                        down_dim_normal_feat_list.append(down_dim_feat.unsqueeze(0))
-                # (2) attn loss
-                attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
-                cls_score, trigger_score = attn_score.chunk(2, dim=-1)
-                cls_score, trigger_score = cls_score.squeeze(), trigger_score.squeeze()  # head, pix_num
-                cls_score, trigger_score = cls_score.mean(dim=0), trigger_score.mean(dim=0)  # pix_num
-                normal_cls_score, normal_trigger_score = cls_score, trigger_score
-                total_score = torch.ones_like(cls_score)
-                anomal_position = torch.zeros_like(cls_score)
-
-            activations = []
-            for block in feature_extractor.feature_blocks:
-                activation = block.activations
-                activations.append(activation)
-                block.activations = None
-            print(f'len of activations : {len(activations)}')
+            query_activations = feature_extractor()
+            print(f'len of query activations: {len(query_activations)}')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

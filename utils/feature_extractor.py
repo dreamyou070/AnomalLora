@@ -17,6 +17,7 @@ def save_out_hook(self, inp, out):
     return out
 
 class FeatureExtractor(nn.Module):
+
     def __init__(self, model: nn.Module,
                  blocks: List[int],
                  **kwargs):
@@ -35,5 +36,13 @@ class FeatureExtractor(nn.Module):
             for i, sub_block in enumerate(block_pair):
                 if type(sub_block) == tuple:
                     sub_block = sub_block[-1]
-                sub_block.register_forward_hook(self.save_out_hook)
+                sub_block.register_forward_hook(self.save_hook)
                 self.feature_blocks.append(block)
+
+    def forward(self):
+        activations = []
+        for block in self.feature_blocks:
+            activation = block.activations
+            activations.append(activation)
+            block.activations = None
+        return activations
