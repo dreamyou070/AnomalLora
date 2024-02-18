@@ -277,6 +277,7 @@ def main(args):
             dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0
             normal_feat_list, anormal_feat_list = [], []
             activating_loss_dict, loss_dict = {}, {}
+            value_dict = {}
 
             with torch.set_grad_enabled(True):
                 encoder_hidden_states = text_encoder(batch["input_ids"].to(accelerator.device))["last_hidden_state"]
