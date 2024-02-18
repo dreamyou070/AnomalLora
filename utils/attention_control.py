@@ -54,7 +54,6 @@ def register_attention_control(unet: nn.Module,controller: AttentionStore):
 
             # [1] position embedding
             if layer_name == argument.position_embedding_layer:
-                print(f'Position Embedding')
                 hidden_states = noise_type(hidden_states)
 
             query = self.to_q(hidden_states)

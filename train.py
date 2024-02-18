@@ -68,7 +68,8 @@ def calculate_attention_activation_loss(attn_score, normal_position, do_calculat
         anormal_trigger_loss = generate_attn_loss(trigger_score, 1 - normal_position, total_score,
                                                   do_lowering=True)
     else:
-        anomal_cls_loss, anormal_trigger_loss = None, None
+        anormal_cls_loss = None
+        anormal_trigger_loss = None
     normal_cls_loss = generate_attn_loss(cls_score, normal_position, total_score, do_lowering=True)
     normal_trigger_loss = generate_attn_loss(trigger_score, normal_position, total_score,
                                              do_lowering=False)
