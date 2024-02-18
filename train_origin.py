@@ -25,6 +25,37 @@ import einops
 from utils.utils_loss import FocalLoss
 from random import sample
 
+def mahal(u, v, cov):
+    delta = u - v
+    m = torch.dot(delta, torch.matmul(cov, delta))
+    return torch.sqrt(m)
+def gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov):
+
+    normal_feats = torch.cat(normal_feat_list, dim=0)
+
+    mu = torch.mean(normal_feats, dim=0)
+    cov = torch.cov(normal_feats.transpose(0, 1))
+
+    if anormal_feat_list is not None:
+        anormal_feats = torch.cat(anormal_feat_list, dim=0)
+        anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
+        anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
+
+    normal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in normal_feats]
+    normal_dist_max = torch.tensor(normal_mahalanobis_dists).max()
+
+    # [4] loss
+    if anormal_feat_list is not None:
+        total_dist = normal_dist_max + anormal_dist_mean
+        normal_dist_loss = normal_dist_max / total_dist
+
+    else:
+        normal_dist_loss = normal_dist_max
+
+    normal_dist_loss = normal_dist_loss * args.dist_loss_weight
+
+    return normal_dist_max, normal_dist_loss, mu, cov
+
 def gen_value_dict(value_dict,
                    normal_cls_loss, anormal_cls_loss,
                    normal_trigger_loss, anormal_trigger_loss):
@@ -71,7 +102,6 @@ def main(args):
     os.makedirs(output_dir, exist_ok=True)
     args.logging_dir = os.path.join(output_dir, 'log')
     os.makedirs(args.logging_dir, exist_ok=True)
-    logging_file = os.path.join(args.logging_dir, 'log_8.txt')
     logging_file = os.path.join(args.logging_dir, 'log.txt')
     record_save_dir = os.path.join(output_dir, 'record')
     os.makedirs(record_save_dir, exist_ok=True)
