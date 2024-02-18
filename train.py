@@ -18,7 +18,6 @@ from model.unet import unet_passing_argument
 from utils.attention_control import passing_argument
 from model.pe import PositionalEmbedding
 from utils import arg_as_list
-from utils.utils_mahalanobis import gen_mahal_loss
 from utils.model_utils import pe_model_save
 import einops
 from utils.utils_loss import FocalLoss
@@ -29,7 +28,7 @@ def mahal(u, v, cov):
     delta = u - v
     m = torch.dot(delta, torch.matmul(cov, delta))
     return torch.sqrt(m)
-def gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov):
+def gen_mahal_loss(args, anormal_feat_list, normal_feat_list):
 
     normal_feats = torch.cat(normal_feat_list, dim=0)
 
@@ -54,7 +53,7 @@ def gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov):
 
     normal_dist_loss = normal_dist_loss * args.dist_loss_weight
 
-    return normal_dist_max, normal_dist_loss, mu, cov
+    return normal_dist_max, normal_dist_loss
 
 def generate_attention_loss(attn_score, normal_position, do_calculate_anomal):
 
@@ -277,6 +276,7 @@ def main(args):
             dist_loss, attn_loss, map_loss = 0.0, 0.0, 0.0
             normal_feat_list, anormal_feat_list = [], []
             activating_loss_dict, loss_dict = {}, {}
+            mu, cov = 0, 0
             value_dict = {}
 
             with torch.set_grad_enabled(True):
@@ -304,8 +304,9 @@ def main(args):
                                                                                      do_calculate_anomal=False)
                 value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, None, None)
                 map_loss += generate_anomal_map_loss(attn_score, normal_position,loss_focal, loss_l2)
-            
+            """
             # --------------------------------------------------------------------------------------------------------- #
+            """
             # [2] Masked Sample Learning
             with torch.no_grad():
                 latents = vae.encode(batch['anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor
@@ -332,6 +333,7 @@ def main(args):
                 value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss)
                 map_loss += generate_anomal_map_loss(attn_score, normal_position,loss_focal, loss_l2)
             """
+
             # [3] Masked Sample Learning
             if args.do_anomal_hole :
                 with torch.no_grad():
@@ -362,7 +364,7 @@ def main(args):
                     map_loss += generate_anomal_map_loss(attn_score, normal_position,loss_focal, loss_l2)
 
             if args.do_dist_loss:
-                normal_dist_max, normal_dist_loss, mu, cov = gen_mahal_loss(args, anormal_feat_list, normal_feat_list, mu, cov)
+                normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
                 dist_loss += normal_dist_loss.to(weight_dtype).requires_grad_()
                 loss += dist_loss.to(weight_dtype)
                 loss_dict['dist_loss'] = dist_loss.item()
