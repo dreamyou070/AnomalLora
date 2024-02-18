@@ -258,7 +258,11 @@ def main(args):
                         do_calculate_anomal=True)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
                                                 anormal_trigger_loss,anormal_cls_loss)
-                    map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
+
+                    print(f' Calculate Map Loss !! ')
+                    m_loss = generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
+                    print(f' m_loss : {m_loss}')
+                    map_loss += m_loss
 
             if args.do_dist_loss:
                 print(f'Before Cal, len(normal_feat_list) : {len(normal_feat_list)}, len(anormal_feat_list) : {len(anormal_feat_list)}')
