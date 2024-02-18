@@ -217,7 +217,6 @@ class MVTecDRAEMTrainDataset(Dataset):
         return img
 
     def __getitem__(self, idx):
-
         # [0] augmenter
         aug = self.randAugmenter(idx)
 
