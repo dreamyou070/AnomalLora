@@ -16,7 +16,7 @@ def gen_mahal_loss(args, anormal_feat_list, normal_feat_list):
     mu = torch.mean(normal_feats, dim=0)
     cov = torch.cov(normal_feats.transpose(0, 1))
 
-    if anormal_feat_list is not None:
+    if anormal_feat_list is not None and len(anormal_feat_list) > 0:
         anormal_feats = torch.cat(anormal_feat_list, dim=0)
         anormal_mahalanobis_dists = [mahal(feat, mu, cov) for feat in anormal_feats]
         anormal_dist_mean = torch.tensor(anormal_mahalanobis_dists).mean()
@@ -25,10 +25,9 @@ def gen_mahal_loss(args, anormal_feat_list, normal_feat_list):
     normal_dist_max = torch.tensor(normal_mahalanobis_dists).max()
 
     # [4] loss
-    if anormal_feat_list is not None:
+    if anormal_feat_list is not None and len(anormal_feat_list) > 0:
         total_dist = normal_dist_max + anormal_dist_mean
         normal_dist_loss = normal_dist_max / total_dist
-
     else:
         normal_dist_loss = normal_dist_max
     normal_dist_loss = normal_dist_loss * args.dist_loss_weight
@@ -88,9 +87,12 @@ def gen_value_dict(value_dict,
 
 def gen_attn_loss(value_dict):
     normal_cls_loss = torch.stack(value_dict['normal_cls_loss'], dim=0).mean(dim=0)
-    anormal_cls_loss = torch.stack(value_dict['anormal_cls_loss'], dim=0).mean(dim=0)
+    if 'anormal_cls_loss' in value_dict.keys():
+        anormal_cls_loss = torch.stack(value_dict['anormal_cls_loss'], dim=0).mean(dim=0)
+
     normal_trigger_loss = torch.stack(value_dict['normal_trigger_loss'], dim=0).mean(dim=0)
-    anormal_trigger_loss = torch.stack(value_dict['anormal_trigger_loss'], dim=0).mean(dim=0)
+    if 'anormal_trigger_loss' in value_dict.keys():
+        anormal_trigger_loss = torch.stack(value_dict['anormal_trigger_loss'], dim=0).mean(dim=0)
     return normal_cls_loss, normal_trigger_loss, anormal_cls_loss, anormal_trigger_loss
 
 def generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2):
