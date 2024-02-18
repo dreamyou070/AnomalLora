@@ -201,7 +201,8 @@ def main(args):
                                                                                          normal_position,
                                                                                          do_calculate_anomal=False)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, None, None)
-                    map_loss += generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
+                    ma = generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2)
+                    map_loss += ma
 
             # --------------------------------------------------------------------------------------------------------- #
             if args.do_anomal_sample :
@@ -230,14 +231,17 @@ def main(args):
                         do_calculate_anomal=True)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
                                                 anormal_trigger_loss, anormal_cls_loss)
-                    map_loss += generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
+                    ma = generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
+                    print(f'anomal sample map loss : {ma.shape}')
+                    map_loss += ma
 
             # [3] Masked Sample Learning
             if args.do_holed_sample :
                 with torch.no_grad():
                     latents = vae.encode(batch['bg_anomal_image'].to(dtype=weight_dtype)).latent_dist.sample() * args.vae_scale_factor  # [1,4,64,64]
                 noise, noisy_latents, timesteps = get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
-                unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,noise_type=position_embedder)
+                unet(noisy_latents, timesteps, encoder_hidden_states, trg_layer_list=args.trg_layer_list,
+                     noise_type=position_embedder)
                 query_dict, attn_dict = controller.query_dict, controller.step_store
                 controller.reset()
                 anomal_map = batch['bg_anomal_mask'].squeeze().flatten().squeeze()  # [64*64]
@@ -250,7 +254,6 @@ def main(args):
                         feat = query[pix_idx].squeeze(0)
                         anomal_flag = anomal_position[pix_idx].item()
                         if anomal_flag == 1:
-                            print(f'anomal_flag : {anomal_flag}')
                             anormal_feat_list.append(feat.unsqueeze(0))
                         else:
                             normal_feat_list.append(feat.unsqueeze(0))
@@ -259,8 +262,10 @@ def main(args):
                         attn_score, normal_position,
                         do_calculate_anomal=True)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
-                                                anormal_trigger_loss,anormal_cls_loss)
-                    map_loss += generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
+                                                anormal_trigger_loss, anormal_cls_loss)
+                    ma = generate_anomal_map_loss(args, attn_score, normal_position, loss_focal, loss_l2)
+                    print(f'holed sample map loss : {ma.shape}')
+                    map_loss += ma
 
             if args.do_dist_loss:
                 normal_dist_max, normal_dist_loss = gen_mahal_loss(args, anormal_feat_list, normal_feat_list)
