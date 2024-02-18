@@ -20,7 +20,7 @@ from model.pe import PositionalEmbedding
 from utils import arg_as_list
 from utils.model_utils import pe_model_save
 from utils.utils_loss import (generate_attention_loss, generate_anomal_map_loss, gen_value_dict,
-                              gen_mahal_loss, gen_attn_loss, FocalLoss)
+                              gen_mahal_loss, gen_attn_loss, FocalLoss, generate_attention_loss_third )
 
 def main(args):
 
@@ -201,6 +201,11 @@ def main(args):
                     normal_trigger_loss, normal_cls_loss, _, _ = generate_attention_loss(attn_score,
                                                                                          normal_position,
                                                                                          do_calculate_anomal=False)
+                    if args.attention_loss_check_third :
+                        normal_trigger_loss, normal_cls_loss, _, _ = generate_attention_loss_third(attn_score,
+                                                                                             normal_position,
+                                                                                             do_calculate_anomal=False)
+
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss, None, None)
                     map_loss_list.append(generate_anomal_map_loss(args, attn_score, normal_position,loss_focal, loss_l2))
 
@@ -227,6 +232,9 @@ def main(args):
                             normal_feat_list.append(feat.unsqueeze(0))
                     attn_score = attn_dict[trg_layer][0]  # head, pix_num, 2
                     normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(attn_score, normal_position,
+                                                                                                                           do_calculate_anomal=True)
+                    if args.attention_loss_check_third :
+                        normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss_third(attn_score, normal_position,
                                                                                                                            do_calculate_anomal=True)
 
 
@@ -263,6 +271,10 @@ def main(args):
                     normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss(
                         attn_score, normal_position,
                         do_calculate_anomal=True)
+                    if args.attention_loss_check_third :
+                        normal_trigger_loss, normal_cls_loss, anormal_trigger_loss, anormal_cls_loss = generate_attention_loss_third(attn_score,
+                                                                                                                                     normal_position,
+                                                                                                                                     do_calculate_anomal=True)
                     value_dict = gen_value_dict(value_dict, normal_trigger_loss, normal_cls_loss,
                                                 anormal_trigger_loss, anormal_cls_loss)
                     map_loss_list.append(
@@ -457,6 +469,7 @@ if __name__ == "__main__":
     parser.add_argument("--do_normal_sample", action='store_true')
     parser.add_argument("--do_anomal_sample", action='store_true')
     parser.add_argument("--do_holed_sample", action='store_true')
+    parser.add_argument("--attention_loss_check_third", action='store_true')
     args = parser.parse_args()
     unet_passing_argument(args)
     passing_argument(args)
