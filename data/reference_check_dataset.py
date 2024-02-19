@@ -108,7 +108,11 @@ class MVTecDRAEMTrainDataset(Dataset):
         image_paths = []
         for folder in folders:
             folder_dir = os.path.join(root_dir, folder)
-            rgb_dir = os.path.join(folder_dir, "rgb")
+
+            if bgrm_test:
+                rgb_dir = os.path.join(folder_dir, "rgb")
+            else :
+                rgb_dir = os.path.join(folder_dir, "rgb_origin")
             imgs = os.listdir(rgb_dir)
             for img in imgs:
                 image_paths.append(os.path.join(rgb_dir, img))
