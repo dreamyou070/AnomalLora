@@ -1,7 +1,7 @@
 #! /bin/bash
 
 class_name="carrot"
-second_folder_name="20_1_do_anomal_sample_do_attn_loss_third_attn_gen_code"
+second_folder_name="20_4_1_do_anomal_sample_do_attn_loss_do_map_loss"
 
 
 python ../evaluation/get_all_metrics.py \
