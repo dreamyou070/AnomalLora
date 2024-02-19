@@ -42,7 +42,7 @@ def main(args):
     tokenizer = load_tokenizer(args)
     if args.use_small_anomal :
         args.anomal_source_path = os.path.join(args.data_path, f"anomal_source_{args.obj_name}")
-    dataset = MVTecDRAEMTrainDataset(root_dir=os.path.join(args.data_path, f'{args.obj_name}/train/good/rgb'),
+    dataset = MVTecDRAEMTrainDataset(root_dir=os.path.join(args.data_path, f'{args.obj_name}/test'),
                                      anomaly_source_path=args.anomal_source_path,
                                      resize_shape=[512, 512],
                                      tokenizer=tokenizer,

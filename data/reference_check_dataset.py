@@ -104,7 +104,8 @@ class MVTecDRAEMTrainDataset(Dataset):
                                iaa.Affine(rotate=(270, 270))]
         num_repeat = len(self.rot_augmenters)
 
-        image_paths = sorted(glob.glob(root_dir + "/*.png"))
+        image_paths = sorted(glob.glob(root_dir + "/*/*.png"))
+
         self.image_paths = [image_path for image_path in image_paths for i in range(num_repeat)]
         self.anomal_only_on_object = anomal_only_on_object
         self.anomal_training = anomal_training
