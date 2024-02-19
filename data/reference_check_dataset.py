@@ -104,8 +104,14 @@ class MVTecDRAEMTrainDataset(Dataset):
                                iaa.Affine(rotate=(270, 270))]
         num_repeat = len(self.rot_augmenters)
 
-        image_paths = sorted(glob.glob(root_dir + "/*/*.png"))
-
+        folders = os.listdir(root_dir)
+        image_paths = []
+        for folder in folders:
+            folder_dir = os.path.join(root_dir, folder)
+            rgb_dir = os.path.join(folder_dir, "rgb")
+            imgs = os.listdir(rgb_dir)
+            for img in imgs:
+                image_paths.append(os.path.join(rgb_dir, img))
         self.image_paths = [image_path for image_path in image_paths for i in range(num_repeat)]
         self.anomal_only_on_object = anomal_only_on_object
         self.anomal_training = anomal_training
