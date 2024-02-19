@@ -134,12 +134,15 @@ class MVTecDRAEMTrainDataset(Dataset):
         np_img = np.array(((torch_img + 1) / 2) * 255).astype(np.uint8).transpose(1, 2, 0)
         pil = Image.fromarray(np_img)
     def get_img_name(self, img_path):
-        parent, img_name = os.path.split(img_path) # parent = rgb
+        parent, img_name = os.path.split(img_path)    # parent = rgb
         base_dir, class_name = os.path.split(parent)  # class_name = good
         class_name = os.path.split(class_name)[1]
         name, ext = os.path.splitext(img_name)
         final_name = f'{class_name}_{name}'
-        return final_name, parent, img_name
+
+        gt_base_dir = os.path.join(base_dir, 'gt')
+        gt_img_path = os.path.join(gt_base_dir, img_name)
+        return final_name, gt_img_path
 
     def get_object_mask_dir(self, img_path):
         parent, name = os.path.split(img_path)
@@ -253,10 +256,8 @@ class MVTecDRAEMTrainDataset(Dataset):
         img_path = self.image_paths[img_idx]
         img = self.load_image(img_path, self.resize_shape[0], self.resize_shape[1]) # np.array,
         img = aug(image=img)
-        final_name, parent, img_name = self.get_img_name(img_path)
+        final_name, gt_path = self.get_img_name(img_path)
 
-        gt_mask_base_dir = os.path.join(parent, f"gt")
-        gt_path = os.path.join(gt_mask_base_dir, img_name)
         gt = self.load_image(gt_path, self.resize_shape[0], self.resize_shape[1], type='L')
         gt = aug(image=gt)
         gt = torch.tensor(np.where(gt > 0, 1, 0))
