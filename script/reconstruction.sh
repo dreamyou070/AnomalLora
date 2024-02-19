@@ -1,9 +1,9 @@
 # !/bin/bash
 
-port_number=52410
+port_number=52413
 obj_name='carrot'
 caption='carrot'
-folder_name="0_reference_check_do_attn_loss_second_attn_gen_code"
+folder_name="0_reference_check_do_attn_loss_second_attn_gen_code_with_background_img"
 bench_mark="MVTec3D-AD"
 position_embedding_layer="down_blocks_0_attentions_0_transformer_blocks_0_attn1"
 # --do_local_self_attn --window_size 8
@@ -16,4 +16,4 @@ accelerate launch --config_file ../../../gpu_config/gpu_0_config \
  --obj_name "${obj_name}" --prompt "${caption}" \
  --latent_res 64 --trg_layer_list "['up_blocks_3_attentions_2_transformer_blocks_0_attn2']" \
  --d_dim 320 --use_position_embedder --position_embedding_layer ${position_embedding_layer} \
- --threds [0.5,0.7]
+ --threds [0.5]
