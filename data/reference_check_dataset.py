@@ -258,7 +258,7 @@ class MVTecDRAEMTrainDataset(Dataset):
         img = aug(image=img)
         final_name, gt_path = self.get_img_name(img_path)
 
-        gt = self.load_image(gt_path, self.resize_shape[0], self.resize_shape[1], type='L')
+        gt = self.load_image(gt_path, self.latent_res, self.latent_res, type='L')
         gt = aug(image=gt)
         gt = torch.tensor(np.where(gt > 0, 1, 0))
 
